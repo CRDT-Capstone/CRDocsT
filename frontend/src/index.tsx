@@ -8,9 +8,9 @@ import CodeMirrorCanvas from "./components/CodeMirrorCanvas";
 
 createRoot(document.getElementById("root")!).render(
     <StrictMode>
-        <Canvas />
+        {/* <Canvas /> */}
         {/* <LexicalCanvas /> */}
         {/* <UseEditableCanvas /> */}
-        {/* <CodeMirrorCanvas /> */}
+        <CodeMirrorCanvas />
     </StrictMode>,
 );
