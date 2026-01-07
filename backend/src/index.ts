@@ -26,7 +26,7 @@ const users: Map<String, WebSocket> = new Map();
 
 const wss = new WebSocketServer({ server });
 
-const centralCRDT = new FugueList(new StringTotalOrder(crypto.randomBytes(10).toString()), null);
+const centralCRDT = new FugueList(new StringTotalOrder(crypto.randomBytes(3).toString()), null);
 
 wss.on("connection", (ws: WebSocket) => {
     console.log("New Web Socket Connection!");
@@ -50,17 +50,21 @@ wss.on("connection", (ws: WebSocket) => {
         console.log("A message has been sent");
         console.log("Message -> ", message.toString());
 
-        const { operation, position, data }: FugueMessage<string> = JSON.parse(message.toString());
-        centralCRDT.effect(JSON.parse(message.toString()));
-        for (const userId of users.keys()) {
+        const parsedMsg = JSON.parse(message.toString());
+        // Update the central CRDT
+        if (Array.isArray(parsedMsg)) {
+            const msgs: FugueMessage<string>[] = parsedMsg;
+            for (const msg of msgs) {
+                centralCRDT.effect(msg);
+            }
+        } else {
+            centralCRDT.effect(parsedMsg);
+        }
+
+        // Brodcast the message to all other users
+        for (const [userId, userWS] of users) {
             if (userId === id) continue;
-            users.get(userId)?.send(
-                JSON.stringify({
-                    operation,
-                    position,
-                    data,
-                }),
-            );
+            userWS.send(message.toString());
         }
     });
 
