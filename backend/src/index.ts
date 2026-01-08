@@ -10,12 +10,12 @@ import { FugueList, FugueMessage, Operation, StringTotalOrder } from "@cr_docs_t
 
 
 dotenv.config();
-// const mongoUri = process.env.MONGO_URI! as string;
+const mongoUri = process.env.MONGO_URI! as string;
 
-// mongoose
-// 	.connect(mongoUri)
-// 	.then(() => console.log("Successfully connected to mongo db!"))
-// 	.catch((e) => console.log("error connecting to the db -> ", e));
+mongoose
+	.connect(mongoUri)
+	.then(() => console.log("Successfully connected to mongo db!"))
+	.catch((e) => console.log("error connecting to the db -> ", e));
 
 const app = express();
 app.use(express.json());
@@ -27,7 +27,7 @@ const port = process.env.PORT || 5001;
 const DocumentIDToUserMap: Map<String, WebSocket[]> = new Map();
 const wss = new WebSocketServer({ server });
 
-const centralCRDT = new FugueList(new StringTotalOrder(crypto.randomBytes(3).toString()), null);
+const centralCRDT = new FugueList(new StringTotalOrder(crypto.randomBytes(3).toString()), null, '');
 
 console.log(JSON.stringify(centralCRDT));
 wss.on("connection", (ws: WebSocket) => {
