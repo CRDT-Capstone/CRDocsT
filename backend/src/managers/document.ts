@@ -95,6 +95,10 @@ class DocumentManager {
     static markDirty(documentID: string) {
         this.dirtyDocs.add(documentID);
     }
+
+    static getActiveDocs(): Map<string, ActiveDocument> {
+        return this.instances;
+    }
 }
 
 export default DocumentManager;
