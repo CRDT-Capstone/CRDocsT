@@ -7,8 +7,9 @@ import mongoose from "mongoose";
 import crypto from "crypto";
 import { FugueList, FugueMessage, Operation, StringTotalOrder } from "@cr_docs_t/dts";
 
-dotenv.config();
 
+
+dotenv.config();
 // const mongoUri = process.env.MONGO_URI! as string;
 
 // mongoose
@@ -22,54 +23,43 @@ app.use(express.json());
 const server = http.createServer(app);
 const port = process.env.PORT || 5001;
 
-const users: Map<String, WebSocket> = new Map();
 
+const DocumentIDToUserMap: Map<String, WebSocket[]> = new Map();
 const wss = new WebSocketServer({ server });
 
 const centralCRDT = new FugueList(new StringTotalOrder(crypto.randomBytes(3).toString()), null);
 
+console.log(JSON.stringify(centralCRDT));
 wss.on("connection", (ws: WebSocket) => {
     console.log("New Web Socket Connection!");
-    let id = crypto.randomBytes(5).toString("hex");
-    while (users.has(id)) {
-        id = crypto.randomBytes(16).toString("hex");
-    }
-
-    console.log(`User ${id} has joined`);
-    users.set(id, ws);
-
-    //need to broadcast the crdt to the new user, but the user has their own crdt
-    ws.send(
-        JSON.stringify({
-            operation: Operation.JOIN,
-            state: centralCRDT.state,
-        }),
-    );
 
     ws.on("message", (message: WebSocket.Data) => {
         console.log("A message has been sent");
         console.log("Message -> ", message.toString());
 
+        //There needs to be multiple message types
+        //The first message type to be sent to the server whenever a client connects should be a join message
+        //The join message should have the documentID ... that's pretty much it
+        //We can add other things like possibly userId and all that jazz lateer
+        //Then for every other message, we'd need to keep the documentID but everything else can be the same
+
         const parsedMsg = JSON.parse(message.toString());
-        // Update the central CRDT
-        if (Array.isArray(parsedMsg)) {
-            const msgs: FugueMessage<string>[] = parsedMsg;
-            for (const msg of msgs) {
-                centralCRDT.effect(msg);
-            }
-        } else {
-            centralCRDT.effect(parsedMsg);
-        }
+        const { documentID } = parsedMsg;
+
+        if(!DocumentIDToUserMap.has(documentID)) DocumentIDToUserMap.set(documentID, []);
+        
+        const documentUsers = DocumentIDToUserMap.get(documentID);
+        if(!documentUsers!.find(socket => socket === ws)) documentUsers!.push(ws);
+
+        //if the message type is a join message 
+        //get the CRDT and push it to the user
 
         // Brodcast the message to all other users
-        for (const [userId, userWS] of users) {
-            if (userId === id) continue;
-            userWS.send(message.toString());
-        }
+
     });
 
     ws.on("close", () => {
-        users.delete(id);
+        //remove the socket from the map
         console.log("Connection closed");
     });
 });

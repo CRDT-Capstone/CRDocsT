@@ -8,13 +8,6 @@ export interface identified {
 }
 
 export interface Document extends Identified {
-    name: string
-}
-
-export interface Operation extends Identified {
-    documentId: string | Mongoose.Types.ObjectId,
-    type: OperationType,
-    cause?: string | Mongoose.Types.ObjectId
-    uid: string // gonna be using decimals for the unique index
-    character?: string //we only need the character if there are many  
+    name: string,
+    serializedCRDT: string
 }
