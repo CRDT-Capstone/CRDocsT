@@ -7,16 +7,15 @@ import mongoose from "mongoose";
 import crypto from "crypto";
 import { FugueJoinMessage, FugueList, FugueMessage, Operation, StringTotalOrder } from "@cr_docs_t/dts";
 import { RedisService } from "./services/RedisService";
-
-
+import DocumentManager from "./managers/document";
 
 dotenv.config();
 const mongoUri = process.env.MONGO_URI! as string;
 
 mongoose
-	.connect(mongoUri)
-	.then(() => console.log("Successfully connected to mongo db!"))
-	.catch((e) => console.log("error connecting to the db -> ", e));
+    .connect(mongoUri)
+    .then(() => console.log("Successfully connected to mongo db!"))
+    .catch((e) => console.log("error connecting to the db -> ", e));
 
 const app = express();
 app.use(express.json());
@@ -24,15 +23,15 @@ app.use(express.json());
 const server = http.createServer(app);
 const port = process.env.PORT || 5001;
 
-
 const DocumentIDToUserMap: Map<String, WebSocket[]> = new Map();
 const wss = new WebSocketServer({ server });
-
+DocumentManager.startPersistenceInterval();
 
 wss.on("connection", (ws: WebSocket) => {
     console.log("New Web Socket Connection!");
 
-    let documentUsers: WebSocket[];
+    let currentDocId: string | undefined = undefined;
+    // let documentUsers: WebSocket[];
 
     ws.on("message", async (message: WebSocket.Data) => {
         console.log("A message has been sent");
@@ -46,55 +45,78 @@ wss.on("connection", (ws: WebSocket) => {
 
         const parsedMsg: FugueMessage<string> = JSON.parse(message.toString());
         const { documentID, operation } = parsedMsg;
+        currentDocId = documentID;
 
-        if(!DocumentIDToUserMap.has(documentID)) DocumentIDToUserMap.set(documentID, []);
-        
-        documentUsers = DocumentIDToUserMap.get(documentID)!;
-        if(!documentUsers.includes(ws)) documentUsers.push(ws);
+        const doc = await DocumentManager.getOrCreate(documentID);
+        doc.sockets.add(ws);
 
-        switch(operation){
+        // if (!DocumentIDToUserMap.has(documentID)) DocumentIDToUserMap.set(documentID, []);
+        //
+        // documentUsers = DocumentIDToUserMap.get(documentID)!;
+        // if (!documentUsers.includes(ws)) documentUsers.push(ws);
+
+        switch (operation) {
             case Operation.JOIN:
-                try{
-                    const CRDTState = await RedisService.getCRDTStateByDocumentID(documentID);
-                    if(CRDTState){
-                        const message: FugueJoinMessage<string> = {
-                            state: CRDTState
-                        }
+                try {
+                    // const CRDTState = await RedisService.getCRDTStateByDocumentID(documentID);
+                    // if (CRDTState) {
+                    //     const message: FugueJoinMessage<string> = {
+                    //         state: CRDTState,
+                    //     };
+                    //
+                    //     ws.send(JSON.stringify(message));
+                    // } else {
+                    //     console.log("Unable to retrieve CRDT State from redis");
+                    // }
+                    const joinMsg: FugueJoinMessage<string> = {
+                        state: doc.crdt.state,
+                    };
 
-                        ws.send(JSON.stringify(message));
-                    }else{
-                        console.log('Unable to retrieve CRDT State from redis');
-                    }
-                }catch(err: any){
-                    console.log('Error handling join operation -> ', err);
+                    ws.send(JSON.stringify(joinMsg));
+                } catch (err: any) {
+                    console.log("Error handling join operation -> ", err);
                 }
-                
+
                 break;
 
             case Operation.DELETE:
             case Operation.INSERT:
-                try{
-                    const CRDT: FugueList<string> = new FugueList(new StringTotalOrder(crypto.randomBytes(3).toString()), null, documentID);
-                    CRDT.effect(parsedMsg);
-                    const newCRDTState = CRDT.state;
-                    await RedisService.updateCRDTStateByDocumentID(documentID, JSON.stringify(newCRDTState));
+                try {
+                    // const CRDT: FugueList<string> = new FugueList(
+                    //     new StringTotalOrder(crypto.randomBytes(3).toString()),
+                    //     null,
+                    //     documentID,
+                    // );
+                    // CRDT.effect(parsedMsg);
+                    // const newCRDTState = CRDT.state;
+                    // await RedisService.updateCRDTStateByDocumentID(documentID, JSON.stringify(newCRDTState));
+                    //
+                    // for (const socket of documentUsers!) {
+                    //     if (socket !== ws) socket.send(message); //relay the message to the document users
+                    // }
+                    doc.crdt.effect(parsedMsg);
+                    DocumentManager.markDirty(documentID);
 
-                    for(const socket of documentUsers!){
-                        if(socket!== ws) socket.send(message); //relay the message to the document users
-                    }
-                }catch(err: any){
-                    console.log('Error handling delete or insert operation -> ', err);
+                    const broadcastMsg = JSON.stringify(parsedMsg);
+                    doc.sockets.forEach((sock) => {
+                        if (sock !== ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
+                    });
+                    break;
+                } catch (err: any) {
+                    console.log("Error handling delete or insert operation -> ", err);
                 }
-
         }
-
     });
 
     ws.on("close", () => {
         //remove the socket from the array
-        const index = documentUsers.indexOf(ws);
-        if(index!== -1) documentUsers.splice(index, 1);
-        
+        // const index = documentUsers.indexOf(ws);
+        // if (index !== -1) documentUsers.splice(index, 1);
+        if (currentDocId) {
+            DocumentManager.removeUser(currentDocId, ws);
+            currentDocId = undefined;
+        }
+
         console.log("Connection closed");
     });
 });
