@@ -42,79 +42,61 @@ wss.on("connection", (ws: WebSocket) => {
         //We can add other things like possibly userId and all that jazz lateer
         //Then for every other message, we'd need to keep the documentID but everything else can be the same
 
-        const handleOneMessage = async (parsedMsg: FugueMessage<string>) => {
-            const { documentID, operation } = parsedMsg;
-            currentDocId = documentID;
+        const raw = JSON.parse(message.toString());
+        const isArray = Array.isArray(raw);
+        const msgs: FugueMessage<string>[] = isArray ? raw : [raw];
 
-            const doc = await DocumentManager.getOrCreate(documentID);
-            doc.sockets.add(ws);
+        if (msgs.length === 0) return;
 
-            // if (!DocumentIDToUserMap.has(documentID)) DocumentIDToUserMap.set(documentID, []);
+        const firstMsg = msgs[0];
+        currentDocId = firstMsg.documentID;
+        const doc = await DocumentManager.getOrCreate(currentDocId);
+        doc.sockets.add(ws);
+
+        if (firstMsg.operation === Operation.JOIN) {
+            try {
+                // const CRDTState = await RedisService.getCRDTStateByDocumentID(documentID);
+                // if (CRDTState) {
+                //     const message: FugueJoinMessage<string> = {
+                //         state: CRDTState,
+                //     };
+                //
+                //     ws.send(JSON.stringify(message));
+                // } else {
+                //     console.log("Unable to retrieve CRDT State from redis");
+                // }
+                const joinMsg: FugueJoinMessage<string> = {
+                    state: doc.crdt.state,
+                };
+
+                ws.send(JSON.stringify(joinMsg));
+            } catch (err: any) {
+                console.log("Error handling join operation -> ", err);
+            }
+            return;
+        }
+
+        try {
+            // const CRDT: FugueList<string> = new FugueList(
+            //     new StringTotalOrder(crypto.randomBytes(3).toString()),
+            //     null,
+            //     documentID,
+            // );
+            // CRDT.effect(parsedMsg);
+            // const newCRDTState = CRDT.state;
+            // await RedisService.updateCRDTStateByDocumentID(documentID, JSON.stringify(newCRDTState));
             //
-            // documentUsers = DocumentIDToUserMap.get(documentID)!;
-            // if (!documentUsers.includes(ws)) documentUsers.push(ws);
-
-            switch (operation) {
-                case Operation.JOIN:
-                    try {
-                        // const CRDTState = await RedisService.getCRDTStateByDocumentID(documentID);
-                        // if (CRDTState) {
-                        //     const message: FugueJoinMessage<string> = {
-                        //         state: CRDTState,
-                        //     };
-                        //
-                        //     ws.send(JSON.stringify(message));
-                        // } else {
-                        //     console.log("Unable to retrieve CRDT State from redis");
-                        // }
-                        const joinMsg: FugueJoinMessage<string> = {
-                            state: doc.crdt.state,
-                        };
-
-                        ws.send(JSON.stringify(joinMsg));
-                    } catch (err: any) {
-                        console.log("Error handling join operation -> ", err);
-                    }
-
-                    break;
-
-                case Operation.DELETE:
-                case Operation.INSERT:
-                    try {
-                        // const CRDT: FugueList<string> = new FugueList(
-                        //     new StringTotalOrder(crypto.randomBytes(3).toString()),
-                        //     null,
-                        //     documentID,
-                        // );
-                        // CRDT.effect(parsedMsg);
-                        // const newCRDTState = CRDT.state;
-                        // await RedisService.updateCRDTStateByDocumentID(documentID, JSON.stringify(newCRDTState));
-                        //
-                        // for (const socket of documentUsers!) {
-                        //     if (socket !== ws) socket.send(message); //relay the message to the document users
-                        // }
-                        doc.crdt.effect(parsedMsg);
-                        DocumentManager.markDirty(documentID);
-                        DocumentManager.persist(documentID); //async persistence
-
-                        const broadcastMsg = JSON.stringify(parsedMsg);
-                        doc.sockets.forEach((sock) => {
-                            if (sock !== ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
-                        });
-                        break;
-                    } catch (err: any) {
-                        console.log("Error handling delete or insert operation -> ", err);
-                    }
-            }
-        };
-
-        const parsedMsg: FugueMessage<string> | FugueMessage<string>[] = JSON.parse(message.toString());
-        if (Array.isArray(parsedMsg)) {
-            for (const singleMsg of parsedMsg) {
-                await handleOneMessage(singleMsg);
-            }
-        } else {
-            await handleOneMessage(parsedMsg);
+            // for (const socket of documentUsers!) {
+            //     if (socket !== ws) socket.send(message); //relay the message to the document users
+            // }
+            doc.crdt.effect(msgs);
+            DocumentManager.markDirty(currentDocId);
+            const broadcastMsg = message.toString();
+            doc.sockets.forEach((sock) => {
+                if (sock !== ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
+            });
+        } catch (err: any) {
+            console.log("Error handling delete or insert operation -> ", err);
         }
     });
 

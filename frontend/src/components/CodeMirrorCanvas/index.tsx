@@ -187,7 +187,6 @@ const CodeMirrorCanvas = () => {
                 });
 
                 fugue.deleteMultiple(fromA, deleteLen);
-                console.log({ fugue });
             }
 
             // Handle insertion
@@ -199,7 +198,6 @@ const CodeMirrorCanvas = () => {
                 });
 
                 fugue.insertMultiple(fromA, insertedTxt);
-                console.log({ fugue });
             }
         });
         previousTextRef.current = newText;
