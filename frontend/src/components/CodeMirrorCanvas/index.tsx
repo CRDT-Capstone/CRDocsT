@@ -68,7 +68,7 @@ const CodeMirrorCanvas = () => {
                 if ("state" in remoteMsgs[0]) {
                     const msg = remoteMsgs[0] as FugueJoinMessage<StringPosition>;
                     fugue.state = msg.state;
-                    const newText = (fugue.state.length > 0) ? fugue.observe() : '';
+                    const newText = fugue.state.length > 0 ? fugue.observe() : "";
 
                     // Update CodeMirror programmatically
                     if (viewRef.current) {
@@ -194,7 +194,7 @@ const CodeMirrorCanvas = () => {
             // Handle insertion
             if (insertedLen > 0) {
                 console.log({
-                    operation: Operation.DELETE,
+                    operation: Operation.INSERT,
                     index: fromA,
                     text: insertedTxt,
                 });
@@ -214,7 +214,7 @@ const CodeMirrorCanvas = () => {
                         viewRef.current = view;
                     }}
                     onChange={handleChange}
-                    className="rounded-lg border-2 shadow-sm text-black"
+                    className="text-black rounded-lg border-2 shadow-sm"
                 />
             </div>
         </div>
