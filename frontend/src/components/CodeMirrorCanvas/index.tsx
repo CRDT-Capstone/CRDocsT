@@ -7,7 +7,7 @@ import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from 
 const RemoteUpdate = Annotation.define<boolean>();
 
 const CodeMirrorCanvas = () => {
-    const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null));
+    const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null, "1"));
 
     const viewRef = useRef<EditorView | null>(null);
     const socketRef = useRef<WebSocket>(null);
@@ -33,6 +33,14 @@ const CodeMirrorCanvas = () => {
 
         socketRef.current.onopen = () => {
             console.log("WebSocket connected");
+            const joinMsg: FugueMessage<string> = {
+                documentID: "1",
+                operation: Operation.JOIN,
+                replicaId: fugue.replicaId(),
+                position: "",
+                data: null,
+            };
+            socketRef.current!.send(JSON.stringify(joinMsg));
         };
 
         fugue.ws = socketRef.current;
@@ -179,7 +187,6 @@ const CodeMirrorCanvas = () => {
                 });
 
                 fugue.deleteMultiple(fromA, deleteLen);
-                console.log({ fugue });
             }
 
             // Handle insertion
@@ -191,7 +198,6 @@ const CodeMirrorCanvas = () => {
                 });
 
                 fugue.insertMultiple(fromA, insertedTxt);
-                console.log({ fugue });
             }
         });
         previousTextRef.current = newText;
