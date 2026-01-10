@@ -4,13 +4,13 @@ import { Document } from '../types'
 const DocumentSchema = new Schema<Document>({
 
     name: {
-        type: String, 
+        type: String,
         default: 'New Documen',
         required: true,
     },
     serializedCRDTState: {
         type: String,
-        required: true
+        required: false,
     }
     /* 
     To be added

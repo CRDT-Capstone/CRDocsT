@@ -1,13 +1,12 @@
-import express, { Request, Response } from "express";
+import express, {  } from "express";
 import http from "http";
 import * as dotenv from "dotenv";
 import cors from "cors";
 import WebSocket, { WebSocketServer } from "ws";
 import mongoose from "mongoose";
-import crypto from "crypto";
-import { FugueJoinMessage, FugueList, FugueMessage, Operation, StringTotalOrder } from "@cr_docs_t/dts";
-import { RedisService } from "./services/RedisService";
+import { FugueJoinMessage, FugueMessage, Operation } from "@cr_docs_t/dts";
 import DocumentManager from "./managers/document";
+import { DocumentRouter } from "./routes/documents";
 
 dotenv.config();
 const mongoUri = process.env.MONGO_URI! as string;
@@ -23,7 +22,6 @@ app.use(express.json());
 const server = http.createServer(app);
 const port = process.env.PORT || 5001;
 
-const DocumentIDToUserMap: Map<String, WebSocket[]> = new Map();
 const wss = new WebSocketServer({ server });
 DocumentManager.startPersistenceInterval();
 
@@ -45,6 +43,7 @@ wss.on("connection", (ws: WebSocket) => {
         const raw = JSON.parse(message.toString());
         const isArray = Array.isArray(raw);
         const msgs: FugueMessage<string>[] = isArray ? raw : [raw];
+        console.log('msgs-> ', msgs);
 
         if (msgs.length === 0) return;
 
@@ -69,7 +68,7 @@ wss.on("connection", (ws: WebSocket) => {
                     state: doc.crdt.state,
                 };
 
-                ws.send(JSON.stringify(joinMsg));
+                ws.send(JSON.stringify(joinMsg)); //send the state to the joining user
             } catch (err: any) {
                 console.log("Error handling join operation -> ", err);
             }
@@ -121,6 +120,7 @@ const corsOptions = {
 
 // Use the CORS middleware
 app.use(cors(corsOptions));
+app.use('/docs', DocumentRouter);
 
 server.listen(port, () => {
     console.log(`Listening on port ${port}. Let's go!`);

@@ -2,12 +2,14 @@ import { useState, useRef, useEffect } from "react";
 import { FugueList, FugueMessage, Operation, StringPosition, StringTotalOrder, FugueJoinMessage } from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from "@uiw/react-codemirror";
+import { useParams } from "react-router-dom";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
 
 const CodeMirrorCanvas = () => {
-    const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null, "1"));
+    const { documentID } = useParams();
+    const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null, documentID!));
 
     const viewRef = useRef<EditorView | null>(null);
     const socketRef = useRef<WebSocket>(null);
@@ -34,7 +36,7 @@ const CodeMirrorCanvas = () => {
         socketRef.current.onopen = () => {
             console.log("WebSocket connected");
             const joinMsg: FugueMessage<string> = {
-                documentID: "1",
+                documentID: documentID!,
                 operation: Operation.JOIN,
                 replicaId: fugue.replicaId(),
                 position: "",
@@ -64,9 +66,9 @@ const CodeMirrorCanvas = () => {
 
                 // Handle Join message (state sync)
                 if ("state" in remoteMsgs[0]) {
-                    const msg = remoteMsgs[0] as FugueJoinMessage<StringPosition>;
+                    const msg = remoteMsgs[0].state as FugueJoinMessage<StringPosition>;
                     fugue.state = msg.state;
-                    const newText = fugue.observe();
+                    const newText = (fugue.state.length > 0) ? fugue.observe() : '';
 
                     // Update CodeMirror programmatically
                     if (viewRef.current) {
@@ -212,7 +214,7 @@ const CodeMirrorCanvas = () => {
                         viewRef.current = view;
                     }}
                     onChange={handleChange}
-                    className="rounded-lg border-2 shadow-sm"
+                    className="rounded-lg border-2 shadow-sm text-black"
                 />
             </div>
         </div>
