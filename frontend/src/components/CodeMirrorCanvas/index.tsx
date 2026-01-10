@@ -66,7 +66,7 @@ const CodeMirrorCanvas = () => {
 
                 // Handle Join message (state sync)
                 if ("state" in remoteMsgs[0]) {
-                    const msg = remoteMsgs[0].state as FugueJoinMessage<StringPosition>;
+                    const msg = remoteMsgs[0] as FugueJoinMessage<StringPosition>;
                     fugue.state = msg.state;
                     const newText = (fugue.state.length > 0) ? fugue.observe() : '';
 

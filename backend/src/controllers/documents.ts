@@ -7,7 +7,7 @@ const createDocument = async (req: Request, res: Response) => {
     try {
         const document = await DocumentServices.createDocument();
         const CRDT = new FugueList(new StringTotalOrder(document._id.toString()), null, document._id.toString());
-        redis.set(document._id.toString(), JSON.stringify(CRDT));
+        redis.set(document._id.toString(), JSON.stringify(CRDT.state));
 
         res.status(200).send({
             message: "Successfully created document",

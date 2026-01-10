@@ -88,6 +88,7 @@ wss.on("connection", (ws: WebSocket) => {
             // for (const socket of documentUsers!) {
             //     if (socket !== ws) socket.send(message); //relay the message to the document users
             // }
+            console.log('docs crdt -> ', doc.crdt);
             doc.crdt.effect(msgs);
             DocumentManager.markDirty(currentDocId);
             const broadcastMsg = message.toString();
