@@ -1,4 +1,4 @@
-import express, {  } from "express";
+import express, {} from "express";
 import http from "http";
 import * as dotenv from "dotenv";
 import cors from "cors";
@@ -43,7 +43,6 @@ wss.on("connection", (ws: WebSocket) => {
         const raw = JSON.parse(message.toString());
         const isArray = Array.isArray(raw);
         const msgs: FugueMessage<string>[] = isArray ? raw : [raw];
-        console.log('msgs-> ', msgs);
 
         if (msgs.length === 0) return;
 
@@ -54,16 +53,6 @@ wss.on("connection", (ws: WebSocket) => {
 
         if (firstMsg.operation === Operation.JOIN) {
             try {
-                // const CRDTState = await RedisService.getCRDTStateByDocumentID(documentID);
-                // if (CRDTState) {
-                //     const message: FugueJoinMessage<string> = {
-                //         state: CRDTState,
-                //     };
-                //
-                //     ws.send(JSON.stringify(message));
-                // } else {
-                //     console.log("Unable to retrieve CRDT State from redis");
-                // }
                 const joinMsg: FugueJoinMessage<string> = {
                     state: doc.crdt.state,
                 };
@@ -76,19 +65,6 @@ wss.on("connection", (ws: WebSocket) => {
         }
 
         try {
-            // const CRDT: FugueList<string> = new FugueList(
-            //     new StringTotalOrder(crypto.randomBytes(3).toString()),
-            //     null,
-            //     documentID,
-            // );
-            // CRDT.effect(parsedMsg);
-            // const newCRDTState = CRDT.state;
-            // await RedisService.updateCRDTStateByDocumentID(documentID, JSON.stringify(newCRDTState));
-            //
-            // for (const socket of documentUsers!) {
-            //     if (socket !== ws) socket.send(message); //relay the message to the document users
-            // }
-            console.log('docs crdt -> ', doc.crdt);
             doc.crdt.effect(msgs);
             DocumentManager.markDirty(currentDocId);
             const broadcastMsg = message.toString();
@@ -121,7 +97,7 @@ const corsOptions = {
 
 // Use the CORS middleware
 app.use(cors(corsOptions));
-app.use('/docs', DocumentRouter);
+app.use("/docs", DocumentRouter);
 
 server.listen(port, () => {
     console.log(`Listening on port ${port}. Let's go!`);
