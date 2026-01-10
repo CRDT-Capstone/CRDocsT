@@ -1,20 +1,20 @@
-import express, { Request, Response } from "express";
+import express, {} from "express";
 import http from "http";
 import * as dotenv from "dotenv";
 import cors from "cors";
 import WebSocket, { WebSocketServer } from "ws";
 import mongoose from "mongoose";
-import crypto from "crypto";
-import { FugueList, FugueMessage, Operation, StringTotalOrder } from "@cr_docs_t/dts";
+import { FugueJoinMessage, FugueMessage, Operation } from "@cr_docs_t/dts";
+import DocumentManager from "./managers/document";
+import { DocumentRouter } from "./routes/documents";
 
 dotenv.config();
+const mongoUri = process.env.MONGO_URI! as string;
 
-// const mongoUri = process.env.MONGO_URI! as string;
-
-// mongoose
-// 	.connect(mongoUri)
-// 	.then(() => console.log("Successfully connected to mongo db!"))
-// 	.catch((e) => console.log("error connecting to the db -> ", e));
+mongoose
+    .connect(mongoUri)
+    .then(() => console.log("Successfully connected to mongo db!"))
+    .catch((e) => console.log("error connecting to the db -> ", e));
 
 const app = express();
 app.use(express.json());
@@ -22,54 +22,69 @@ app.use(express.json());
 const server = http.createServer(app);
 const port = process.env.PORT || 5001;
 
-const users: Map<String, WebSocket> = new Map();
-
 const wss = new WebSocketServer({ server });
-
-const centralCRDT = new FugueList(new StringTotalOrder(crypto.randomBytes(3).toString()), null);
+DocumentManager.startPersistenceInterval();
 
 wss.on("connection", (ws: WebSocket) => {
     console.log("New Web Socket Connection!");
-    let id = crypto.randomBytes(5).toString("hex");
-    while (users.has(id)) {
-        id = crypto.randomBytes(16).toString("hex");
-    }
 
-    console.log(`User ${id} has joined`);
-    users.set(id, ws);
+    let currentDocId: string | undefined = undefined;
+    // let documentUsers: WebSocket[];
 
-    //need to broadcast the crdt to the new user, but the user has their own crdt
-    ws.send(
-        JSON.stringify({
-            operation: Operation.JOIN,
-            state: centralCRDT.state,
-        }),
-    );
-
-    ws.on("message", (message: WebSocket.Data) => {
+    ws.on("message", async (message: WebSocket.Data) => {
         console.log("A message has been sent");
-        console.log("Message -> ", message.toString());
 
-        const parsedMsg = JSON.parse(message.toString());
-        // Update the central CRDT
-        if (Array.isArray(parsedMsg)) {
-            const msgs: FugueMessage<string>[] = parsedMsg;
-            for (const msg of msgs) {
-                centralCRDT.effect(msg);
+        //There needs to be multiple message types
+        //The first message type to be sent to the server whenever a client connects should be a join message
+        //The join message should have the documentID ... that's pretty much it
+        //We can add other things like possibly userId and all that jazz lateer
+        //Then for every other message, we'd need to keep the documentID but everything else can be the same
+
+        const raw = JSON.parse(message.toString());
+        const isArray = Array.isArray(raw);
+        const msgs: FugueMessage<string>[] = isArray ? raw : [raw];
+
+        if (msgs.length === 0) return;
+
+        const firstMsg = msgs[0];
+        currentDocId = firstMsg.documentID;
+        const doc = await DocumentManager.getOrCreate(currentDocId);
+        doc.sockets.add(ws);
+
+        if (firstMsg.operation === Operation.JOIN) {
+            try {
+                const joinMsg: FugueJoinMessage<string> = {
+                    state: doc.crdt.state,
+                };
+
+                ws.send(JSON.stringify(joinMsg)); //send the state to the joining user
+            } catch (err: any) {
+                console.log("Error handling join operation -> ", err);
             }
-        } else {
-            centralCRDT.effect(parsedMsg);
+            return;
         }
 
-        // Brodcast the message to all other users
-        for (const [userId, userWS] of users) {
-            if (userId === id) continue;
-            userWS.send(message.toString());
+        try {
+            doc.crdt.effect(msgs);
+            DocumentManager.markDirty(currentDocId);
+            const broadcastMsg = message.toString();
+            doc.sockets.forEach((sock) => {
+                if (sock !== ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
+            });
+        } catch (err: any) {
+            console.log("Error handling delete or insert operation -> ", err);
         }
     });
 
     ws.on("close", () => {
-        users.delete(id);
+        //remove the socket from the array
+        // const index = documentUsers.indexOf(ws);
+        // if (index !== -1) documentUsers.splice(index, 1);
+        if (currentDocId) {
+            DocumentManager.removeUser(currentDocId, ws);
+            currentDocId = undefined;
+        }
+
         console.log("Connection closed");
     });
 });
@@ -82,6 +97,7 @@ const corsOptions = {
 
 // Use the CORS middleware
 app.use(cors(corsOptions));
+app.use("/docs", DocumentRouter);
 
 server.listen(port, () => {
     console.log(`Listening on port ${port}. Let's go!`);

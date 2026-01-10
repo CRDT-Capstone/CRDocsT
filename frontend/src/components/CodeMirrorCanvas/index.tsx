@@ -2,12 +2,14 @@ import { useState, useRef, useEffect } from "react";
 import { FugueList, FugueMessage, Operation, StringPosition, StringTotalOrder, FugueJoinMessage } from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from "@uiw/react-codemirror";
+import { useParams } from "react-router-dom";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
 
 const CodeMirrorCanvas = () => {
-    const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null));
+    const { documentID } = useParams();
+    const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null, documentID!));
 
     const viewRef = useRef<EditorView | null>(null);
     const socketRef = useRef<WebSocket>(null);
@@ -33,6 +35,14 @@ const CodeMirrorCanvas = () => {
 
         socketRef.current.onopen = () => {
             console.log("WebSocket connected");
+            const joinMsg: FugueMessage<string> = {
+                documentID: documentID!,
+                operation: Operation.JOIN,
+                replicaId: fugue.replicaId(),
+                position: "",
+                data: null,
+            };
+            socketRef.current!.send(JSON.stringify(joinMsg));
         };
 
         fugue.ws = socketRef.current;
@@ -58,7 +68,7 @@ const CodeMirrorCanvas = () => {
                 if ("state" in remoteMsgs[0]) {
                     const msg = remoteMsgs[0] as FugueJoinMessage<StringPosition>;
                     fugue.state = msg.state;
-                    const newText = fugue.observe();
+                    const newText = (fugue.state.length > 0) ? fugue.observe() : '';
 
                     // Update CodeMirror programmatically
                     if (viewRef.current) {
@@ -179,7 +189,6 @@ const CodeMirrorCanvas = () => {
                 });
 
                 fugue.deleteMultiple(fromA, deleteLen);
-                console.log({ fugue });
             }
 
             // Handle insertion
@@ -191,7 +200,6 @@ const CodeMirrorCanvas = () => {
                 });
 
                 fugue.insertMultiple(fromA, insertedTxt);
-                console.log({ fugue });
             }
         });
         previousTextRef.current = newText;
@@ -206,7 +214,7 @@ const CodeMirrorCanvas = () => {
                         viewRef.current = view;
                     }}
                     onChange={handleChange}
-                    className="rounded-lg border-2 shadow-sm"
+                    className="rounded-lg border-2 shadow-sm text-black"
                 />
             </div>
         </div>
