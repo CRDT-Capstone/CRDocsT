@@ -4,7 +4,7 @@ import * as dotenv from "dotenv";
 import cors from "cors";
 import WebSocket, { WebSocketServer } from "ws";
 import mongoose from "mongoose";
-import { FugueJoinMessage, FugueMessage, Operation } from "@cr_docs_t/dts";
+import { FugueJoinMessage, FugueMessage, FugueMessageType, Operation } from "@cr_docs_t/dts";
 import DocumentManager from "./managers/document";
 import { DocumentRouter } from "./routes/documents";
 
@@ -32,8 +32,6 @@ wss.on("connection", (ws: WebSocket) => {
     // let documentUsers: WebSocket[];
 
     ws.on("message", async (message: WebSocket.Data) => {
-        console.log("A message has been sent");
-
         //There needs to be multiple message types
         //The first message type to be sent to the server whenever a client connects should be a join message
         //The join message should have the documentID ... that's pretty much it
@@ -42,7 +40,7 @@ wss.on("connection", (ws: WebSocket) => {
 
         const raw = JSON.parse(message.toString());
         const isArray = Array.isArray(raw);
-        const msgs: FugueMessage<string>[] = isArray ? raw : [raw];
+        const msgs: FugueMessageType<string>[] = isArray ? raw : [raw];
 
         if (msgs.length === 0) return;
 
@@ -52,8 +50,11 @@ wss.on("connection", (ws: WebSocket) => {
         doc.sockets.add(ws);
 
         if (firstMsg.operation === Operation.JOIN) {
+            console.log(`Join operation for doc id ${currentDocId}`);
             try {
                 const joinMsg: FugueJoinMessage<string> = {
+                    operation: Operation.JOIN,
+                    documentID: currentDocId,
                     state: doc.crdt.state,
                 };
 
@@ -65,7 +66,9 @@ wss.on("connection", (ws: WebSocket) => {
         }
 
         try {
-            doc.crdt.effect(msgs);
+            const ms = msgs as FugueMessage<string>[];
+            console.log(`Received ${msgs.length} operations for doc id ${currentDocId} from ${ms[0].replicaId}`);
+            doc.crdt.effect(ms);
             DocumentManager.markDirty(currentDocId);
             const broadcastMsg = message.toString();
             doc.sockets.forEach((sock) => {
