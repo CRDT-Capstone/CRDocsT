@@ -28,6 +28,29 @@ const createDocument = async (req: Request, res: Response) => {
     }
 };
 
+const updateDocumentName = async (req: Request, res: Response) => {
+    const { name } = req.body;
+    const { documentID } = req.params;
+    if (!name) {
+        res.status(400).send({
+            message: 'Title and documentID is required'
+        });
+        return;
+    }
+    try {
+        await DocumentServices.updateDocumentById(documentID, { name });
+        res.status(200).send({
+            message: 'Successfully updated the name of the document'
+        })
+    } catch (err) {
+        console.log("There was an error creating document -> ", err);
+        res.status(500).send({
+            message: "Unable to create document",
+        });
+    }
+}
+
 export const DocumentController = {
     createDocument,
+    updateDocumentName
 };

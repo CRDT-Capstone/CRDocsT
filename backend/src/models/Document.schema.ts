@@ -5,7 +5,7 @@ const DocumentSchema = new Schema<Document>({
 
     name: {
         type: String,
-        default: 'New Documen',
+        default: 'New Document',
         required: true,
     },
     serializedCRDTState: {

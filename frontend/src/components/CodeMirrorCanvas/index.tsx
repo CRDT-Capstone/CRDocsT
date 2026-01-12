@@ -11,6 +11,7 @@ import {
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from "@uiw/react-codemirror";
 import { useParams } from "react-router-dom";
+import { NavBar } from "../NavBar";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
@@ -213,16 +214,19 @@ const CodeMirrorCanvas = () => {
     };
 
     return (
-        <div className="flex flex-col items-center p-4 w-full h-full">
-            <h1 className="m-4 text-5xl font-bold">CRDT Editor</h1>
-            <div className="w-full max-w-4xl">
-                <CodeMirror
-                    onCreateEditor={(view) => {
-                        viewRef.current = view;
-                    }}
-                    onChange={handleChange}
-                    className="text-black rounded-lg border-2 shadow-sm"
-                />
+        <div>
+            <NavBar documentID={documentID!} documentName="Untitled" />
+            <div className="flex flex-col items-center p-4 w-full h-full">
+                <h1 className="m-4 text-5xl font-bold">CRDT Editor</h1>
+                <div className="w-full max-w-4xl">
+                    <CodeMirror
+                        onCreateEditor={(view) => {
+                            viewRef.current = view;
+                        }}
+                        onChange={handleChange}
+                        className="text-black rounded-lg border-2 shadow-sm"
+                    />
+                </div>
             </div>
         </div>
     );

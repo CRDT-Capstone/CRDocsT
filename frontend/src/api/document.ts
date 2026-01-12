@@ -20,7 +20,28 @@ const createDocument = async () => {
         //TODO: change this to some daisy UI element
     }
 };
+
+const updateDocumentName = async (newDocName: string, documentID: string) => {
+    try {
+        const response = await fetch(`${ApiBaseUrl}/${path}/update/${documentID}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ name: newDocName })
+        });
+        if (!response.ok) {
+            console.log("There was an error updating the document name. Response Obj -> ", response);
+            return;
+        }
+        return true;
+    } catch (err) {
+        console.log("There was an error updating document name -> ", err);
+        //TODO: change this to some daisy UI element
+    }
+}
 export const DocumentAPIHelper = {
     createDocument,
+    updateDocumentName
 };
 
