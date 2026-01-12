@@ -1,5 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import { FugueList, FugueMessage, Operation, StringPosition, StringTotalOrder, FugueJoinMessage } from "@cr_docs_t/dts";
+import {
+    FugueList,
+    FugueMessage,
+    Operation,
+    StringPosition,
+    StringTotalOrder,
+    FugueJoinMessage,
+    FugueMessageType,
+} from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from "@uiw/react-codemirror";
 import { useParams } from "react-router-dom";
@@ -35,12 +43,10 @@ const CodeMirrorCanvas = () => {
 
         socketRef.current.onopen = () => {
             console.log("WebSocket connected");
-            const joinMsg: FugueMessage<string> = {
-                documentID: documentID!,
+            const joinMsg: FugueJoinMessage<string> = {
                 operation: Operation.JOIN,
-                replicaId: fugue.replicaId(),
-                position: "",
-                data: null,
+                documentID: documentID!,
+                state: null,
             };
             socketRef.current!.send(JSON.stringify(joinMsg));
         };
@@ -54,7 +60,7 @@ const CodeMirrorCanvas = () => {
                 const raw = JSON.parse(ev.data);
 
                 // Normalize to array
-                const msgs: FugueMessage<StringPosition>[] = Array.isArray(raw) ? raw : [raw];
+                const msgs: FugueMessageType<StringPosition>[] = Array.isArray(raw) ? raw : [raw];
                 const myId = fugue.replicaId();
                 const remoteMsgs = msgs.filter((m) => {
                     // Ignore Join messages or messages with my ID
@@ -65,9 +71,9 @@ const CodeMirrorCanvas = () => {
                 if (remoteMsgs.length === 0) return;
 
                 // Handle Join message (state sync)
-                if ("state" in remoteMsgs[0]) {
+                if (remoteMsgs[0].operation === Operation.JOIN && remoteMsgs[0].state) {
                     const msg = remoteMsgs[0] as FugueJoinMessage<StringPosition>;
-                    fugue.state = msg.state;
+                    fugue.state = msg.state!;
                     const newText = fugue.state.length > 0 ? fugue.observe() : "";
 
                     // Update CodeMirror programmatically
@@ -92,6 +98,7 @@ const CodeMirrorCanvas = () => {
                 else {
                     const firstMsg = remoteMsgs[0];
                     let fromIdx: number | undefined = undefined;
+                    const msgs = remoteMsgs as FugueMessage<StringPosition>[];
 
                     // Delta update operatest in this order
                     // DELETE- Find Index -> Apply CRDT -> Dispatch View
@@ -101,7 +108,7 @@ const CodeMirrorCanvas = () => {
                         // Find index before applying effect
                         fromIdx = fugue.findVisibleIndex(firstMsg.position);
                         console.log("Remote DELETE at index:", fromIdx);
-                        fugue.effect(remoteMsgs);
+                        fugue.effect(msgs);
 
                         if (fromIdx !== undefined) {
                             viewRef.current?.dispatch({
@@ -115,14 +122,14 @@ const CodeMirrorCanvas = () => {
                         }
                     } else if (firstMsg.operation == Operation.INSERT) {
                         // Apply effect before finding index, so that we account for concurrent inserts
-                        fugue.effect(remoteMsgs);
+                        fugue.effect(msgs);
 
                         // Find index after applying effect
                         fromIdx = fugue.findVisibleIndex(firstMsg.position);
                         console.log("Remote INSERT at index:", fromIdx);
 
                         if (fromIdx !== undefined) {
-                            const text = remoteMsgs.map((m) => m.data || "").join("");
+                            const text = msgs.map((m) => m.data || "").join("");
                             viewRef.current?.dispatch({
                                 changes: {
                                     from: fromIdx,
@@ -175,6 +182,7 @@ const CodeMirrorCanvas = () => {
             docChanged: viewUpdate.docChanged,
         });
 
+        // TODO: This might be sending duplicate operations per multi operation
         viewUpdate.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
             const deleteLen = toA - fromA;
             const insertedLen = toB - fromB;
@@ -187,7 +195,6 @@ const CodeMirrorCanvas = () => {
                     index: fromA,
                     count: deleteLen,
                 });
-
                 fugue.deleteMultiple(fromA, deleteLen);
             }
 

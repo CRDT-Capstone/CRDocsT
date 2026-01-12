@@ -1,13 +1,18 @@
 import { Request, Response } from "express";
 import { DocumentServices } from "../services/DocumentServices";
 import { redis } from "../redis";
-import { FugueList, StringTotalOrder } from "@cr_docs_t/dts";
+import { FugueList, FugueStateSerializer, StringTotalOrder } from "@cr_docs_t/dts";
+import { RedisService } from "../services/RedisService";
+import DocumentManager from "../managers/document";
 
 const createDocument = async (req: Request, res: Response) => {
     try {
         const document = await DocumentServices.createDocument();
         const CRDT = new FugueList(new StringTotalOrder(document._id.toString()), null, document._id.toString());
-        redis.set(document._id.toString(), JSON.stringify(CRDT.state));
+        RedisService.updateCRDTStateByDocumentID(
+            document._id.toString(),
+            Buffer.from(FugueStateSerializer.serialize(CRDT.state)),
+        );
 
         res.status(200).send({
             message: "Successfully created document",
@@ -26,4 +31,3 @@ const createDocument = async (req: Request, res: Response) => {
 export const DocumentController = {
     createDocument,
 };
-
