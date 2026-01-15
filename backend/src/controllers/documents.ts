@@ -68,8 +68,31 @@ const getDocumentsByUserId = async (req: Request, res: Response) => {
     }
 }
 
+const getDocumentById = async(req: Request, res: Response)=>{
+    const { documentId } = req.params;
+    try{
+        const document = await DocumentServices.getDocumentMetadataById(documentId);
+        if(!document){
+            res.status(404).send({
+                message: 'Document does not exist'
+            });
+            return;
+        }
+        res.status(200).send({
+            message: 'Succesfully retrieved document',
+            data: document
+        });
+    }catch(err: any){
+        console.log(`Unable to get document with Id ${documentId}. Error-> `, err);
+        res.status(500).send({
+            message: 'Unable to retrieve document'
+        });
+    }
+}
+
 export const DocumentController = {
     createDocument,
     updateDocumentName,
-    getDocumentsByUserId
+    getDocumentsByUserId,
+    getDocumentById
 };

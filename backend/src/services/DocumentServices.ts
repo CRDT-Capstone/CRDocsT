@@ -20,9 +20,15 @@ const getDocumentsByUserId = async (userId?: string) => {
     return documents;
 }
 
+const getDocumentMetadataById = async(documentId: string)=>{
+    const documentObj = await DocumentModel.findById(documentId, { serializedCRDTState: 0});
+    return documentObj;  
+}
+
 export const DocumentServices = {
     createDocument,
     findDocumentById,
     updateDocumentById,
-    getDocumentsByUserId
+    getDocumentsByUserId,
+    getDocumentMetadataById
 };

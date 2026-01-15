@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { DocumentAPIHelper } from "../../api/document";
+import { useNavigate } from "react-router-dom";
 
 interface NavBarProps {
     documentID: string,
@@ -7,6 +8,8 @@ interface NavBarProps {
 };
 
 export const NavBar = ({ documentID, documentName }: NavBarProps) => {
+    const navigate = useNavigate();
+    
     const [isEditing, setIsEditing] = useState(false);
     const [title, setTitle] = useState(documentName);
 
@@ -22,7 +25,7 @@ export const NavBar = ({ documentID, documentName }: NavBarProps) => {
     return (
         <div className="navbar bg-base-100 shadow-sm">
             <div className="flex-none">
-                <a className="btn btn-ghost text-xl">Bragi</a>
+                <a className="btn btn-ghost text-xl" onClick={()=> navigate('/')}>Bragi</a>
             </div>
             <div className="flex-1">
                 <ul className="menu menu-horizontal px-1">
@@ -38,7 +41,7 @@ export const NavBar = ({ documentID, documentName }: NavBarProps) => {
                         )
                             : (<h1
 
-                                className="cursor-pointer"
+                                className="cursor-pointer overflow-hidden text-ellipsis whitespace-nowrap"
                                 onClick={() => setIsEditing(true)}>{title || 'Untitled Document'}</h1>)
                         }
                     </li>

@@ -65,9 +65,23 @@ const getDocumentsByUserId = async (userId?: string) => {
         //TODO: change this to some daisy UI element
     }
 }
+
+const getDocumentById = async(documentId: string)=>{
+    const response = await fetch(`${ApiBaseUrl}/${path}/${documentId}`);
+    if (!response.ok) {
+            console.log("There was an error retrieving document. Response Obj -> ", response);
+            return;
+        }
+
+        const data = await response.json();
+        const document: Document = data['data'];
+        console.log('Document -> ', document);
+        return document;
+}
 export const DocumentAPIHelper = {
     createDocument,
     updateDocumentName,
-    getDocumentsByUserId
+    getDocumentsByUserId,
+    getDocumentById
 };
 
