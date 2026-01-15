@@ -1,7 +1,9 @@
-import { create } from "domain";
+import { Document } from "../types";
+
 
 const ApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 const path = "docs";
+
 
 const createDocument = async () => {
     try {
@@ -40,8 +42,32 @@ const updateDocumentName = async (newDocName: string, documentID: string) => {
         //TODO: change this to some daisy UI element
     }
 }
+
+const getDocumentsByUserId = async (userId?: string) => {
+    try {
+        const response = await fetch(`${ApiBaseUrl}/${path}/${userId}`, {
+            method: "GET",
+            headers: {
+                "Content-Type": "application/json",
+            },
+        });
+        if (!response.ok) {
+            console.log("There was an error retrieving documents. Response Obj -> ", response);
+            return;
+        }
+
+        const data = await response.json();
+        const documents: Document[] = data['data'];
+        console.log('Documents -> ', documents);
+        return documents;
+    } catch (err) {
+        console.log("There was an error retrieving documents-> ", err);
+        //TODO: change this to some daisy UI element
+    }
+}
 export const DocumentAPIHelper = {
     createDocument,
-    updateDocumentName
+    updateDocumentName,
+    getDocumentsByUserId
 };
 

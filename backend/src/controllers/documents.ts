@@ -50,7 +50,26 @@ const updateDocumentName = async (req: Request, res: Response) => {
     }
 }
 
+const getDocumentsByUserId = async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    try {
+        //TODO: don't let this request fly without a userId
+        //Unless the user is an admin... if we're doing that
+        const documents = await DocumentServices.getDocumentsByUserId(userId);
+        res.status(200).send({
+            message: 'Successfully retrieved documents',
+            data: documents
+        });
+    } catch (err: any) {
+        console.log(`Unable to get documents for userID: ${userId}. Error-> `, err);
+        res.status(500).send({
+            message: 'Unable to retrieve documents'
+        });
+    }
+}
+
 export const DocumentController = {
     createDocument,
-    updateDocumentName
+    updateDocumentName,
+    getDocumentsByUserId
 };

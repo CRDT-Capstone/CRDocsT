@@ -16,7 +16,11 @@ import { NavBar } from "../NavBar";
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
 
-const CodeMirrorCanvas = () => {
+interface CanvasProps {
+    documentName?: string //nullable for now cause I don't want to cause errors
+};
+
+const CodeMirrorCanvas = ({ documentName }: CanvasProps) => {
     const { documentID } = useParams();
     const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null, documentID!));
 

@@ -19,7 +19,10 @@ const DocumentSchema = new Schema<Document>({
     */
 
 }, {
-    timestamps: true
+    timestamps: {
+        createdAt: 'created_at',
+        updatedAt: 'updated_at'
+    }
 });
 
 export const DocumentModel = model<Document>('document', DocumentSchema);

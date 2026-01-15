@@ -15,8 +15,14 @@ const updateDocumentById = async (documentId: string, updateObj: Partial<Documen
     await DocumentModel.findOneAndUpdate({ _id: documentId }, updateObj);
 }
 
+const getDocumentsByUserId = async (userId?: string) => {
+    const documents = await DocumentModel.find({}); //for now
+    return documents;
+}
+
 export const DocumentServices = {
     createDocument,
     findDocumentById,
-    updateDocumentById
+    updateDocumentById,
+    getDocumentsByUserId
 };
