@@ -5,7 +5,7 @@ const DocumentSchema = new Schema<Document>({
 
     name: {
         type: String,
-        default: 'New Documen',
+        default: 'New Document',
         required: true,
     },
     serializedCRDTState: {
@@ -19,7 +19,10 @@ const DocumentSchema = new Schema<Document>({
     */
 
 }, {
-    timestamps: true
+    timestamps: {
+        createdAt: 'created_at',
+        updatedAt: 'updated_at'
+    }
 });
 
 export const DocumentModel = model<Document>('document', DocumentSchema);

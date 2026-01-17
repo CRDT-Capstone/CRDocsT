@@ -28,6 +28,71 @@ const createDocument = async (req: Request, res: Response) => {
     }
 };
 
+const updateDocumentName = async (req: Request, res: Response) => {
+    const { name } = req.body;
+    const { documentID } = req.params;
+    if (!name) {
+        res.status(400).send({
+            message: 'Title and documentID is required'
+        });
+        return;
+    }
+    try {
+        await DocumentServices.updateDocumentById(documentID, { name });
+        res.status(200).send({
+            message: 'Successfully updated the name of the document'
+        })
+    } catch (err) {
+        console.log("There was an error creating document -> ", err);
+        res.status(500).send({
+            message: "Unable to create document",
+        });
+    }
+}
+
+const getDocumentsByUserId = async (req: Request, res: Response) => {
+    const { userId } = req.params;
+    try {
+        //TODO: don't let this request fly without a userId
+        //Unless the user is an admin... if we're doing that
+        const documents = await DocumentServices.getDocumentsByUserId(userId);
+        res.status(200).send({
+            message: 'Successfully retrieved documents',
+            data: documents
+        });
+    } catch (err: any) {
+        console.log(`Unable to get documents for userID: ${userId}. Error-> `, err);
+        res.status(500).send({
+            message: 'Unable to retrieve documents'
+        });
+    }
+}
+
+const getDocumentById = async(req: Request, res: Response)=>{
+    const { documentId } = req.params;
+    try{
+        const document = await DocumentServices.getDocumentMetadataById(documentId);
+        if(!document){
+            res.status(404).send({
+                message: 'Document does not exist'
+            });
+            return;
+        }
+        res.status(200).send({
+            message: 'Succesfully retrieved document',
+            data: document
+        });
+    }catch(err: any){
+        console.log(`Unable to get document with Id ${documentId}. Error-> `, err);
+        res.status(500).send({
+            message: 'Unable to retrieve document'
+        });
+    }
+}
+
 export const DocumentController = {
     createDocument,
+    updateDocumentName,
+    getDocumentsByUserId,
+    getDocumentById
 };

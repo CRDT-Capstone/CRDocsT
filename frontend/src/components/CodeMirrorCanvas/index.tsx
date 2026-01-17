@@ -10,13 +10,20 @@ import {
 } from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from "@uiw/react-codemirror";
-import { useParams } from "react-router-dom";
+import { useLocation, useParams } from "react-router-dom";
+import { NavBar } from "../NavBar";
+import { DocumentAPIHelper } from "../../api/document";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
 
+
+
 const CodeMirrorCanvas = () => {
     const { documentID } = useParams();
+    const location = useLocation();
+
+    const [documentName, setDocumentName] = useState(location.state?.documentName || null);
     const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null, documentID!));
 
     const viewRef = useRef<EditorView | null>(null);
@@ -25,6 +32,18 @@ const CodeMirrorCanvas = () => {
     const previousTextRef = useRef(""); // Track changes with ref
 
     const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
+
+    const getDocumentMetadata = async()=>{
+        const data = await DocumentAPIHelper.getDocumentById(documentID!);
+        if(data) setDocumentName(data.name);
+        //show some error or something if else
+    }
+
+    useEffect(()=>{
+        if(!documentName){
+            
+        }
+    }, []);
 
     // Garbage Collection of deleted elements every 30 seconds
     useEffect(() => {
@@ -213,16 +232,19 @@ const CodeMirrorCanvas = () => {
     };
 
     return (
-        <div className="flex flex-col items-center p-4 w-full h-full">
-            <h1 className="m-4 text-5xl font-bold">CRDT Editor</h1>
-            <div className="w-full max-w-4xl">
-                <CodeMirror
-                    onCreateEditor={(view) => {
-                        viewRef.current = view;
-                    }}
-                    onChange={handleChange}
-                    className="text-black rounded-lg border-2 shadow-sm"
-                />
+        <div>
+            <NavBar documentID={documentID!} documentName={documentName} />
+            <div className="flex flex-col items-center p-4 w-full h-full">
+                <h1 className="m-4 text-5xl font-bold">CRDT Editor</h1>
+                <div className="w-full max-w-4xl">
+                    <CodeMirror
+                        onCreateEditor={(view) => {
+                            viewRef.current = view;
+                        }}
+                        onChange={handleChange}
+                        className="text-black rounded-lg border-2 shadow-sm"
+                    />
+                </div>
             </div>
         </div>
     );
