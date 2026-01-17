@@ -17,8 +17,6 @@ import { DocumentAPIHelper } from "../../api/document";
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
 
-
-
 const CodeMirrorCanvas = () => {
     const { documentID } = useParams();
     const location = useLocation();
@@ -33,15 +31,14 @@ const CodeMirrorCanvas = () => {
 
     const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
 
-    const getDocumentMetadata = async()=>{
+    const getDocumentMetadata = async () => {
         const data = await DocumentAPIHelper.getDocumentById(documentID!);
-        if(data) setDocumentName(data.name);
+        if (data) setDocumentName(data.name);
         //show some error or something if else
-    }
+    };
 
-    useEffect(()=>{
-        if(!documentName){
-            
+    useEffect(() => {
+        if (!documentName) {
         }
     }, []);
 
@@ -232,11 +229,10 @@ const CodeMirrorCanvas = () => {
     };
 
     return (
-        <div>
+        <div className="w-screen">
             <NavBar documentID={documentID!} documentName={documentName} />
             <div className="flex flex-col items-center p-4 w-full h-full">
-                <h1 className="m-4 text-5xl font-bold">CRDT Editor</h1>
-                <div className="w-full max-w-4xl">
+                <div className="w-full h-screen max-w-[100vw]">
                     <CodeMirror
                         onCreateEditor={(view) => {
                             viewRef.current = view;
