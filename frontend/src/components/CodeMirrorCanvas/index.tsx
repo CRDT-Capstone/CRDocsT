@@ -7,6 +7,7 @@ import {
     StringTotalOrder,
     FugueJoinMessage,
     FugueMessageType,
+    FugueMessageSerialzier,
 } from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from "@uiw/react-codemirror";
@@ -65,19 +66,28 @@ const CodeMirrorCanvas = () => {
                 documentID: documentID!,
                 state: null,
             };
-            socketRef.current!.send(JSON.stringify(joinMsg));
+
+            const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
+
+            socketRef.current!.send(serializedJoinMessage);
+            console.log('Sent serialized Join message!');
         };
 
         fugue.ws = socketRef.current;
 
-        socketRef.current.onmessage = (ev: MessageEvent) => {
+        socketRef.current.onmessage = async (ev: MessageEvent) => {
             console.log("Received message:", ev.data);
 
             try {
-                const raw = JSON.parse(ev.data);
+                const blob = ev.data as Blob;
+                const buffer = await blob.arrayBuffer(); //convert blob to buffer 
+                const bytes = new Uint8Array(buffer);//convert to Unit8Array
+
+                const raw = FugueMessageSerialzier.deserialize(bytes);
+                console.log("Parsed message -> ", raw);
 
                 // Normalize to array
-                const msgs: FugueMessageType<StringPosition>[] = Array.isArray(raw) ? raw : [raw];
+                const msgs: FugueMessageType<StringPosition>[] = Array.isArray(raw) ? raw as FugueMessageType<string>[] : [raw] as FugueMessageType<string>[];
                 const myId = fugue.replicaId();
                 const remoteMsgs = msgs.filter((m) => {
                     // Ignore Join messages or messages with my ID
