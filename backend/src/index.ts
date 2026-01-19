@@ -1,10 +1,10 @@
-import express, {} from "express";
+import express, { } from "express";
 import http from "http";
 import * as dotenv from "dotenv";
 import cors from "cors";
 import WebSocket, { WebSocketServer } from "ws";
 import mongoose from "mongoose";
-import { FugueJoinMessage, FugueMessage, FugueMessageType, Operation } from "@cr_docs_t/dts";
+import { FugueJoinMessage, FugueMessage, FugueMessageSerialzier, FugueMessageType, Operation } from "@cr_docs_t/dts";
 import DocumentManager from "./managers/document";
 import { DocumentRouter } from "./routes/documents";
 
@@ -31,16 +31,16 @@ wss.on("connection", (ws: WebSocket) => {
     let currentDocId: string | undefined = undefined;
     // let documentUsers: WebSocket[];
 
-    ws.on("message", async (message: WebSocket.Data) => {
+    ws.on("message", async (message: Uint8Array<ArrayBuffer>) => {
         //There needs to be multiple message types
         //The first message type to be sent to the server whenever a client connects should be a join message
         //The join message should have the documentID ... that's pretty much it
         //We can add other things like possibly userId and all that jazz lateer
         //Then for every other message, we'd need to keep the documentID but everything else can be the same
 
-        const raw = JSON.parse(message.toString());
+        const raw = FugueMessageSerialzier.deserialize(message);
         const isArray = Array.isArray(raw);
-        const msgs: FugueMessageType<string>[] = isArray ? raw : [raw];
+        const msgs: FugueMessageType<string>[] = isArray ? raw as FugueMessageType<string>[] : [raw] as FugueMessageType<string>[];
 
         if (msgs.length === 0) return;
 
@@ -58,7 +58,10 @@ wss.on("connection", (ws: WebSocket) => {
                     state: doc.crdt.state,
                 };
 
-                ws.send(JSON.stringify(joinMsg)); //send the state to the joining user
+                const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
+                console.log('Serialized Join Message -> ', serializedJoinMessage);
+                console.log('Serialized Join Message size -> ', serializedJoinMessage.byteLength);
+                ws.send(serializedJoinMessage); //send the state to the joining user
             } catch (err: any) {
                 console.log("Error handling join operation -> ", err);
             }
@@ -70,7 +73,7 @@ wss.on("connection", (ws: WebSocket) => {
             console.log(`Received ${msgs.length} operations for doc id ${currentDocId} from ${ms[0].replicaId}`);
             doc.crdt.effect(ms);
             DocumentManager.markDirty(currentDocId);
-            const broadcastMsg = message.toString();
+            const broadcastMsg = message; //relay the message as received
             doc.sockets.forEach((sock) => {
                 if (sock !== ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
             });
