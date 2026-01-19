@@ -39,6 +39,7 @@ const CodeMirrorCanvas = () => {
 
     useEffect(() => {
         if (!documentName) {
+            getDocumentMetadata();
         }
     }, []);
 
