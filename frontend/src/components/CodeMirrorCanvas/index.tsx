@@ -33,8 +33,10 @@ const CodeMirrorCanvas = () => {
 
     const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
 
+    const { getDocumentById } = useDocumentApi();
+
     const getDocumentMetadata = async () => {
-        const data = await useDocumentApi().getDocumentById(documentID!);
+        const data = await getDocumentById(documentID!);
         if (data) setDocumentName(data.name);
         //show some error or something if else
     };

@@ -15,9 +15,11 @@ export const NavBar = ({ documentID, documentName }: NavBarProps) => {
     const [isEditing, setIsEditing] = useState(false);
     const [title, setTitle] = useState(documentName);
 
+    const { updateDocumentName } = useDocumentApi();
+
 
     const saveTitle = async () => {
-        const docNameChanged = await useDocumentApi().updateDocumentName(title, documentID);
+        const docNameChanged = await updateDocumentName(title, documentID);
         if (!docNameChanged) {
             //revert the name and show an error
         }
