@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { DocumentAPIHelper } from "../../api/document";
 import { useNavigate } from "react-router-dom";
+import { useSession, useUser } from "@clerk/clerk-react";
 
 interface NavBarProps {
     documentID: string,
@@ -9,6 +10,7 @@ interface NavBarProps {
 
 export const NavBar = ({ documentID, documentName }: NavBarProps) => {
     const navigate = useNavigate();
+    const userData = useUser();
     
     const [isEditing, setIsEditing] = useState(false);
     const [title, setTitle] = useState(documentName);
@@ -57,6 +59,7 @@ export const NavBar = ({ documentID, documentName }: NavBarProps) => {
                     </li>
                 </ul>
             </div>
+            {userData.user ? <div className="flex-none"> {userData.user.firstName}</div> : <></>}
         </div>
     );
 }

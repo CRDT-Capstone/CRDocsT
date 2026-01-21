@@ -2,17 +2,20 @@ import { useNavigate } from "react-router-dom";
 import { DocumentAPIHelper } from "../../api/document";
 import { useEffect, useState } from "react";
 import { Document } from "../../types";
+import { createAndNavigateToDocument } from "../../utils";
+import { useSession } from "@clerk/clerk-react";
 
 export const HomePage = () => {
     const navigate = useNavigate();
+    const { isSignedIn } = useSession();
+    useEffect(() => {
+        if (!isSignedIn) {
+            navigate("/sign-in");
+        }
+    }, [isSignedIn, navigate]);
+
     const [documents, setDocuments] = useState<Document[]>([]);
     const [isLoading, setIsLoading] = useState<Boolean>(true);
-    const createAndNavigateToDocument = async () => {
-        const docID = await DocumentAPIHelper.createDocument();
-        if (docID) {
-            navigate(`/${docID}`);
-        }
-    }
 
     const loadDocuments = async () => {
         const loadedDocuments = await DocumentAPIHelper.getDocumentsByUserId();
@@ -40,7 +43,7 @@ export const HomePage = () => {
                     <div className="flex w-full justify-end ">
                         <button
                             className="btn btn-l btn-neutral m-4"
-                            onClick={createAndNavigateToDocument}
+                            onClick={() => createAndNavigateToDocument(navigate)}
                         > Create a document!</button>
                     </div>
                     <div className='w-full flex justify-center'>
