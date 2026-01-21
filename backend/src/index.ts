@@ -1,4 +1,4 @@
-import express, { } from "express";
+import express, {} from "express";
 import http from "http";
 import * as dotenv from "dotenv";
 import cors from "cors";
@@ -40,7 +40,9 @@ wss.on("connection", (ws: WebSocket) => {
 
         const raw = FugueMessageSerialzier.deserialize(message);
         const isArray = Array.isArray(raw);
-        const msgs: FugueMessageType<string>[] = isArray ? raw as FugueMessageType<string>[] : [raw] as FugueMessageType<string>[];
+        const msgs: FugueMessageType<string>[] = isArray
+            ? (raw as FugueMessageType<string>[])
+            : ([raw] as FugueMessageType<string>[]);
 
         if (msgs.length === 0) return;
 
@@ -59,8 +61,8 @@ wss.on("connection", (ws: WebSocket) => {
                 };
 
                 const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
-                console.log('Serialized Join Message -> ', serializedJoinMessage);
-                console.log('Serialized Join Message size -> ', serializedJoinMessage.byteLength);
+                console.log("Serialized Join Message -> ", serializedJoinMessage);
+                console.log("Serialized Join Message size -> ", serializedJoinMessage.byteLength);
                 ws.send(serializedJoinMessage); //send the state to the joining user
             } catch (err: any) {
                 console.log("Error handling join operation -> ", err);
@@ -95,11 +97,18 @@ wss.on("connection", (ws: WebSocket) => {
     });
 });
 
-const corsOptions = {
+let corsOptions = {
     origin: "*", // Allow requests from this origin
     methods: ["GET", "POST", "PUT"], // Allow specific methods
     allowedHeaders: ["Content-Type", "Authorization"], // Allow specific headers
 };
+if (process.env.NODE_ENV === "production") {
+    corsOptions = {
+        origin: "https://crdocst.surge.sh/", // Production frontend URL
+        methods: ["GET", "POST", "PUT"],
+        allowedHeaders: ["Content-Type", "Authorization"],
+    };
+}
 
 // Use the CORS middleware
 app.use(cors(corsOptions));
