@@ -3,16 +3,11 @@ import { DocumentAPIHelper } from "../../api/document";
 import { useEffect, useState } from "react";
 import { Document } from "../../types";
 import { createAndNavigateToDocument } from "../../utils";
-import { useSession } from "@clerk/clerk-react";
+import { useClerk, useSession } from "@clerk/clerk-react";
 
 export const HomePage = () => {
     const navigate = useNavigate();
-    const { isSignedIn } = useSession();
-    useEffect(() => {
-        if (!isSignedIn) {
-            navigate("/sign-in");
-        }
-    }, [isSignedIn, navigate]);
+    const clerk = useClerk();
 
     const [documents, setDocuments] = useState<Document[]>([]);
     const [isLoading, setIsLoading] = useState<Boolean>(true);
@@ -45,6 +40,10 @@ export const HomePage = () => {
                             className="btn btn-l btn-neutral m-4"
                             onClick={() => createAndNavigateToDocument(navigate)}
                         > Create a document!</button>
+                        <button
+                            className="btn btn-l btn-neutral m-4"
+                            onClick={() => clerk.signOut()}
+                        > Sign Out</button>
                     </div>
                     <div className='w-full flex justify-center'>
                         <table className="table w-[70%]">
