@@ -13,7 +13,8 @@ import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from "@uiw/react-codemirror";
 import { useLocation, useParams } from "react-router-dom";
 import { NavBar } from "../NavBar";
-import { DocumentAPIHelper } from "../../api/document";
+import { useDocumentApi } from "../../api/document";
+
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
@@ -32,8 +33,10 @@ const CodeMirrorCanvas = () => {
 
     const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
 
+    const { getDocumentById } = useDocumentApi();
+
     const getDocumentMetadata = async () => {
-        const data = await DocumentAPIHelper.getDocumentById(documentID!);
+        const data = await getDocumentById(documentID!);
         if (data) setDocumentName(data.name);
         //show some error or something if else
     };

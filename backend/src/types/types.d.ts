@@ -9,5 +9,6 @@ export interface identified {
 
 export interface Document extends Identified {
     name: string,
-    serializedCRDTState: string
+    serializedCRDTState: string;
+    ownerId?: string;
 }

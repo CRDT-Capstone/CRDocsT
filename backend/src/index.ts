@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import { FugueJoinMessage, FugueMessage, FugueMessageSerialzier, FugueMessageType, Operation } from "@cr_docs_t/dts";
 import DocumentManager from "./managers/document";
 import { DocumentRouter } from "./routes/documents";
+import { clerkMiddleware } from "@clerk/express";
 
 dotenv.config();
 const mongoUri = process.env.MONGO_URI! as string;
@@ -112,6 +113,7 @@ if (process.env.NODE_ENV === "production") {
 
 // Use the CORS middleware
 app.use(cors(corsOptions));
+app.use(clerkMiddleware()); //by default allows anonymous and authenticated users
 app.use("/docs", DocumentRouter);
 
 server.listen(port, () => {

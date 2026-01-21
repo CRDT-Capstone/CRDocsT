@@ -1,8 +1,8 @@
 import { DocumentModel } from "../models/Document.schema";
-import { Document } from "../types";
+import { Document } from "../types/types";
 
-const createDocument = async () => {
-    const document = await DocumentModel.create({});
+const createDocument = async (userId: string | null) => {
+    const document = await DocumentModel.create({ownerId: userId});
     return document;
 }
 
@@ -15,8 +15,8 @@ const updateDocumentById = async (documentId: string, updateObj: Partial<Documen
     await DocumentModel.findOneAndUpdate({ _id: documentId }, updateObj);
 }
 
-const getDocumentsByUserId = async (userId?: string) => {
-    const documents = await DocumentModel.find({}); //for now
+const getDocumentsByUserId = async (userId: string) => {
+    const documents = await DocumentModel.find({ownerId: userId});
     return documents;
 }
 

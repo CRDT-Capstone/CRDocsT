@@ -3,12 +3,14 @@ import { DocumentServices } from "../services/DocumentServices";
 import { redis } from "../redis";
 import { FugueList, FugueStateSerializer, StringTotalOrder } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
-import DocumentManager from "../managers/document";
+import { getAuth } from "@clerk/express";
 
 const createDocument = async (req: Request, res: Response) => {
     try {
-        const document = await DocumentServices.createDocument();
+        const { userId } = getAuth(req);
+        const document = await DocumentServices.createDocument(userId);
         const CRDT = new FugueList(new StringTotalOrder(document._id.toString()), null, document._id.toString());
+        
         RedisService.updateCRDTStateByDocumentID(
             document._id.toString(),
             Buffer.from(FugueStateSerializer.serialize(CRDT.state)),
@@ -51,11 +53,16 @@ const updateDocumentName = async (req: Request, res: Response) => {
 }
 
 const getDocumentsByUserId = async (req: Request, res: Response) => {
-    const { userId } = req.params;
+    const { userId } = getAuth(req);
+    if(!userId){
+        res.status(403).send({
+            message: 'Unauthorised access'
+        });
+        return;
+    }
     try {
-        //TODO: don't let this request fly without a userId
-        //Unless the user is an admin... if we're doing that
-        const documents = await DocumentServices.getDocumentsByUserId(userId);
+        //Need to add some pagination or something to this
+        const documents = await DocumentServices.getDocumentsByUserId(userId!);
         res.status(200).send({
             message: 'Successfully retrieved documents',
             data: documents

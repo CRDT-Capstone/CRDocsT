@@ -1,5 +1,5 @@
 import { model, Schema } from "mongoose";
-import { Document } from '../types'
+import { Document } from "../types/types"
 
 const DocumentSchema = new Schema<Document>({
 
@@ -11,13 +11,11 @@ const DocumentSchema = new Schema<Document>({
     serializedCRDTState: {
         type: String,
         required: false,
+    },
+    ownerId: {
+        type: String,
+        required: false
     }
-    /* 
-    To be added
-    - Owner (the user that created this)
-    - User permissions (how we share and all that shit)
-    */
-
 }, {
     timestamps: {
         createdAt: 'created_at',

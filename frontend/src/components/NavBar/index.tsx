@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { DocumentAPIHelper } from "../../api/document";
 import { useNavigate } from "react-router-dom";
+import { useSession, useUser } from "@clerk/clerk-react";
+import { useDocumentApi } from "../../api/document";
 
 interface NavBarProps {
     documentID: string,
@@ -9,13 +10,16 @@ interface NavBarProps {
 
 export const NavBar = ({ documentID, documentName }: NavBarProps) => {
     const navigate = useNavigate();
-    
+    const userData = useUser();
+
     const [isEditing, setIsEditing] = useState(false);
     const [title, setTitle] = useState(documentName);
 
+    const { updateDocumentName } = useDocumentApi();
+
 
     const saveTitle = async () => {
-        const docNameChanged = await DocumentAPIHelper.updateDocumentName(title, documentID);
+        const docNameChanged = await updateDocumentName(title, documentID);
         if (!docNameChanged) {
             //revert the name and show an error
         }
@@ -25,7 +29,7 @@ export const NavBar = ({ documentID, documentName }: NavBarProps) => {
     return (
         <div className="navbar bg-base-100 shadow-sm">
             <div className="flex-none">
-                <a className="btn btn-ghost text-xl" onClick={()=> navigate('/')}>Bragi</a>
+                <a className="btn btn-ghost text-xl" onClick={() => navigate('/')}>Bragi</a>
             </div>
             <div className="flex-1">
                 <ul className="menu menu-horizontal px-1">
@@ -57,6 +61,7 @@ export const NavBar = ({ documentID, documentName }: NavBarProps) => {
                     </li>
                 </ul>
             </div>
+            {userData.user ? <div className="flex-none"> {userData.user.firstName}</div> : <></>}
         </div>
     );
 }

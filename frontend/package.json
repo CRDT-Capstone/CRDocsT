@@ -11,6 +11,7 @@
     "deploy": "NODE_ENV='production'; npm run build && cd ./dist && surge"
   },
   "dependencies": {
+    "@clerk/clerk-react": "^5.59.4",
     "@codemirror/lang-javascript": "^6.2.4",
     "@cr_docs_t/dts": "^0.4.0",
     "@lexical/react": "^0.38.2",
