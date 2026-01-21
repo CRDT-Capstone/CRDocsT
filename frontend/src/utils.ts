@@ -1,6 +1,7 @@
 import { FugueList, Operation, StringPosition } from "@cr_docs_t/dts";
 import { NavigateFunction, useNavigate } from "react-router-dom";
-import { DocumentAPIHelper } from "./api/document";
+import { useDocumentApi } from "./api/document";
+
 /**
  *
  * @param operation
@@ -60,10 +61,3 @@ export function randomString(length: number = 10): string {
     return res.join("");
 }
 
-
-export const createAndNavigateToDocument = async (navigate: NavigateFunction) => {
-        const docID = await DocumentAPIHelper.createDocument();
-        if (docID) {
-            navigate(`/docs/${docID}`);
-        }
-    }
