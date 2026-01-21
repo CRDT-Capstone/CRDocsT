@@ -105,9 +105,11 @@ let corsOptions: cors.CorsOptions = {
 };
 if (process.env.NODE_ENV === "production") {
     corsOptions = {
-        origin: ["https://crdocst.surge.sh/*"],
-        methods: ["GET", "POST", "PUT"],
+        origin: ["https://crdocst.surge.sh"],
+        methods: ["GET", "POST", "PUT", "OPTIONS"],
         allowedHeaders: ["Content-Type", "Authorization"],
+        preflightContinue: false,
+        optionsSuccessStatus: 204,
     };
 }
 
