@@ -8,6 +8,12 @@ import { useClerk, useSession } from "@clerk/clerk-react";
 export const HomePage = () => {
     const navigate = useNavigate();
     const clerk = useClerk();
+    const { isSignedIn } = useSession();
+    console.log('Is Signed in')
+
+    useEffect(()=>{
+        if(!isSignedIn) navigate('/sign-in');
+    }, [navigate, isSignedIn]);
 
     const [documents, setDocuments] = useState<Document[]>([]);
     const [isLoading, setIsLoading] = useState<Boolean>(true);
