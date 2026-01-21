@@ -98,14 +98,14 @@ wss.on("connection", (ws: WebSocket) => {
     });
 });
 
-let corsOptions = {
+let corsOptions: cors.CorsOptions = {
     origin: "*", // Allow requests from this origin
     methods: ["GET", "POST", "PUT"], // Allow specific methods
     allowedHeaders: ["Content-Type", "Authorization"], // Allow specific headers
 };
 if (process.env.NODE_ENV === "production") {
     corsOptions = {
-        origin: "https://crdocst.surge.sh/", // Production frontend URL
+        origin: ["https://crdocst.surge.sh/*"],
         methods: ["GET", "POST", "PUT"],
         allowedHeaders: ["Content-Type", "Authorization"],
     };
