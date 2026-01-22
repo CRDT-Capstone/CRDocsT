@@ -1,5 +1,18 @@
 import { model, Schema } from "mongoose";
-import { Document } from "../types/types"
+import { Contributor, Document } from "../types/types"
+import { ContributorType } from "../enums";
+
+const ContributorSchema = new Schema<Contributor>({
+    contributorType: {
+        required: true,
+        type: String,
+        enum: ContributorType,
+    },
+    userId: {
+        type: String,
+        required: false
+    }
+})
 
 const DocumentSchema = new Schema<Document>({
 
@@ -15,6 +28,10 @@ const DocumentSchema = new Schema<Document>({
     ownerId: {
         type: String,
         required: false
+    },
+    contributors: {
+        type: [ContributorSchema],
+        default: []
     }
 }, {
     timestamps: {
