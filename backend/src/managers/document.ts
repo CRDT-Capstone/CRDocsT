@@ -17,6 +17,15 @@ class DocumentManager {
     private static dirtyDocs: Set<string> = new Set();
     static readonly persistenceIntervalMs: number = 5 * 1000; // 5 seconds
 
+    static async loadProjectDocuments(projectID: string, documentIDs: string[]): Promise<ActiveDocument[]> {
+        const loadedDocs: ActiveDocument[] = [];
+        for (const docID of documentIDs) {
+            const doc = await this.getOrCreate(docID);
+            loadedDocs.push(doc);
+        }
+        return loadedDocs;
+    }
+
     static async getOrCreate(documentID: string): Promise<ActiveDocument> {
         // If the document is already active, return it
         let doc = this.instances.get(documentID);

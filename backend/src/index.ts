@@ -8,6 +8,7 @@ import { FugueJoinMessage, FugueMessage, FugueMessageSerialzier, FugueMessageTyp
 import DocumentManager from "./managers/document";
 import { DocumentRouter } from "./routes/documents";
 import { clerkMiddleware } from "@clerk/express";
+import { ProjectRouter } from "./routes/project";
 
 dotenv.config();
 const mongoUri = process.env.MONGO_URI! as string;
@@ -117,6 +118,13 @@ if (process.env.NODE_ENV === "production") {
 app.use(cors(corsOptions));
 app.use(clerkMiddleware()); //by default allows anonymous and authenticated users
 app.use("/docs", DocumentRouter);
+app.use("/projects", ProjectRouter);
+
+app.get("/ping", (req, res) => {
+    res.status(200).send({
+        message: "pong",
+    });
+});
 
 server.listen(port, () => {
     console.log(`Listening on port ${port}. Let's go!`);

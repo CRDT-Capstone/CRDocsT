@@ -1,20 +1,24 @@
 import { model, Schema } from "mongoose";
-import { Document } from "../types/types";
+import { Project } from "../types/types";
 
-const DocumentSchema = new Schema<Document>(
+const ProjectSchema = new Schema<Project>(
     {
         name: {
             type: String,
-            default: "New Document",
+            default: "New Project",
             required: true,
         },
-        serializedCRDTState: {
+        description: {
             type: String,
             required: false,
+        },
+        documentIds: {
+            type: [String],
+            default: [],
         },
         ownerId: {
             type: String,
-            required: false,
+            required: true,
         },
     },
     {
@@ -25,4 +29,4 @@ const DocumentSchema = new Schema<Document>(
     },
 );
 
-export const DocumentModel = model<Document>("document", DocumentSchema);
+export const ProjectModel = model<Project>("project", ProjectSchema);
