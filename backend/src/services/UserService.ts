@@ -12,7 +12,7 @@ const getUserByEmail = async (email: string) => {
         emailAddress: [email]
     });
 
-    if (user.data.length === 0) throw Error("User does not exist");
+    if (user.data.length === 0) return undefined;
 
     return user.data[0];
 }

@@ -6,5 +6,5 @@ export const shareDocumentEmailTemplate = (contributionType: ContributorType, do
     return `
     <h1>Hello!</h1>
     <p>You have been invited to ${contributionType === ContributorType.VIEWER ? 'view' : 'edit'} this Bragi document. </p>
-    <p> Click <a href="${host}/${documentId}"> here </a> to access the document </p>`
+    <p> Click <a href="${host}/docs/${documentId}"> here </a> to access the document </p>`
 }

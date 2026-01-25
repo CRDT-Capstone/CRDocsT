@@ -8,12 +8,14 @@ import {
     FugueJoinMessage,
     FugueMessageType,
     FugueMessageSerialzier,
+    FugueRejectMessage,
 } from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from "@uiw/react-codemirror";
 import { useLocation, useParams } from "react-router-dom";
 import { NavBar } from "../NavBar";
 import { useDocumentApi } from "../../api/document";
+import { useClerk, useUser } from "@clerk/clerk-react";
 
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
@@ -32,6 +34,8 @@ const CodeMirrorCanvas = () => {
     const previousTextRef = useRef(""); // Track changes with ref
 
     const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
+    const { user } = useUser();
+    const clerk = useClerk();
 
     const { getDocumentById } = useDocumentApi();
 
@@ -59,6 +63,7 @@ const CodeMirrorCanvas = () => {
 
     // WebSocket setup
     useEffect(() => {
+        if (!clerk.loaded) return;
         socketRef.current = new WebSocket(webSocketUrl);
         if (!socketRef.current) return;
 
@@ -68,7 +73,9 @@ const CodeMirrorCanvas = () => {
                 operation: Operation.JOIN,
                 documentID: documentID!,
                 state: null,
+                email: user?.primaryEmailAddress?.emailAddress || undefined
             };
+            console.log('joinMsg-> ', joinMsg);
 
             const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
 
@@ -90,7 +97,8 @@ const CodeMirrorCanvas = () => {
                 console.log("Parsed message -> ", raw);
 
                 // Normalize to array
-                const msgs: FugueMessageType<StringPosition>[] = Array.isArray(raw) ? raw as FugueMessageType<string>[] : [raw] as FugueMessageType<string>[];
+                type FugueMessageTypeWithoutReject<P> = Exclude<FugueMessageType<P>, FugueRejectMessage>;
+                const msgs: FugueMessageTypeWithoutReject<StringPosition>[] = Array.isArray(raw) ? raw as FugueMessageTypeWithoutReject<string>[] : [raw] as FugueMessageTypeWithoutReject<string>[];
                 const myId = fugue.replicaId();
                 const remoteMsgs = msgs.filter((m) => {
                     // Ignore Join messages or messages with my ID
@@ -185,7 +193,7 @@ const CodeMirrorCanvas = () => {
             fugue.ws = null;
             socketRef.current?.close();
         };
-    }, [fugue]);
+    }, [fugue, clerk.loaded]);
 
     /**
      * Handle changes from CodeMirror

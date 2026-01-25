@@ -8,5 +8,5 @@ DocumentRouter.post('/create', DocumentController.createDocument);
 DocumentRouter.put('/update/:documentID', DocumentController.updateDocumentName);
 //TODO: make this a general update endpoint
 DocumentRouter.get('/user', DocumentController.getDocumentsByUserId);
-DocumentRouter.get(':/documentId', OnlyCollaboratorsAndOwners, DocumentController.getDocumentById);
+DocumentRouter.get('/:documentId', DocumentController.getDocumentById);
 DocumentRouter.post('/share', DocumentController.shareDocumentViaEmail);

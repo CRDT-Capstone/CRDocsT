@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSession, useUser } from "@clerk/clerk-react";
 import { useDocumentApi } from "../../api/document";
+import { ShareDocForm } from "../Forms/ShareDocForm";
 
 interface NavBarProps {
     documentID: string,
@@ -61,7 +62,7 @@ export const NavBar = ({ documentID, documentName }: NavBarProps) => {
                     </li>
                 </ul>
             </div>
-            {userData.user ? <div className="flex-none"> {userData.user.firstName}</div> : <></>}
+            <ShareDocForm documentId={documentID} />
         </div>
     );
 }

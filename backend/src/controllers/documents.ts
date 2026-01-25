@@ -101,7 +101,8 @@ const getDocumentById = async (req: Request, res: Response) => {
 const shareDocumentViaEmail = async (req: Request, res: Response) => {
     try {
         const { receiverEmail, documentId, contributorType } = req.body;
-        if (!documentId || contributorType || receiverEmail) {
+        console.log(receiverEmail, contributorType, documentId);
+        if (!documentId || !contributorType || !receiverEmail) {
             //should use some validators here in the future
             res.status(400).send({
                 message: 'documentId, receiverEmail and contributorType are required'

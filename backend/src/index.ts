@@ -50,6 +50,7 @@ wss.on("connection", (ws: WebSocket) => {
         if (msgs.length === 0) return;
 
         const firstMsg = msgs[0];
+        console.log('First message -> ', firstMsg);
         currentDocId = firstMsg.documentID;
 
         const [hasAccessToDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(currentDocId, firstMsg.email);
@@ -88,8 +89,7 @@ wss.on("connection", (ws: WebSocket) => {
             const ms = msgs as FugueMessage<string>[];
             console.log(`Received ${msgs.length} operations for doc id ${currentDocId} from ${ms[0].replicaId}`);
 
-            const [isCollaborator, contributorType] = await DocumentServices.IsDocumentOwnerOrCollaborator(currentDocId, msgs[0].email);
-            if (contributorType === ContributorType.EDITOR) {
+            if (accessType === ContributorType.EDITOR) {
                 //Ideally the editor would be disabled on the frontend but you can never be too sure.
 
                 doc.crdt.effect(ms);

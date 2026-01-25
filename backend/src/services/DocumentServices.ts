@@ -28,10 +28,15 @@ const getDocumentMetadataById = async (documentId: string) => {
 }
 
 const addUserAsCollaborator = async (documentId: string, contributorEmail: string, contributionType: ContributorType) => {
-    const updatedDocument = await DocumentModel.findOneAndUpdate({
+    const user = await UserService.getUserByEmail(contributorEmail);
+
+    const filter = {
         _id: documentId,
-        "contributors.email": { $ne: contributorEmail }
-    }, {
+        "contributors.email": { $ne: contributorEmail },
+        ...(user && { ownerId: { $ne: user.id } })
+    };
+    const updatedDocument = await DocumentModel.findOneAndUpdate(
+        filter, {
         $push: {
             contributors: {
                 email: contributorEmail,
@@ -67,16 +72,17 @@ const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string)
     }
 
     const user = await UserService.getUserByEmail(email);
+    console.log('The user -> ', user);
 
     const isDocumentOwnerOrCollaborator =
         (
-            (document.ownerId === user.id) ||
+            (user && document.ownerId === user.id) ||
             (document.contributors && document.contributors.find((contributor) => contributor.email === email))
         )
 
     if (!isDocumentOwnerOrCollaborator) return [false, undefined];
     let contributorType;
-    if (document.ownerId === user.id) {
+    if (document.ownerId === user!.id) {
         contributorType = ContributorType.EDITOR
     } else {
         const contributor = document.contributors!.find((c) => c.email === email);
