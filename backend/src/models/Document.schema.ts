@@ -1,6 +1,6 @@
 import { model, Schema } from "mongoose";
 import { Contributor, Document } from "../types/types"
-import { ContributorType } from "../enums";
+import { ContributorType } from "@cr_docs_t/dts";
 
 const ContributorSchema = new Schema<Contributor>({
     contributorType: {
@@ -8,7 +8,7 @@ const ContributorSchema = new Schema<Contributor>({
         type: String,
         enum: ContributorType,
     },
-    userId: {
+    email: {
         type: String,
         required: false
     }
@@ -39,5 +39,10 @@ const DocumentSchema = new Schema<Document>({
         updatedAt: 'updated_at'
     }
 });
+
+DocumentSchema.index(
+    { _id: 1, "contributors.email": 1 },
+    { unique: true }
+);
 
 export const DocumentModel = model<Document>('document', DocumentSchema);

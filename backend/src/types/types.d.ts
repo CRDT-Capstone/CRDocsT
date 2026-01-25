@@ -1,6 +1,6 @@
 import Mongoose from 'mongoose';
 import { OperationType } from './constants/operations';
-import { ContributorType } from '../enums';
+import { ContributorType } from "@cr_docs_t/dts";
 
 export interface identified {
     _id?: string | Mongoose.Types.ObjectId,
@@ -10,12 +10,12 @@ export interface identified {
 
 export interface Contributor {
     contributorType: ContributorType,
-    userId?: string
+    email: string
 }
 
 export interface Document extends Identified {
     name: string,
     serializedCRDTState: string;
     ownerId?: string;
-    contributors?: Contributor[]
+    contributors: Contributor[]
 }

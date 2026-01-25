@@ -52,7 +52,7 @@ wss.on("connection", (ws: WebSocket) => {
         const firstMsg = msgs[0];
         currentDocId = firstMsg.documentID;
 
-        const hasAccessToDocument = await DocumentServices.IsDocumentOwnerOrCollaborator(currentDocId, firstMsg.userId);
+        const hasAccessToDocument = await DocumentServices.IsDocumentOwnerOrCollaborator(currentDocId, firstMsg.email);
         if (!hasAccessToDocument) {
             const rejectMessage: FugueRejectMessage = { operation: Operation.REJECT };
             const serializedRejectMessage = FugueMessageSerialzier.serialize([rejectMessage])
