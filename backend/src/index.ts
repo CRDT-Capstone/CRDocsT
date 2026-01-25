@@ -4,7 +4,7 @@ import * as dotenv from "dotenv";
 import cors from "cors";
 import WebSocket, { WebSocketServer } from "ws";
 import mongoose from "mongoose";
-import { FugueJoinMessage, FugueMessage, FugueMessageSerialzier, FugueMessageType, FugueRejectMessage, Operation } from "@cr_docs_t/dts";
+import { ContributorType, FugueJoinMessage, FugueMessage, FugueMessageSerialzier, FugueMessageType, FugueRejectMessage, Operation } from "@cr_docs_t/dts";
 import DocumentManager from "./managers/document";
 import { DocumentRouter } from "./routes/documents";
 import { clerkMiddleware } from "@clerk/express";
@@ -52,7 +52,7 @@ wss.on("connection", (ws: WebSocket) => {
         const firstMsg = msgs[0];
         currentDocId = firstMsg.documentID;
 
-        const hasAccessToDocument = await DocumentServices.IsDocumentOwnerOrCollaborator(currentDocId, firstMsg.email);
+        const [hasAccessToDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(currentDocId, firstMsg.email);
         if (!hasAccessToDocument) {
             const rejectMessage: FugueRejectMessage = { operation: Operation.REJECT };
             const serializedRejectMessage = FugueMessageSerialzier.serialize([rejectMessage])
@@ -87,12 +87,19 @@ wss.on("connection", (ws: WebSocket) => {
         try {
             const ms = msgs as FugueMessage<string>[];
             console.log(`Received ${msgs.length} operations for doc id ${currentDocId} from ${ms[0].replicaId}`);
-            doc.crdt.effect(ms);
-            DocumentManager.markDirty(currentDocId);
-            const broadcastMsg = message; //relay the message as received
-            doc.sockets.forEach((sock) => {
-                if (sock !== ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
-            });
+
+            const [isCollaborator, contributorType] = await DocumentServices.IsDocumentOwnerOrCollaborator(currentDocId, msgs[0].email);
+            if (contributorType === ContributorType.EDITOR) {
+                //Ideally the editor would be disabled on the frontend but you can never be too sure.
+
+                doc.crdt.effect(ms);
+                DocumentManager.markDirty(currentDocId);
+                const broadcastMsg = message; //relay the message as received
+                doc.sockets.forEach((sock) => {
+                    if (sock !== ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
+                });
+            }
+
         } catch (err: any) {
             console.log("Error handling delete or insert operation -> ", err);
         }
