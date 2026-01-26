@@ -1,6 +1,7 @@
 import { useAuth } from "@clerk/clerk-react";
 import { Document } from "../types";
 import { useNavigate } from "react-router-dom";
+import { ContributorType } from "@cr_docs_t/dts";
 
 
 const ApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
@@ -122,12 +123,43 @@ export const useDocumentApi = () => {
             navigate(`/docs/${docID}`);
         }
     }
+
+    const shareDocument = async (documentId: string, email: string, contributorType: ContributorType) => {
+        try {
+            //TODO: make this more modular
+            const token = await getToken();
+            const headers: Record<string, string> = {
+                "Content-Type": "application/json",
+            };
+
+            if (token) {
+                headers.Authorization = `Bearer ${token}`;
+            }
+            const response = await fetch(`${ApiBaseUrl}/${path}/share`, {
+                method: "POST",
+                headers,
+                body: JSON.stringify({
+                    receiverEmail: email,
+                    documentId,
+                    contributorType
+                })
+            });
+            if (!response.ok) {
+                console.log('Unable to share document. response Obj-> ', response);
+                return false;
+            }
+            return true;
+        } catch (err) {
+            console.log('Unable to share document -> ', err);
+        }
+    }
     return {
         createDocument,
         updateDocumentName,
         getDocumentsByUserId,
         getDocumentById,
-        createAndNavigateToDocument
+        createAndNavigateToDocument,
+        shareDocument
     };
 }
 

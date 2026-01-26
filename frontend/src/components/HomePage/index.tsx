@@ -66,7 +66,7 @@ export const HomePage = () => {
                                 <tbody>
                                     {documents.map((document, index) => (
                                         <tr key={index} className="hover:bg-white hover:text-black hover:cursor-pointer"
-                                            onClick={() => navigate(`/${document._id}`, {
+                                            onClick={() => navigate(`/docs/${document._id}`, {
                                                 state: {
                                                     documentName: document.name
                                                 }

@@ -1,13 +1,14 @@
-import express, {} from "express";
+import express, { } from "express";
 import http from "http";
 import * as dotenv from "dotenv";
 import cors from "cors";
 import WebSocket, { WebSocketServer } from "ws";
 import mongoose from "mongoose";
-import { FugueJoinMessage, FugueMessage, FugueMessageSerialzier, FugueMessageType, Operation } from "@cr_docs_t/dts";
+import { ContributorType, FugueJoinMessage, FugueMessage, FugueMessageSerialzier, FugueMessageType, FugueRejectMessage, Operation } from "@cr_docs_t/dts";
 import DocumentManager from "./managers/document";
 import { DocumentRouter } from "./routes/documents";
 import { clerkMiddleware } from "@clerk/express";
+import { DocumentServices } from "./services/DocumentServices";
 
 dotenv.config();
 const mongoUri = process.env.MONGO_URI! as string;
@@ -38,17 +39,30 @@ wss.on("connection", (ws: WebSocket) => {
         //The join message should have the documentID ... that's pretty much it
         //We can add other things like possibly userId and all that jazz lateer
         //Then for every other message, we'd need to keep the documentID but everything else can be the same
+        type FugueMessageTypeWithoutReject<P> = Exclude<FugueMessageType<P>, FugueRejectMessage>;
 
         const raw = FugueMessageSerialzier.deserialize(message);
         const isArray = Array.isArray(raw);
-        const msgs: FugueMessageType<string>[] = isArray
-            ? (raw as FugueMessageType<string>[])
-            : ([raw] as FugueMessageType<string>[]);
+        const msgs: FugueMessageTypeWithoutReject<string>[] = isArray
+            ? (raw as FugueMessageTypeWithoutReject<string>[])
+            : ([raw] as FugueMessageTypeWithoutReject<string>[]);
 
         if (msgs.length === 0) return;
 
         const firstMsg = msgs[0];
+        console.log('First message -> ', firstMsg);
         currentDocId = firstMsg.documentID;
+
+        const [hasAccessToDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(currentDocId, firstMsg.email);
+        if (!hasAccessToDocument) {
+            const rejectMessage: FugueRejectMessage = { operation: Operation.REJECT };
+            const serializedRejectMessage = FugueMessageSerialzier.serialize([rejectMessage])
+            ws.send(serializedRejectMessage);
+            ws.close(1000, "User does not have access");
+            // 1000 -> normal expected socket connection closure
+            return;
+        }
+
         const doc = await DocumentManager.getOrCreate(currentDocId);
         doc.sockets.add(ws);
 
@@ -74,12 +88,18 @@ wss.on("connection", (ws: WebSocket) => {
         try {
             const ms = msgs as FugueMessage<string>[];
             console.log(`Received ${msgs.length} operations for doc id ${currentDocId} from ${ms[0].replicaId}`);
-            doc.crdt.effect(ms);
-            DocumentManager.markDirty(currentDocId);
-            const broadcastMsg = message; //relay the message as received
-            doc.sockets.forEach((sock) => {
-                if (sock !== ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
-            });
+
+            if (accessType === ContributorType.EDITOR) {
+                //Ideally the editor would be disabled on the frontend but you can never be too sure.
+
+                doc.crdt.effect(ms);
+                DocumentManager.markDirty(currentDocId);
+                const broadcastMsg = message; //relay the message as received
+                doc.sockets.forEach((sock) => {
+                    if (sock !== ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
+                });
+            }
+
         } catch (err: any) {
             console.log("Error handling delete or insert operation -> ", err);
         }
