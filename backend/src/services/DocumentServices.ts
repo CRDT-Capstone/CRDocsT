@@ -28,6 +28,7 @@ const getDocumentMetadataById = async (documentId: string) => {
 }
 
 const addUserAsCollaborator = async (documentId: string, contributorEmail: string, contributionType: ContributorType) => {
+    //TODO: change this to allow users to change the contributor type
     const user = await UserService.getUserByEmail(contributorEmail);
 
     const filter = {
@@ -40,7 +41,7 @@ const addUserAsCollaborator = async (documentId: string, contributorEmail: strin
         $push: {
             contributors: {
                 email: contributorEmail,
-                contributionType: contributionType
+                contributorType: contributionType
             }
         }
     }, {
