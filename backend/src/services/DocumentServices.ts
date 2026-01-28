@@ -77,8 +77,8 @@ const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string)
 
     const isDocumentOwnerOrCollaborator =
         (
-            (user && document.ownerId === user.id) ||
-            (document.contributors && document.contributors.find((contributor) => contributor.email === email))
+            (user !== undefined && document.ownerId === user.id) ||
+            (document.contributors.length > 0 && document.contributors.find((contributor) => contributor.email === email) !== undefined)
         )
 
     if (!isDocumentOwnerOrCollaborator) return [false, undefined];
@@ -89,6 +89,8 @@ const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string)
         const contributor = document.contributors!.find((c) => c.email === email);
         contributorType = contributor!.contributorType
     }
+
+    console.log([isDocumentOwnerOrCollaborator, contributorType]);
     return [isDocumentOwnerOrCollaborator, contributorType];
 }
 
