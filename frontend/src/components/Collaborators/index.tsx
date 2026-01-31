@@ -13,7 +13,6 @@ const Collaborators = ({ documentId, document }: CollaboratorsProps) => {
     const { removeCollaborator, updateCollaboratorType, getDocumentById } = useDocumentApi();
     const modalRef = useRef<HTMLDialogElement>(null);
 
-    // If no collaborators, we render nothing (or you could render an "Invite" button here)
     if (localCollaborators.length === 0) return <></>;
 
     const handleRemoveCollaborator = async (c: Contributor) => {
