@@ -17,6 +17,8 @@ export const ShareDocForm = ({ documentId, updateDocument }: ShareDocFormProps) 
         const isShared = await shareDocument(documentId, email, contributionType!);
         const document = await getDocumentById(documentId);
         if (document) updateDocument(document);
+        setContributionType(undefined);
+        setEmail("");
         if (!isShared) alert("Error sharing document");
     };
 
