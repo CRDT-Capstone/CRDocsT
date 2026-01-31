@@ -15,6 +15,7 @@ import { UserService } from "../services/UserService";
 
 export const OnlyCollaboratorsAndOwners = async (req: Request, res: Response, next: NextFunction) => {
     const { documentId } = req.params;
+
     let { email } = req.body; //has to be in there to allow for 'anonymous' users
 
     if (!email) {
@@ -27,4 +28,18 @@ export const OnlyCollaboratorsAndOwners = async (req: Request, res: Response, ne
     else
         sendUnathorizedResponse(res);
 
+}
+
+export const OnlyDocumentOwner = async (req: Request, res: Response, next: NextFunction) => {
+    const { documentId } = req.body || req.params
+
+    if (!documentId) sendUnathorizedResponse(res);
+
+    const { userId } = getAuth(req);
+
+
+    const isAllowed = await DocumentServices.isDocumentOwner(documentId, userId?.toString() || "");
+    if (isAllowed) next();
+    else
+        sendUnathorizedResponse(res);
 }

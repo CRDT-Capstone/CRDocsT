@@ -129,10 +129,42 @@ const shareDocumentViaEmail = async (req: Request, res: Response) => {
     }
 }
 
+const removeContributor = async (req: Request, res: Response) => {
+    try {
+        const { documentId, email } = req.body;
+        await DocumentServices.removeContributor(documentId, email);
+        res.status(200).send({
+            message: 'Successfully removed contributor'
+        });
+    } catch (err: any) {
+        console.log('Unable to remove contributor. Error -> ', err);
+        res.status(500).send({
+            message: 'Unable to remove contributor'
+        });
+    }
+}
+
+const updateContributorType = async (req: Request, res: Response) => {
+    try {
+        const { documentId, email, contributorType } = req.body;
+        await DocumentServices.changeContributorType(documentId, email, contributorType);
+        res.status(200).send({
+            message: 'Successfully changed contributor type'
+        });
+    } catch (err: any) {
+        console.log('Unable to change contributor type. Error -> ', err);
+        res.status(500).send({
+            message: 'Unable to change contrinbutor type'
+        });
+    }
+}
+
 export const DocumentController = {
     createDocument,
     updateDocumentName,
     getDocumentsByUserId,
     getDocumentById,
-    shareDocumentViaEmail
+    shareDocumentViaEmail,
+    removeContributor,
+    updateContributorType
 };

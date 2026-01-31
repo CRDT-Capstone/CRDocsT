@@ -94,6 +94,30 @@ const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string)
     return [isDocumentOwnerOrCollaborator, contributorType];
 }
 
+const removeContributor = async (documentId: string, email: string) => {
+    const result = await DocumentModel.updateOne({ _id: documentId, "contributors.email": email },
+        { $pull: { contributors: { email } } }
+    );
+
+    console.log('remove contributor -> ', result.matchedCount);
+    if (result.matchedCount === 0) throw new Error("Document does not exist, user is owner or user was never a contributor");
+}
+
+const changeContributorType = async (documentId: string, email: string, contributorType: ContributorType) => {
+    const result = await DocumentModel.updateOne({ _id: documentId, "contributors.email": email }, {
+        $set: {
+            "contributors.$.contributorType": contributorType
+        }
+    });
+
+    if (result.matchedCount === 0) throw new Error("user is owner or was never a contributor");
+}
+
+const isDocumentOwner = async (documentId: string, userId: string) => {
+    const document = await DocumentModel.findById(documentId);
+    if (!document || !document.ownerId) return false;
+    return document.ownerId === userId;
+}
 
 
 export const DocumentServices = {
@@ -103,5 +127,8 @@ export const DocumentServices = {
     getDocumentsByUserId,
     getDocumentMetadataById,
     IsDocumentOwnerOrCollaborator,
-    addUserAsCollaborator
+    addUserAsCollaborator,
+    removeContributor,
+    changeContributorType,
+    isDocumentOwner
 };

@@ -19,12 +19,11 @@ export const ShareDocForm = ({ documentId }: { documentId: string }) => {
                 <div
                     className="modal-box flex flex-col p-4 justify-center items-center"
                 >
-
-                    <h1>Share your document through email</h1>
+                    <h1 className="m-2 font-extrabold">Share your document</h1>
                     <input
                         type="text"
                         placeholder="Enter email"
-                        className="input"
+                        className="input m-4"
                         onChange={(e) => setEmail(e.target.value)}
                     />
 
@@ -44,13 +43,13 @@ export const ShareDocForm = ({ documentId }: { documentId: string }) => {
                     <div className="modal-action">
                         <form className="flex w-full justify-end" method="dialog">
                             <button
-                                className="btn btn-l btn-neutral m-4"
+                                className="btn btn-l btn-neutral m-1"
                                 onClick={shareDoc}
                             >
                                 Share
                             </button>
                             <button
-                                className="btn btn-l btn-neutral m-4"
+                                className="btn btn-l btn-neutral m-1"
                             >
                                 Close
                             </button>
