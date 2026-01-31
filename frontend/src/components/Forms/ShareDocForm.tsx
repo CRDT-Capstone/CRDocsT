@@ -1,38 +1,47 @@
 import { ContributorType } from "@cr_docs_t/dts";
-import { useState } from "react";
+import { Dispatch, SetStateAction, useState } from "react";
 import { useDocumentApi } from "../../api/document";
+import { Document } from "../../types";
 
-export const ShareDocForm = ({ documentId }: { documentId: string }) => {
-    const [email, setEmail] = useState('');
+interface ShareDocFormProps {
+    documentId: string;
+    updateDocument: Dispatch<SetStateAction<Document | undefined>>;
+}
+
+export const ShareDocForm = ({ documentId, updateDocument }: ShareDocFormProps) => {
+    const [email, setEmail] = useState("");
     const [contributionType, setContributionType] = useState<ContributorType>();
-    const { shareDocument } = useDocumentApi();
+    const { shareDocument, getDocumentById } = useDocumentApi();
 
     const shareDoc = async () => {
         const isShared = await shareDocument(documentId, email, contributionType!);
-        if (!isShared) alert('Error sharing document');
-    }
+        const document = await getDocumentById(documentId);
+        if (document) updateDocument(document);
+        if (!isShared) alert("Error sharing document");
+    };
 
     return (
         <>
-            <button className="btn btn-l btn-neutral m-4" onClick={() => (document.getElementById('shareDocForm') as HTMLDialogElement)!.showModal()}>Share</button>
+            <button
+                className="m-4 btn btn-l btn-neutral"
+                onClick={() => (document.getElementById("shareDocForm") as HTMLDialogElement)!.showModal()}
+            >
+                Share
+            </button>
             <dialog id="shareDocForm" className="modal">
-                <div
-                    className="modal-box flex flex-col p-4 justify-center items-center"
-                >
+                <div className="flex flex-col justify-center items-center p-4 modal-box">
                     <h1 className="m-2 font-extrabold">Share your document</h1>
                     <input
                         type="text"
                         placeholder="Enter email"
-                        className="input m-4"
+                        className="m-4 input"
                         onChange={(e) => setEmail(e.target.value)}
                     />
 
                     <select
                         className="select"
                         value={contributionType ?? ""}
-                        onChange={(e) =>
-                            setContributionType(e.target.value as ContributorType)
-                        }
+                        onChange={(e) => setContributionType(e.target.value as ContributorType)}
                     >
                         <option value="" disabled>
                             Choose a contribution type
@@ -41,22 +50,15 @@ export const ShareDocForm = ({ documentId }: { documentId: string }) => {
                         <option value={ContributorType.VIEWER}>{ContributorType.VIEWER}</option>
                     </select>
                     <div className="modal-action">
-                        <form className="flex w-full justify-end" method="dialog">
-                            <button
-                                className="btn btn-l btn-neutral m-1"
-                                onClick={shareDoc}
-                            >
+                        <form className="flex justify-end w-full" method="dialog">
+                            <button className="m-1 btn btn-l btn-neutral" onClick={shareDoc}>
                                 Share
                             </button>
-                            <button
-                                className="btn btn-l btn-neutral m-1"
-                            >
-                                Close
-                            </button>
+                            <button className="m-1 btn btn-l btn-neutral">Close</button>
                         </form>
                     </div>
                 </div>
             </dialog>
         </>
     );
-}
+};

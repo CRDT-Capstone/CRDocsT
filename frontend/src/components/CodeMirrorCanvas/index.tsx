@@ -16,7 +16,7 @@ import { useLocation, useParams } from "react-router-dom";
 import { NavBar } from "../NavBar";
 import { useDocumentApi } from "../../api/document";
 import { useClerk, useUser } from "@clerk/clerk-react";
-
+import { Document } from "../../types";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
@@ -25,7 +25,7 @@ const CodeMirrorCanvas = () => {
     const { documentID } = useParams();
     const location = useLocation();
 
-    const [documentName, setDocumentName] = useState(location.state?.documentName || null);
+    const [document, setDocument] = useState<Document | undefined>(undefined);
     const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null, documentID!));
 
     const viewRef = useRef<EditorView | null>(null);
@@ -41,12 +41,14 @@ const CodeMirrorCanvas = () => {
 
     const getDocumentMetadata = async () => {
         const data = await getDocumentById(documentID!);
-        if (data) setDocumentName(data.name);
+        if (data) {
+            setDocument(data);
+        }
         //show some error or something if else
     };
 
     useEffect(() => {
-        if (!documentName) {
+        if (!document) {
             getDocumentMetadata();
         }
     }, []);
@@ -60,7 +62,6 @@ const CodeMirrorCanvas = () => {
 
         return () => clearInterval(gcInterval);
     }, [fugue]);
-
     // WebSocket setup
     useEffect(() => {
         if (!clerk.loaded) return;
@@ -73,14 +74,14 @@ const CodeMirrorCanvas = () => {
                 operation: Operation.JOIN,
                 documentID: documentID!,
                 state: null,
-                email: user?.primaryEmailAddress?.emailAddress || undefined
+                email: user?.primaryEmailAddress?.emailAddress || undefined,
             };
-            console.log('joinMsg-> ', joinMsg);
+            console.log("joinMsg-> ", joinMsg);
 
             const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
 
             socketRef.current!.send(serializedJoinMessage);
-            console.log('Sent serialized Join message!');
+            console.log("Sent serialized Join message!");
         };
 
         fugue.ws = socketRef.current;
@@ -90,15 +91,17 @@ const CodeMirrorCanvas = () => {
 
             try {
                 const blob = ev.data as Blob;
-                const buffer = await blob.arrayBuffer(); //convert blob to buffer 
-                const bytes = new Uint8Array(buffer);//convert to Unit8Array
+                const buffer = await blob.arrayBuffer(); //convert blob to buffer
+                const bytes = new Uint8Array(buffer); //convert to Unit8Array
 
                 const raw = FugueMessageSerialzier.deserialize(bytes);
                 console.log("Parsed message -> ", raw);
 
                 // Normalize to array
                 type FugueMessageTypeWithoutReject<P> = Exclude<FugueMessageType<P>, FugueRejectMessage>;
-                const msgs: FugueMessageTypeWithoutReject<StringPosition>[] = Array.isArray(raw) ? raw as FugueMessageTypeWithoutReject<string>[] : [raw] as FugueMessageTypeWithoutReject<string>[];
+                const msgs: FugueMessageTypeWithoutReject<StringPosition>[] = Array.isArray(raw)
+                    ? (raw as FugueMessageTypeWithoutReject<string>[])
+                    : ([raw] as FugueMessageTypeWithoutReject<string>[]);
                 const myId = fugue.replicaId();
                 const remoteMsgs = msgs.filter((m) => {
                     // Ignore Join messages or messages with my ID
@@ -250,9 +253,16 @@ const CodeMirrorCanvas = () => {
         previousTextRef.current = newText;
     };
 
+    if (!document || !documentID)
+        return (
+            <div className="flex justify-center items-center w-screen h-screen">
+                <p>Loading document...</p>
+            </div>
+        );
+
     return (
         <div className="w-screen">
-            <NavBar documentID={documentID!} documentName={documentName} />
+            <NavBar documentID={documentID} updateDocument={setDocument} document={document} />
             <div className="flex flex-col items-center p-4 w-full h-full">
                 <div className="w-full h-screen max-w-[100vw]">
                     <CodeMirror
