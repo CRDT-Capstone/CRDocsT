@@ -1,6 +1,7 @@
 import { ContributorType, Document } from "@cr_docs_t/dts";
 import { DocumentModel } from "../models/Document.schema";
 import { UserService } from "./UserService";
+import { logger } from "../logging";
 
 const createDocument = async (userId: string | null) => {
     const document = await DocumentModel.create({ ownerId: userId });
@@ -78,7 +79,7 @@ const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string)
     }
 
     const user = await UserService.getUserByEmail(email);
-    console.log("The user -> ", user);
+    logger.info("User info", { user });
 
     const isDocumentOwnerOrCollaborator =
         (user !== undefined && document.ownerId === user.id) ||
@@ -94,7 +95,7 @@ const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string)
         contributorType = contributor!.contributorType;
     }
 
-    console.log([isDocumentOwnerOrCollaborator, contributorType]);
+    logger.info({ isDocumentOwnerOrCollaborator, contributorType });
     return [isDocumentOwnerOrCollaborator, contributorType];
 };
 
@@ -104,7 +105,7 @@ const removeContributor = async (documentId: string, email: string) => {
         { $pull: { contributors: { email } } },
     );
 
-    console.log("remove contributor -> ", result.matchedCount);
+    logger.info("Remove contributor result", { result });
     if (result.matchedCount === 0)
         throw new Error("Document does not exist, user is owner or user was never a contributor");
 };

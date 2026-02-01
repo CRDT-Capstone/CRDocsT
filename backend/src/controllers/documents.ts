@@ -5,6 +5,7 @@ import { FugueList, FugueStateSerializer, StringTotalOrder } from "@cr_docs_t/dt
 import { RedisService } from "../services/RedisService";
 import { getAuth } from "@clerk/express";
 import { MailService } from "../services/MailService";
+import { logger } from "../logging";
 
 const createDocument = async (req: Request, res: Response) => {
     try {
@@ -24,7 +25,7 @@ const createDocument = async (req: Request, res: Response) => {
 
         return;
     } catch (err) {
-        console.log("There was an error creating document -> ", err);
+        logger.error("There was an error creating document", { err });
         res.status(500).send({
             message: "Unable to create document",
         });
@@ -46,7 +47,7 @@ const updateDocumentName = async (req: Request, res: Response) => {
             message: "Successfully updated the name of the document",
         });
     } catch (err) {
-        console.log("There was an error creating document -> ", err);
+        logger.error("There was an error creating document", { err });
         res.status(500).send({
             message: "Unable to create document",
         });
@@ -69,7 +70,7 @@ const getDocumentsByUserId = async (req: Request, res: Response) => {
             data: documents,
         });
     } catch (err: any) {
-        console.log(`Unable to get documents for userID: ${userId}. Error-> `, err);
+        logger.error(`Unable to get documents for userID: ${userId}`, { err });
         res.status(500).send({
             message: "Unable to retrieve documents",
         });
@@ -91,7 +92,7 @@ const getDocumentById = async (req: Request, res: Response) => {
             data: document,
         });
     } catch (err: any) {
-        console.log(`Unable to get document with Id ${documentId}. Error-> `, err);
+        logger.error(`Unable to get document with Id ${documentId}`, { err });
         res.status(500).send({
             message: "Unable to retrieve document",
         });
@@ -101,7 +102,6 @@ const getDocumentById = async (req: Request, res: Response) => {
 const shareDocumentViaEmail = async (req: Request, res: Response) => {
     try {
         const { receiverEmail, documentId, contributorType } = req.body;
-        console.log(receiverEmail, contributorType, documentId);
         if (!documentId || !contributorType || !receiverEmail) {
             // TODO: :should use some validators here in the future
             // Example validators
@@ -115,16 +115,15 @@ const shareDocumentViaEmail = async (req: Request, res: Response) => {
         //we should add the user's email to the document's collaborators list if it isn't there
         await DocumentServices.addUserAsCollaborator(documentId, receiverEmail, contributorType);
 
-        console.log("Sending email to -> ", receiverEmail);
+        logger.info("Sending email", { receiverEmail, documentId, contributorType });
         const mailres = await MailService.sendShareDocumentEmail(receiverEmail, documentId, contributorType);
-        console.log({ mailres });
-        console.log("Successfully sent email");
+        logger.info("Successfully sent email");
 
         res.status(200).send({
             message: "Succesfully sent email",
         });
     } catch (err: any) {
-        console.log("Unable to share document through email -> ", err);
+        logger.error("Unable to share document through email", { err });
         res.status(500).send({
             message: "Unable to share document through email",
         });
@@ -139,7 +138,7 @@ const removeContributor = async (req: Request, res: Response) => {
             message: "Successfully removed contributor",
         });
     } catch (err: any) {
-        console.log("Unable to remove contributor. Error -> ", err);
+        logger.error("Unable to remove contributor", { err });
         res.status(500).send({
             message: "Unable to remove contributor",
         });
@@ -154,7 +153,7 @@ const updateContributorType = async (req: Request, res: Response) => {
             message: "Successfully changed contributor type",
         });
     } catch (err: any) {
-        console.log("Unable to change contributor type. Error -> ", err);
+        logger.error("Unable to change contributor type", { err });
         res.status(500).send({
             message: "Unable to change contrinbutor type",
         });
