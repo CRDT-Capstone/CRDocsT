@@ -21,7 +21,7 @@ import { Document } from "../../types";
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
 
-const CodeMirrorCanvas = () => {
+const Canvas = () => {
     const { documentID } = useParams();
     const location = useLocation();
 
@@ -278,4 +278,4 @@ const CodeMirrorCanvas = () => {
     );
 };
 
-export default CodeMirrorCanvas;
+export default Canvas;
