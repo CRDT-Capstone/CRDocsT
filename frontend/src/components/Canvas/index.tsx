@@ -17,6 +17,7 @@ import { useLocation, useParams } from "react-router-dom";
 import { NavBar } from "../NavBar";
 import { useDocumentApi } from "../../api/document";
 import { useClerk, useUser } from "@clerk/clerk-react";
+import Loading from "../Loading";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
@@ -264,6 +265,10 @@ const Canvas = () => {
         });
         previousTextRef.current = newText;
     };
+
+    if (!document || !documentID) {
+        return <Loading fullPage={true} />;
+    }
 
     return (
         <div className="w-screen">

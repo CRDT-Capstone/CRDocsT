@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Document } from "@cr_docs_t/dts";
 import { useClerk, useSession } from "@clerk/clerk-react";
 import { useDocumentApi } from "../../api/document";
+import Loading from "../Loading";
 
 export const HomePage = () => {
     const navigate = useNavigate();
@@ -34,9 +35,7 @@ export const HomePage = () => {
         //Will make this better in a bit
         <div className="flex flex-col justify-start items-center w-full h-screen">
             {isLoading ? (
-                <>
-                    <span className="text-white loading loading-dots loading-xl"></span>
-                </>
+                <Loading fullPage={true} />
             ) : (
                 <>
                     <div className="flex justify-end w-full">
