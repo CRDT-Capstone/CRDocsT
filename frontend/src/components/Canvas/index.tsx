@@ -53,6 +53,13 @@ const Canvas = () => {
         }
     }, []);
 
+    useEffect(() => {
+        if (user && user.primaryEmailAddress && user.primaryEmailAddress.emailAddress) {
+            console.log({ email: user.primaryEmailAddress.emailAddress });
+            fugue.email = user.primaryEmailAddress.emailAddress;
+        }
+    }, [user]);
+
     // Garbage Collection of deleted elements every 30 seconds
     useEffect(() => {
         const gcInterval = setInterval(() => {
