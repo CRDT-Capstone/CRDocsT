@@ -1,8 +1,6 @@
 import { useAuth } from "@clerk/clerk-react";
-import { Document } from "../types";
 import { useNavigate } from "react-router-dom";
-import { ContributorType } from "@cr_docs_t/dts";
-import { json } from "stream/consumers";
+import { ContributorType, Document } from "@cr_docs_t/dts";
 
 const ApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 const path = "docs";

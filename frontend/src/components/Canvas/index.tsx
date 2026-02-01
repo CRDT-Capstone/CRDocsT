@@ -9,6 +9,7 @@ import {
     FugueMessageType,
     FugueMessageSerialzier,
     FugueRejectMessage,
+    Document,
 } from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from "@uiw/react-codemirror";
@@ -16,7 +17,6 @@ import { useLocation, useParams } from "react-router-dom";
 import { NavBar } from "../NavBar";
 import { useDocumentApi } from "../../api/document";
 import { useClerk, useUser } from "@clerk/clerk-react";
-import { Document } from "../../types";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
@@ -62,6 +62,7 @@ const Canvas = () => {
 
         return () => clearInterval(gcInterval);
     }, [fugue]);
+
     // WebSocket setup
     useEffect(() => {
         if (!clerk.loaded) return;
@@ -114,11 +115,15 @@ const Canvas = () => {
                 // Handle Join message (state sync)
                 if (remoteMsgs[0].operation === Operation.JOIN && remoteMsgs[0].state) {
                     const msg = remoteMsgs[0] as FugueJoinMessage<StringPosition>;
+                    console.log({ msg });
                     fugue.state = msg.state!;
                     const newText = fugue.state.length > 0 ? fugue.observe() : "";
+                    console.log({ newText });
 
                     // Update CodeMirror programmatically
+                    console.log({ curr: viewRef.current });
                     if (viewRef.current) {
+                        console.log("Syncing state from JOIN message");
                         const view = viewRef.current;
 
                         // Create a transaction using the state's tr builder
@@ -253,21 +258,25 @@ const Canvas = () => {
         previousTextRef.current = newText;
     };
 
-    if (!document || !documentID)
-        return (
-            <div className="flex justify-center items-center w-screen h-screen">
-                <p>Loading document...</p>
-            </div>
-        );
-
     return (
         <div className="w-screen">
-            <NavBar documentID={documentID} updateDocument={setDocument} document={document} />
+            <NavBar documentID={documentID!} updateDocument={setDocument} document={document} />
             <div className="flex flex-col items-center p-4 w-full h-full">
                 <div className="w-full h-screen max-w-[100vw]">
                     <CodeMirror
                         onCreateEditor={(view) => {
                             viewRef.current = view;
+
+                            // Check if we already have data in fugue from a message
+                            // that arrived while we were waiting
+                            const currentContent = fugue.observe();
+                            if (currentContent.length > 0) {
+                                view.dispatch({
+                                    changes: { from: 0, insert: currentContent },
+                                    annotations: [RemoteUpdate.of(true)],
+                                });
+                                previousTextRef.current = currentContent;
+                            }
                         }}
                         onChange={handleChange}
                         className="text-black rounded-lg border-2 shadow-sm"

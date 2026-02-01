@@ -1,6 +1,5 @@
-import { ContributorType } from "@cr_docs_t/dts";
+import { ContributorType, Document } from "@cr_docs_t/dts";
 import { DocumentModel } from "../models/Document.schema";
-import { Contributor, Document } from "../types/types";
 import { UserService } from "./UserService";
 
 const createDocument = async (userId: string | null) => {
@@ -141,4 +140,3 @@ export const DocumentServices = {
     changeContributorType,
     isDocumentOwner,
 };
-
