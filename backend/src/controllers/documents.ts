@@ -63,14 +63,14 @@ const getDocumentsByUserId = async (req: Request, res: Response) => {
         return;
     }
     try {
-        //Need to add some pagination or something to this
-        const data = await DocumentServices.getDocumentsByUserId(userId!);
+        const { nextCursor, limit } = req.query;
+        const data = await DocumentServices.getDocumentsByUserId(userId!, Number(limit) ?? undefined, (nextCursor) ? nextCursor.toString() : undefined);
         res.status(200).send({
             message: "Successfully retrieved documents",
             data,
         });
     } catch (err: any) {
-        logger.error(`Unable to get documents for userID: ${userId}`, { err });
+        logger.error(`Unable to get documents for userID: ${userId}`, { ...err });
         res.status(500).send({
             message: "Unable to retrieve documents",
         });

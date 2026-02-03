@@ -17,11 +17,17 @@ export const HomePage = () => {
 
     const [documents, setDocuments] = useState<Document[]>([]);
     const [isLoading, setIsLoading] = useState<Boolean>(true);
+    const [hasNext, setHasNext] = useState<Boolean>();
+    const nextCursor = useRef<string>(undefined);
 
     const loadDocuments = async () => {
-        const loadedDocuments = await getDocumentsByUserId();
-        if (loadedDocuments) {
-            setDocuments([...loadedDocuments]);
+        const responseData = await getDocumentsByUserId(1, nextCursor.current);
+
+        if (responseData) {
+            nextCursor.current = responseData.nextCursor;
+            const docs = Array.prototype.concat(documents, responseData.data);
+            setDocuments(docs);
+            setHasNext(responseData.hasNext);
         }
         setIsLoading(false);
         //display some error or something
@@ -40,7 +46,7 @@ export const HomePage = () => {
                 <>
                     <div className="flex justify-end w-full">
                         <button className="m-4 btn btn-l btn-neutral" onClick={() => createAndNavigateToDocument()}>
-                            {" "}
+
                             Create a document!
                         </button>
                         <button className="m-4 btn btn-l btn-neutral" onClick={() => clerk.signOut()}>
@@ -48,7 +54,7 @@ export const HomePage = () => {
                             Sign Out
                         </button>
                     </div>
-                    <div className="flex justify-center w-full">
+                    <div className="flex flex-col items-center w-full">
                         {documents.length === 0 ? (
                             <h1>You have no Documents</h1>
                         ) : (
@@ -81,6 +87,16 @@ export const HomePage = () => {
                                 </tbody>
                             </table>
                         )}
+                        {hasNext ?
+                            (
+                                <div className="flex w-[70%] justify-end">
+                                    <button
+                                        onClick={loadDocuments}
+                                        className="btn btn-neutral btn-l"> Load More </button>
+                                </div>
+                            ) : <></>
+                        }
+
                     </div>
                 </>
             )}

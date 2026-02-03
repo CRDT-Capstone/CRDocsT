@@ -1,4 +1,4 @@
-import { ContributorType, Document } from "@cr_docs_t/dts";
+import { ContributorType, Document, CursorPaginatedResponse } from "@cr_docs_t/dts";
 import { DocumentModel } from "../models/Document.schema";
 import { UserService } from "./UserService";
 import { logger } from "../logging";
@@ -19,7 +19,7 @@ const updateDocumentById = async (documentId: string, updateObj: Partial<Documen
     await DocumentModel.findOneAndUpdate({ _id: documentId }, updateObj);
 };
 
-const getDocumentsByUserId = async (userId: string, limit: number = 10, currentCursor?: string) => {
+const getDocumentsByUserId = async (userId: string, limit: number = 10, currentCursor?: string) : Promise<CursorPaginatedResponse<Document>> => {
     //current cursor is the id of the last document from a previous pagination...
 
     const userEmail = (await UserService.getUserEmailById(userId)) || "";
@@ -41,7 +41,7 @@ const getDocumentsByUserId = async (userId: string, limit: number = 10, currentC
     const nextCursor = documents[limit- 1]?._id.toString() || undefined;
 
     return {
-        documents,
+        data: documents,
         nextCursor,
         hasNext
     };
