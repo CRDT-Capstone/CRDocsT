@@ -2,6 +2,8 @@ import { ContributorType, Document } from "@cr_docs_t/dts";
 import { DocumentModel } from "../models/Document.schema";
 import { UserService } from "./UserService";
 import { logger } from "../logging";
+import { ObjectId } from "mongodb";
+import { RootFilterQuery } from "mongoose";
 
 const createDocument = async (userId: string | null) => {
     const document = await DocumentModel.create({ ownerId: userId });
@@ -17,9 +19,32 @@ const updateDocumentById = async (documentId: string, updateObj: Partial<Documen
     await DocumentModel.findOneAndUpdate({ _id: documentId }, updateObj);
 };
 
-const getDocumentsByUserId = async (userId: string) => {
-    const documents = await DocumentModel.find({ ownerId: userId });
-    return documents;
+const getDocumentsByUserId = async (userId: string, limit: number = 10, currentCursor?: string) => {
+    //current cursor is the id of the last document from a previous pagination...
+
+    const userEmail = (await UserService.getUserEmailById(userId)) || "";
+    const query: RootFilterQuery<Document> = {
+        $or: [
+            { ownerId: userId },
+            { "contributors.email": userEmail }
+        ]
+    };
+
+    if (currentCursor) {
+        query._id = { $lt: new ObjectId(currentCursor) }
+    }
+
+
+    const documents = await DocumentModel.find(query).sort({ _id: -1 }).limit(limit + 1);
+    const hasNext = documents.length > limit;
+    if (hasNext) documents.pop();
+    const nextCursor = documents[limit- 1]?._id.toString() || undefined;
+
+    return {
+        documents,
+        nextCursor,
+        hasNext
+    };
 };
 
 const getDocumentMetadataById = async (documentId: string) => {

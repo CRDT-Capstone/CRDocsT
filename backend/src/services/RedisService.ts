@@ -1,6 +1,4 @@
-import { FugueList, FugueState, StringTotalOrder } from "@cr_docs_t/dts";
 import { redis } from "../redis";
-import crypto from "crypto";
 
 const getCRDTStateByDocumentID = async (documentID: string) => {
     const serializedCRDTState = await redis.getBuffer(`doc:${documentID}`);
@@ -12,7 +10,12 @@ const updateCRDTStateByDocumentID = async (documentID: string, CRDTStateUpdate: 
     await redis.set(`doc:${documentID}`, CRDTStateUpdate);
 };
 
+const deleteCRDTStateByDocumentID = async(documentID:string)=>{
+    await redis.del(`doc:${documentID}`);
+}
+
 export const RedisService = {
     getCRDTStateByDocumentID,
     updateCRDTStateByDocumentID,
+    deleteCRDTStateByDocumentID
 };

@@ -5,9 +5,10 @@ const getUserByEmail = jest.fn().mockImplementation((email:string)=>{
     return {id: "user_x", email};
 });
 
-const getUserEmailById = jest.fn().mockResolvedValue(
-    "example@gmail.com"
-);
+const getUserEmailById = jest.fn().mockImplementation((userId: string)=>{
+    if(userId === "user_1") return OWNER_EMAIL;
+    return "example@gmail.com"
+});
 
 export const UserService = {
     getUserByEmail, 
