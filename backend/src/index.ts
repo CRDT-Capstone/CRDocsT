@@ -1,4 +1,4 @@
-import express, {} from "express";
+import express, { } from "express";
 import http from "http";
 import * as dotenv from "dotenv";
 import cors from "cors";
@@ -7,6 +7,7 @@ import mongoose from "mongoose";
 import {
     ContributorType,
     FugueJoinMessage,
+    FugueLeaveMessage,
     FugueMessage,
     FugueMessageSerialzier,
     FugueMessageType,
@@ -41,6 +42,7 @@ wss.on("connection", (ws: WebSocket) => {
     logger.info("New Web Socket Connection!");
 
     let currentDocId: string | undefined = undefined;
+    let userEmail: string | undefined = undefined;
     // let documentUsers: WebSocket[];
 
     ws.on("message", async (message: Uint8Array<ArrayBuffer>) => {
@@ -49,19 +51,20 @@ wss.on("connection", (ws: WebSocket) => {
         //The join message should have the documentID ... that's pretty much it
         //We can add other things like possibly userId and all that jazz lateer
         //Then for every other message, we'd need to keep the documentID but everything else can be the same
-        type FugueMessageTypeWithoutReject<P> = Exclude<FugueMessageType<P>, FugueRejectMessage>;
+        type FugueJoinMessageType<P> = Exclude<FugueMessageType<P>, FugueRejectMessage | FugueLeaveMessage>;
 
         const raw = FugueMessageSerialzier.deserialize(message);
         const isArray = Array.isArray(raw);
-        const msgs: FugueMessageTypeWithoutReject<string>[] = isArray
-            ? (raw as FugueMessageTypeWithoutReject<string>[])
-            : ([raw] as FugueMessageTypeWithoutReject<string>[]);
+        const msgs: FugueJoinMessageType<string>[] = isArray
+            ? (raw as FugueJoinMessageType<string>[])
+            : ([raw] as FugueJoinMessageType<string>[]);
 
         if (msgs.length === 0) return;
 
         const firstMsg = msgs[0];
         logger.debug("First message", { firstMsg });
         currentDocId = firstMsg.documentID;
+        userEmail = firstMsg.email;
 
         const [hasAccessToDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
             currentDocId,
@@ -92,6 +95,21 @@ wss.on("connection", (ws: WebSocket) => {
                 const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
                 logger.info("Serialized Join Message size", { size: serializedJoinMessage.byteLength });
                 ws.send(serializedJoinMessage); //send the state to the joining user
+
+                const userJoinedNotification: FugueJoinMessage<string> = {
+                    operation: Operation.JOIN,
+                    documentID: currentDocId, 
+                    state: null,
+                    email: userEmail
+                };
+
+                const serialisedMsg = FugueMessageSerialzier.serialize<string>([userJoinedNotification]);
+
+                doc.sockets.forEach((sock) => {
+                    if (sock !== ws && sock.readyState === WebSocket.OPEN) sock.send(serialisedMsg);
+                });
+
+
             } catch (err: any) {
                 logger.error("Error handling join operation -> ", err);
             }
@@ -117,12 +135,12 @@ wss.on("connection", (ws: WebSocket) => {
         }
     });
 
-    ws.on("close", () => {
+    ws.on("close", async () => {
         //remove the socket from the array
         // const index = documentUsers.indexOf(ws);
         // if (index !== -1) documentUsers.splice(index, 1);
         if (currentDocId) {
-            DocumentManager.removeUser(currentDocId, ws);
+            DocumentManager.removeUser(currentDocId, ws, userEmail);
             currentDocId = undefined;
         }
 

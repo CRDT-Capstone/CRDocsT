@@ -10,6 +10,7 @@ import {
     FugueMessageSerialzier,
     FugueRejectMessage,
     Document,
+    FugueLeaveMessage,
 } from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from "@uiw/react-codemirror";
@@ -27,6 +28,7 @@ const Canvas = () => {
     const location = useLocation();
 
     const [document, setDocument] = useState<Document | undefined>(undefined);
+    const [activeCollaborators, setActiveCollaborators] = useState<string[]>([]);
     const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null, documentID!));
 
     const viewRef = useRef<EditorView | null>(null);
@@ -57,7 +59,7 @@ const Canvas = () => {
     useEffect(() => {
         if (user && user.primaryEmailAddress && user.primaryEmailAddress.emailAddress) {
             console.log({ email: user.primaryEmailAddress.emailAddress });
-            fugue.email = user.primaryEmailAddress.emailAddress;
+            //fugue.email = user.primaryEmailAddress.emailAddress;
         }
     }, [user]);
 
@@ -107,10 +109,10 @@ const Canvas = () => {
                 console.log("Parsed message -> ", raw);
 
                 // Normalize to array
-                type FugueMessageTypeWithoutReject<P> = Exclude<FugueMessageType<P>, FugueRejectMessage>;
-                const msgs: FugueMessageTypeWithoutReject<StringPosition>[] = Array.isArray(raw)
-                    ? (raw as FugueMessageTypeWithoutReject<string>[])
-                    : ([raw] as FugueMessageTypeWithoutReject<string>[]);
+                type FugueJoinMessageType<P> = Exclude<FugueMessageType<P>, FugueRejectMessage | FugueLeaveMessage>;
+                const msgs: FugueJoinMessageType<StringPosition>[] = Array.isArray(raw)
+                    ? (raw as FugueJoinMessageType<string>[])
+                    : ([raw] as FugueJoinMessageType<string>[]);
                 const myId = fugue.replicaId();
                 const remoteMsgs = msgs.filter((m) => {
                     // Ignore Join messages or messages with my ID
@@ -147,6 +149,9 @@ const Canvas = () => {
                         view.dispatch(tr);
                         previousTextRef.current = newText;
                     }
+                }else if(remoteMsgs[0].operation === Operation.JOIN && remoteMsgs[0].state === null){
+                    //handle other users joining
+                        setActiveCollaborators(prev => [...prev, remoteMsgs[0].email! ?? "Anonymous User"])
                 }
                 // Handle updates
                 else {
@@ -294,6 +299,17 @@ const Canvas = () => {
                         className="text-black rounded-lg border-2 shadow-sm"
                     />
                 </div>
+                <div className="w-full flex justify-end">
+                        <div className="dropdown dropdown-top dropdown-center">
+                    <div tabIndex={0} role="button" className="btn m-4">Active Collaborators {`(${activeCollaborators.length})`}</div>
+                    <ul tabIndex={-1} className="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+                        {activeCollaborators.map((ac, index)=>(
+                            <li key={index}>{ac}</li>
+                        ))}
+                    </ul>
+                    </div>
+                </div>
+                
             </div>
         </div>
     );
