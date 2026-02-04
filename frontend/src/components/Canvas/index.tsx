@@ -15,9 +15,10 @@ import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from "@uiw/react-codemirror";
 import { useLocation, useParams } from "react-router-dom";
 import { NavBar } from "../NavBar";
-import { useDocumentApi } from "../../api/document";
 import { useClerk, useUser } from "@clerk/clerk-react";
 import Loading from "../Loading";
+import { useDocument } from "../../hooks/queries";
+import mainStore from "../../stores";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
@@ -26,8 +27,8 @@ const Canvas = () => {
     const { documentID } = useParams();
     const location = useLocation();
 
-    const [document, setDocument] = useState<Document | undefined>(undefined);
     const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null, documentID!));
+    const setDocument = mainStore((state) => state.setDocument);
 
     const viewRef = useRef<EditorView | null>(null);
     const socketRef = useRef<WebSocket>(null);
@@ -38,21 +39,18 @@ const Canvas = () => {
     const { user } = useUser();
     const clerk = useClerk();
 
-    const { getDocumentById } = useDocumentApi();
-
-    const getDocumentMetadata = async () => {
-        const data = await getDocumentById(documentID!);
-        if (data) {
-            setDocument(data);
-        }
-        //show some error or something if else
-    };
+    const { queries } = useDocument(documentID!);
+    const { documentQuery } = queries;
 
     useEffect(() => {
-        if (!document) {
-            getDocumentMetadata();
-        }
+        documentQuery.refetch();
     }, []);
+
+    useEffect(() => {
+        if (documentQuery.data) {
+            setDocument(documentQuery.data);
+        }
+    }, [documentQuery.data]);
 
     useEffect(() => {
         if (user && user.primaryEmailAddress && user.primaryEmailAddress.emailAddress) {
@@ -266,13 +264,13 @@ const Canvas = () => {
         previousTextRef.current = newText;
     };
 
-    if (!document || !documentID) {
+    if (documentQuery.isLoading) {
         return <Loading fullPage={true} />;
     }
 
     return (
         <div className="w-screen">
-            <NavBar documentID={documentID!} updateDocument={setDocument} document={document} />
+            <NavBar documentID={documentID!} />
             <div className="flex flex-col items-center p-4 w-full h-full">
                 <div className="w-full h-screen max-w-[100vw]">
                     <CodeMirror

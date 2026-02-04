@@ -1,6 +1,5 @@
 import { FugueList, Operation, StringPosition } from "@cr_docs_t/dts";
 import { NavigateFunction, useNavigate } from "react-router-dom";
-import { useDocumentApi } from "./api/document";
 
 /**
  *
@@ -60,4 +59,3 @@ export function randomString(length: number = 10): string {
     for (let i = 0; i < length; i++) res[i] = String.fromCharCode(97 + Math.floor(Math.random() * 26));
     return res.join("");
 }
-

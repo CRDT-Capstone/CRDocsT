@@ -1,24 +1,39 @@
 import { ContributorType, Document } from "@cr_docs_t/dts";
 import { Dispatch, SetStateAction, useState } from "react";
-import { useDocumentApi } from "../../api/document";
+import { useDocument, useDocuments } from "../../hooks/queries";
+import { toast } from "sonner";
 
 interface ShareDocFormProps {
     documentId: string;
-    updateDocument: Dispatch<SetStateAction<Document | undefined>>;
 }
 
-export const ShareDocForm = ({ documentId, updateDocument }: ShareDocFormProps) => {
+export const ShareDocForm = ({ documentId }: ShareDocFormProps) => {
     const [email, setEmail] = useState("");
     const [contributionType, setContributionType] = useState<ContributorType>();
-    const { shareDocument, getDocumentById } = useDocumentApi();
+    const { mutations, queries } = useDocument(documentId);
+    const { shareDocumentMutation } = mutations;
 
     const shareDoc = async () => {
-        const isShared = await shareDocument(documentId, email, contributionType!);
-        const document = await getDocumentById(documentId);
-        if (document) updateDocument(document);
-        setContributionType(undefined);
-        setEmail("");
-        if (!isShared) alert("Error sharing document");
+        if (!email || !contributionType) {
+            toast.error("Please provide both email and contribution type");
+            return false;
+        }
+
+        try {
+            const p = shareDocumentMutation.mutateAsync({ email, contributorType: contributionType });
+            toast.promise(p, {
+                loading: "Sharing document...",
+                error: "Failed to share document",
+            });
+            const res = await p;
+            toast.success(res.message || "Document shared successfully");
+            setContributionType(undefined);
+            setEmail("");
+            return true;
+        } catch (error) {
+            toast.error("Failed to share document");
+            return true;
+        }
     };
 
     return (

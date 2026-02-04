@@ -1,30 +1,47 @@
-import { useState, useRef } from "react";
-import { useDocumentApi } from "../../api/document";
+import { useState, useRef, useEffect } from "react";
 import { ContributorType, Contributor, Document } from "@cr_docs_t/dts";
+import { useDocument } from "../../hooks/queries";
+import mainStore from "../../stores";
+import { toast } from "sonner";
 
 interface CollaboratorsProps {
     documentId: string;
-    document?: Document;
 }
 
-const Collaborators = ({ documentId, document }: CollaboratorsProps) => {
-    const [localCollaborators, setLocalCollaborators] = useState<Contributor[]>(document?.contributors || []);
-    const { removeCollaborator, updateCollaboratorType, getDocumentById } = useDocumentApi();
+const Collaborators = ({ documentId }: CollaboratorsProps) => {
+    const document = mainStore((state) => state.document);
+    const [localCollaborators, setLocalCollaborators] = useState<Contributor[]>([]);
+    const { mutations } = useDocument(documentId);
+    const { removeCollaboratorMutation, updateCollaboratorTypeMutation } = mutations;
+
     const modalRef = useRef<HTMLDialogElement>(null);
+
+    useEffect(() => {
+        if (document) {
+            setLocalCollaborators(document.contributors);
+        }
+    }, []);
+
+    useEffect(() => {
+        if (document) {
+            setLocalCollaborators(document.contributors);
+        }
+    }, [document?.contributors]);
 
     if (localCollaborators.length === 0) return <></>;
 
     const handleRemoveCollaborator = async (c: Contributor) => {
         try {
-            await removeCollaborator(documentId, c.email);
-            // Optimistic update or fetch fresh data
-            const document = await getDocumentById(documentId);
-            if (document) {
-                setLocalCollaborators(document.contributors);
-            }
+            const p = removeCollaboratorMutation.mutateAsync(c.email);
+            toast.promise(p, {
+                loading: "Removing collaborator...",
+                error: "Failed to remove collaborator",
+            });
+            const res = await p;
+            toast.success(res.message || "Collaborator removed");
         } catch (error) {
             console.error("Failed to remove collaborator", error);
-            alert("Failed to remove collaborator");
+            toast.error("Failed to remove collaborator");
         }
     };
 
@@ -33,14 +50,19 @@ const Collaborators = ({ documentId, document }: CollaboratorsProps) => {
             setLocalCollaborators((prev) =>
                 prev.map((collab) => (collab.email === c.email ? { ...collab, contributorType: t } : collab)),
             );
-            await updateCollaboratorType(documentId, c.email, t);
-            const document = await getDocumentById(documentId);
-            if (document) {
-                setLocalCollaborators(document.contributors);
-            }
+            const p = updateCollaboratorTypeMutation.mutateAsync({
+                email: c.email,
+                contributorType: t,
+            });
+            toast.promise(p, {
+                loading: "Updating collaborator type...",
+                error: "Failed to update collaborator type",
+            });
+            const res = await p;
+            toast.success(res.message || "Collaborator type updated");
         } catch (error) {
             console.error("Failed to change collaborator type", error);
-            alert("Failed to change collaborator type");
+            toast.error("Failed to change collaborator type");
         }
     };
 

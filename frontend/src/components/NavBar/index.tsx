@@ -1,32 +1,45 @@
-import { Dispatch, SetStateAction, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useLayoutEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSession, useUser } from "@clerk/clerk-react";
-import { useDocumentApi } from "../../api/document";
+import { createDocumentApi } from "../../api/document";
 import { ShareDocForm } from "../Forms/ShareDocForm";
 import { Document } from "@cr_docs_t/dts";
 import Collaborators from "../Collaborators";
+import { useDocument } from "../../hooks/queries";
+import mainStore from "../../stores";
+import { toast } from "sonner";
 
 interface NavBarProps {
     documentID: string;
-    document?: Document;
-    updateDocument: Dispatch<SetStateAction<Document | undefined>>;
 }
 
-export const NavBar = ({ documentID, document, updateDocument }: NavBarProps) => {
+export const NavBar = ({ documentID }: NavBarProps) => {
     const navigate = useNavigate();
     const userData = useUser();
 
-    const [isEditing, setIsEditing] = useState(false);
-    const [title, setTitle] = useState(document?.name || "New Document");
+    const document = mainStore((state) => state.document);
+    const setDocument = mainStore((state) => state.setDocument);
 
-    const { updateDocumentName } = useDocumentApi();
+    const [isEditing, setIsEditing] = useState(false);
+    const [title, setTitle] = useState("New Document");
+
+    const { mutations } = useDocument(documentID);
+    const { updateDocumentNameMutation } = mutations;
+
+    useLayoutEffect(() => {
+        if (document) {
+            setTitle(document.name);
+        }
+    }, [document]);
 
     const saveTitle = async () => {
-        const docNameChanged = await updateDocumentName(title, documentID);
-        if (!docNameChanged) {
-            //revert the name and show an error
+        try {
+            const res = await updateDocumentNameMutation.mutateAsync(title);
+            setIsEditing(false);
+        } catch (error) {
+            console.error("Failed to update document name", error);
+            toast.error("Failed to update document name");
         }
-        setIsEditing(false);
     };
 
     return (
@@ -77,8 +90,8 @@ export const NavBar = ({ documentID, document, updateDocument }: NavBarProps) =>
                     </li>
                 </ul>
             </div>
-            <Collaborators documentId={documentID} document={document} />
-            <ShareDocForm documentId={documentID} updateDocument={updateDocument} />
+            <Collaborators documentId={documentID} />
+            <ShareDocForm documentId={documentID} />
         </div>
     );
 };
