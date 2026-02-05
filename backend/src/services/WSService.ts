@@ -3,6 +3,7 @@ import { logger } from "../logging";
 import {
     ContributorType,
     FugueJoinMessage,
+    FugueLeaveMessage,
     FugueMessage,
     FugueMessageSerialzier,
     FugueMessageType,
@@ -39,13 +40,16 @@ export class WSService {
         //The join message should have the documentID ... that's pretty much it
         //We can add other things like possibly userId and all that jazz lateer
         //Then for every other message, we'd need to keep the documentID but everything else can be the same
-        type FugueMessageTypeWithoutReject<P> = Exclude<FugueMessageType<P>, FugueRejectMessage>;
+        type FugueMutationMessageTypes<P> = Exclude<
+            Exclude<FugueMessageType<P>, FugueRejectMessage>,
+            FugueLeaveMessage
+        >;
 
         const raw = FugueMessageSerialzier.deserialize(message);
         const isArray = Array.isArray(raw);
-        const msgs: FugueMessageTypeWithoutReject<string>[] = isArray
-            ? (raw as FugueMessageTypeWithoutReject<string>[])
-            : ([raw] as FugueMessageTypeWithoutReject<string>[]);
+        const msgs: FugueMutationMessageTypes<string>[] = isArray
+            ? (raw as FugueMutationMessageTypes<string>[])
+            : ([raw] as FugueMutationMessageTypes<string>[]);
 
         if (msgs.length === 0) return;
 
