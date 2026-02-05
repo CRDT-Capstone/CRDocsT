@@ -110,10 +110,20 @@ const Canvas = () => {
 
                 // Normalize to array
                 type FugueJoinMessageType<P> = Exclude<FugueMessageType<P>, FugueRejectMessage | FugueLeaveMessage>;
-                const msgs: FugueJoinMessageType<StringPosition>[] = Array.isArray(raw)
+                const receivedPayload: FugueMessageType<string>[] = Array.isArray(raw)
                     ? (raw as FugueJoinMessageType<string>[])
                     : ([raw] as FugueJoinMessageType<string>[]);
+
+                if (receivedPayload.length > 0 && receivedPayload[0].operation === Operation.LEAVE) {
+                    console.log('remove message -> ', receivedPayload[0]);
+                    console.log('active collaborators -> ', activeCollaborators);
+                    setActiveCollaborators(prev => prev.filter((ac) => ac !== (receivedPayload[0] as FugueLeaveMessage).email));
+                    //email isn't email for anonynous users
+                    return;
+                }
+
                 const myId = fugue.replicaId();
+                const msgs = receivedPayload as FugueJoinMessageType<string>[];
                 const remoteMsgs = msgs.filter((m) => {
                     // Ignore Join messages or messages with my ID
                     if ("state" in m) return true; // Handle state separately
@@ -125,6 +135,12 @@ const Canvas = () => {
                 // Handle Join message (state sync)
                 if (remoteMsgs[0].operation === Operation.JOIN && remoteMsgs[0].state) {
                     const msg = remoteMsgs[0] as FugueJoinMessage<StringPosition>;
+
+                    if (msg.collaborators) {
+                        setActiveCollaborators(prev => [... new Set(prev.concat(msg.collaborators!))]);
+
+                    }
+
                     console.log({ msg });
                     fugue.state = msg.state!;
                     const newText = fugue.state.length > 0 ? fugue.observe() : "";
@@ -149,9 +165,10 @@ const Canvas = () => {
                         view.dispatch(tr);
                         previousTextRef.current = newText;
                     }
-                }else if(remoteMsgs[0].operation === Operation.JOIN && remoteMsgs[0].state === null){
+                } else if (remoteMsgs[0].operation === Operation.JOIN && remoteMsgs[0].state === null) {
                     //handle other users joining
-                        setActiveCollaborators(prev => [...prev, remoteMsgs[0].email! ?? "Anonymous User"])
+                    setActiveCollaborators(prev => [...prev, remoteMsgs[0].email! ?? "Anonymous User"]);
+
                 }
                 // Handle updates
                 else {
@@ -300,16 +317,16 @@ const Canvas = () => {
                     />
                 </div>
                 <div className="w-full flex justify-end">
-                        <div className="dropdown dropdown-top dropdown-center">
-                    <div tabIndex={0} role="button" className="btn m-4">Active Collaborators {`(${activeCollaborators.length})`}</div>
-                    <ul tabIndex={-1} className="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
-                        {activeCollaborators.map((ac, index)=>(
-                            <li key={index}>{ac}</li>
-                        ))}
-                    </ul>
+                    <div className="dropdown dropdown-top dropdown-center">
+                        <div tabIndex={0} role="button" className="btn m-4">Active Collaborators {`(${activeCollaborators.length})`}</div>
+                        <ul tabIndex={-1} className="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+                            {activeCollaborators.map((ac, index) => (
+                                <li key={index}>{ac}</li>
+                            ))}
+                        </ul>
                     </div>
                 </div>
-                
+
             </div>
         </div>
     );

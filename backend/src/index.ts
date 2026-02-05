@@ -19,6 +19,8 @@ import { DocumentRouter } from "./routes/documents";
 import { clerkMiddleware } from "@clerk/express";
 import { DocumentServices } from "./services/DocumentServices";
 import { httpLogger, logger } from "./logging";
+import { RedisService } from "./services/RedisService";
+import { UserService } from "./services/UserService";
 
 dotenv.config();
 const mongoUri = process.env.MONGO_URI! as string;
@@ -42,7 +44,8 @@ wss.on("connection", (ws: WebSocket) => {
     logger.info("New Web Socket Connection!");
 
     let currentDocId: string | undefined = undefined;
-    let userEmail: string | undefined = undefined;
+    let userIdentity: string | undefined = undefined;
+    //userIdentity is the users email when the user is non anonymous and a random identifier for anonymous users
     // let documentUsers: WebSocket[];
 
     ws.on("message", async (message: Uint8Array<ArrayBuffer>) => {
@@ -64,7 +67,8 @@ wss.on("connection", (ws: WebSocket) => {
         const firstMsg = msgs[0];
         logger.debug("First message", { firstMsg });
         currentDocId = firstMsg.documentID;
-        userEmail = firstMsg.email;
+        //no email if the user is anonymous so we need an identifier.
+        userIdentity = firstMsg.email || UserService.getIdentifierForAnonymousUser();
 
         const [hasAccessToDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
             currentDocId,
@@ -86,10 +90,14 @@ wss.on("connection", (ws: WebSocket) => {
         if (firstMsg.operation === Operation.JOIN) {
             logger.info(`Join operation for doc id ${currentDocId}`);
             try {
+
+                await RedisService.AddToCollaboratorsByDocumentId(currentDocId, userIdentity);
+                const collaborators = await RedisService.getCollaboratorsByDocumentId(currentDocId);
                 const joinMsg: FugueJoinMessage<string> = {
                     operation: Operation.JOIN,
                     documentID: currentDocId,
                     state: doc.crdt.state,
+                    collaborators
                 };
 
                 const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
@@ -98,9 +106,9 @@ wss.on("connection", (ws: WebSocket) => {
 
                 const userJoinedNotification: FugueJoinMessage<string> = {
                     operation: Operation.JOIN,
-                    documentID: currentDocId, 
+                    documentID: currentDocId,
                     state: null,
-                    email: userEmail
+                    email: userIdentity
                 };
 
                 const serialisedMsg = FugueMessageSerialzier.serialize<string>([userJoinedNotification]);
@@ -140,7 +148,7 @@ wss.on("connection", (ws: WebSocket) => {
         // const index = documentUsers.indexOf(ws);
         // if (index !== -1) documentUsers.splice(index, 1);
         if (currentDocId) {
-            DocumentManager.removeUser(currentDocId, ws, userEmail);
+            await DocumentManager.removeUser(currentDocId, ws, userIdentity);
             currentDocId = undefined;
         }
 

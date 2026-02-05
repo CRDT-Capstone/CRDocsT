@@ -54,21 +54,22 @@ class DocumentManager {
         return newDoc;
     }
 
-    static removeUser(documentID: string, ws: WebSocket, email?: string) {
+    static async removeUser(documentID: string, ws: WebSocket, userIdentity?: string) {
         const doc = this.instances.get(documentID);
         if (!doc) return;
 
         doc.sockets.delete(ws);
-        if (email) {
+        if (userIdentity) {
             const leaveMessage: FugueLeaveMessage = {
                 operation: Operation.LEAVE,
-                email: email!
+                email: userIdentity
             };
+            await RedisService.removeCollaboratorsByDocumentId(documentID, userIdentity);
 
             doc.sockets.forEach((sock) => {
                 if (sock.readyState === WebSocket.OPEN) sock.send(FugueMessageSerialzier.serialize([leaveMessage]));
             });
-        }else{
+        } else {
             logger.error(`User without email exiting file with documentId: ${documentID}`);
         }
 
