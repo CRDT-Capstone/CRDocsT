@@ -30,12 +30,15 @@ export const useDocuments = () => {
     const { getToken } = useAuth();
     const handleError = useApiErrorHandler();
 
-    // Memoize API creation if needed, but usually cheap enough to recreate
     const api = createDocumentApi(getToken);
+    queryClient.setMutationDefaults([documentKeys.lists()], {
+        onError: handleError,
+    });
 
     const userDocumentsQuery = useQuery({
         queryKey: documentKeys.lists(),
         queryFn: () => api.getDocumentsByUserId(),
+        select: (docs) => docs.map((doc) => doc._id), // Only rerender if IDs change
     });
 
     const createDocumentMutation = useMutation({
@@ -44,7 +47,6 @@ export const useDocuments = () => {
             // Invalidate the list so the new document appears immediately
             queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
         },
-        onError: handleError,
     });
 
     return {
@@ -62,6 +64,9 @@ export const useDocument = (documentId: string) => {
     const { getToken } = useAuth();
     const handleError = useApiErrorHandler();
     const api = createDocumentApi(getToken);
+    queryClient.setMutationDefaults([documentKeys.lists()], {
+        onError: handleError,
+    });
 
     const documentQuery = useQuery({
         queryKey: documentKeys.detail(documentId),
@@ -76,7 +81,6 @@ export const useDocument = (documentId: string) => {
             queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
             queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
         },
-        onError: handleError,
     });
 
     const shareDocumentMutation = useMutation({
@@ -85,7 +89,6 @@ export const useDocument = (documentId: string) => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
         },
-        onError: handleError,
     });
 
     const removeCollaboratorMutation = useMutation({
@@ -93,7 +96,6 @@ export const useDocument = (documentId: string) => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
         },
-        onError: handleError,
     });
 
     const updateCollaboratorTypeMutation = useMutation({
@@ -102,7 +104,6 @@ export const useDocument = (documentId: string) => {
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
         },
-        onError: handleError,
     });
 
     return {
