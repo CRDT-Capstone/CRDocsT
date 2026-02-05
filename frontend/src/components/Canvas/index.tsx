@@ -137,7 +137,10 @@ const Canvas = () => {
                     const msg = remoteMsgs[0] as FugueJoinMessage<StringPosition>;
 
                     if (msg.collaborators) {
-                        setActiveCollaborators(prev => [... new Set(prev.concat(msg.collaborators!))]);
+                        const userEmail = (user) ? user.primaryEmailAddress?.emailAddress : undefined;
+                        setActiveCollaborators(prev => [... new Set(prev
+                            .concat(msg.collaborators!)
+                            .filter((ac) => userEmail))]);
 
                     }
 
