@@ -1,4 +1,4 @@
-import { ContributorType, Document, CursorPaginatedResponse } from "@cr_docs_t/dts";
+import { APIError, ContributorType, Document, CursorPaginatedResponse } from "@cr_docs_t/dts";
 import { DocumentModel } from "../models/Document.schema";
 import { UserService } from "./UserService";
 import { logger } from "../logging";
@@ -58,35 +58,46 @@ const addUserAsCollaborator = async (
     contributionType: ContributorType,
 ) => {
     //TODO: change this to allow users to change the contributor type
-    const user = await UserService.getUserByEmail(contributorEmail);
+    try {
+        const user = await UserService.getUserByEmail(contributorEmail);
+        logger.debug("Adding user as collaborator", { documentId, contributorEmail, contributionType, user });
 
-    const filter = {
-        _id: documentId,
-        "contributors.email": { $ne: contributorEmail },
-        ...(user && { ownerId: { $ne: user.id } }),
-    };
-    const updatedDocument = await DocumentModel.findOneAndUpdate(
-        filter,
-        {
-            $push: {
-                contributors: {
-                    email: contributorEmail,
-                    contributorType: contributionType,
+        const filter = {
+            _id: documentId,
+            "contributors.email": { $ne: contributorEmail },
+            ...(user && { ownerId: { $ne: user.id } }),
+        };
+        const updatedDocument = await DocumentModel.findOneAndUpdate(
+            filter,
+            {
+                $push: {
+                    contributors: {
+                        email: contributorEmail,
+                        contributorType: contributionType,
+                    },
                 },
             },
-        },
-        {
-            new: true,
-        },
-    );
+            {
+                new: true,
+            },
+        );
 
-    if (!updatedDocument) {
-        throw new Error("Document not found or user is already a contributor");
+        if (!updatedDocument) {
+            throw new APIError("Document not found or user is already a contributor", 400);
+        }
+    } catch (err) {
+        logger.error("Error adding user as collaborator", { err });
+        if (err instanceof APIError) {
+            throw err;
+        }
+        const e = err as Error;
+        throw new APIError(e.message || "Error adding user as collaborator", 500);
     }
 };
 
 //TODO: write a unit test for this
 const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string) => {
+    logger.debug("Checking if user is owner or collaborator", { documentId, email });
     const document = await DocumentModel.findById(documentId);
     if (!document) throw Error("Document does not exist!");
     if (!document.ownerId) return [true, ContributorType.EDITOR];
@@ -132,7 +143,7 @@ const removeContributor = async (documentId: string, email: string) => {
 
     logger.info("Remove contributor result", { result });
     if (result.matchedCount === 0)
-        throw new Error("Document does not exist, user is owner or user was never a contributor");
+        throw new APIError("Document does not exist, user is owner or user was never a contributor", 400);
 };
 
 const changeContributorType = async (documentId: string, email: string, contributorType: ContributorType) => {
@@ -145,7 +156,7 @@ const changeContributorType = async (documentId: string, email: string, contribu
         },
     );
 
-    if (result.matchedCount === 0) throw new Error("user is owner or was never a contributor");
+    if (result.matchedCount === 0) throw new APIError("user is owner or was never a contributor", 400);
 };
 
 const isDocumentOwner = async (documentId: string, userId: string) => {

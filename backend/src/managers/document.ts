@@ -14,7 +14,7 @@ interface ActiveDocument {
 class DocumentManager {
     private static instances: Map<string, ActiveDocument> = new Map();
     private static dirtyDocs: Set<string> = new Set();
-    static readonly persistenceIntervalMs: number = 5 * 1000; // 5 seconds
+    static readonly persistenceIntervalMs: number = 3 * 1000; // 3 seconds
 
     static async getOrCreate(documentID: string): Promise<ActiveDocument> {
         // If the document is already active, return it
@@ -87,6 +87,7 @@ class DocumentManager {
     }
 
     static async persist(documentID: string) {
+        logger.debug(`Persisting document ${documentID} to storage.`);
         const doc = this.instances.get(documentID);
         if (doc) {
             const serializedState = FugueStateSerializer.serialize(doc.crdt.state);

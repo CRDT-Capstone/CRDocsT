@@ -1,15 +1,16 @@
 import { Router } from "express";
 import { DocumentController } from "../controllers/documents";
 import { OnlyCollaboratorsAndOwners } from "../middlewares/documentMiddlewares";
+import { makeRouterRoute } from ".";
 
 export const DocumentRouter = Router();
 
-DocumentRouter.post("/create", DocumentController.createDocument);
-DocumentRouter.put("/update/:documentID", DocumentController.updateDocumentName);
+const makeDocumentRoute = makeRouterRoute(DocumentRouter);
+makeDocumentRoute("post", "/create", DocumentController.CreateDocument);
 //TODO: make this a general update endpoint
-DocumentRouter.get("/user", DocumentController.getDocumentsByUserId);
-DocumentRouter.get("/:documentId", DocumentController.getDocumentById);
-DocumentRouter.post("/share", DocumentController.shareDocumentViaEmail);
-DocumentRouter.post("/:documentId/remove-collaborator", DocumentController.removeContributor);
-DocumentRouter.post("/:documentId/update-collaborator-type", DocumentController.updateContributorType);
-
+makeDocumentRoute("put", "/update/:documentID", DocumentController.UpdateDocumentName);
+makeDocumentRoute("get", "/user", DocumentController.GetDocumentsByUserId);
+makeDocumentRoute("get", "/:documentId", DocumentController.GetDocumentById);
+makeDocumentRoute("post", "/share", DocumentController.ShareDocumentViaEmail);
+makeDocumentRoute("post", "/:documentId/remove-collaborator", DocumentController.RemoveContributor);
+makeDocumentRoute("post", "/:documentId/update-collaborator-type", DocumentController.UpdateContributorType);

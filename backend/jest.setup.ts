@@ -1,7 +1,6 @@
-import { MongoMemoryServer } from 'mongodb-memory-server';
-import mongoose from 'mongoose';
-import { beforeAll, afterEach, afterAll } from '@jest/globals';
-
+import { MongoMemoryServer } from "mongodb-memory-server";
+import mongoose from "mongoose";
+import { beforeAll, afterEach, afterAll } from "@jest/globals";
 
 let mongoServer: MongoMemoryServer;
 
@@ -10,7 +9,6 @@ beforeAll(async () => {
     const mongoUri = mongoServer.getUri();
     await mongoose.connect(mongoUri);
 });
-
 
 //after each test we clear the db
 afterEach(async () => {
@@ -25,4 +23,3 @@ afterAll(async () => {
     await mongoose.disconnect();
     await mongoServer.stop();
 });
-

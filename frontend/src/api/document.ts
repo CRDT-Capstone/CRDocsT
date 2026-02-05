@@ -1,37 +1,31 @@
 import { useAuth } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
-import { ContributorType, Document, CursorPaginatedResponse } from "@cr_docs_t/dts";
+import { ContributorType, Document, f, Msg, CursorPaginatedResponse } from "@cr_docs_t/dts";
 
 const ApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 const path = "docs";
 
-export const useDocumentApi = () => {
-    const { getToken } = useAuth();
+type TokenFunc = () => Promise<string | null>;
+
+export const createDocumentApi = (getToken: TokenFunc) => {
     const navigate = useNavigate();
 
     const createDocument = async () => {
         try {
             const token = await getToken();
-            const headers: Record<string, string> = {
-                "Content-Type": "application/json",
-            };
 
-            if (token) {
-                headers.Authorization = `Bearer ${token}`;
-            }
-            const response = await fetch(`${ApiBaseUrl}/${path}/create`, {
-                method: "POST",
-                headers,
+            const response = await f.post<Msg<Document>>(`${ApiBaseUrl}/${path}/create`, undefined, {
+                headers: {
+                    Authorization: `Bearer: ${token}`,
+                },
             });
-            if (!response.ok) {
-                console.log("There was an error creating a document. Response Obj -> ", response);
-                return;
-            }
-            const document = await response.json();
+
+            const document = response.data;
             console.log("The document -> ", document);
-            return document.data._id;
+            return response;
         } catch (err) {
             console.log("There was an error creating a document -> ", err);
+            throw err;
             //TODO: change this to some daisy UI element
         }
     };
@@ -39,25 +33,22 @@ export const useDocumentApi = () => {
     const updateDocumentName = async (newDocName: string, documentID: string) => {
         try {
             const token = await getToken();
-            const headers: Record<string, string> = {
-                "Content-Type": "application/json",
-            };
 
-            if (token) {
-                headers.Authorization = `Bearer ${token}`;
-            }
-            const response = await fetch(`${ApiBaseUrl}/${path}/update/${documentID}`, {
-                method: "PUT",
-                headers,
-                body: JSON.stringify({ name: newDocName }),
-            });
-            if (!response.ok) {
-                console.log("There was an error updating the document name. Response Obj -> ", response);
-                return;
-            }
-            return true;
+            const response = await f.put<Msg, { name: string }>(
+                `${ApiBaseUrl}/${path}/update/${documentID}`,
+                { name: newDocName },
+                {
+                    headers: {
+                        Authorization: `Bearer: ${token}`,
+                    },
+                },
+            );
+            console.log({ response });
+
+            return response;
         } catch (err) {
             console.log("There was an error updating document name -> ", err);
+            throw err;
             //TODO: change this to some daisy UI element
         }
     };
@@ -65,53 +56,39 @@ export const useDocumentApi = () => {
     const getDocumentsByUserId = async (limit: number = 10, nextCursor?: string) => {
         try {
             const token = await getToken();
-            const headers: Record<string, string> = {
-                "Content-Type": "application/json",
-            };
-
-            if (token) {
-                headers.Authorization = `Bearer ${token}`;
-            }
-            const query = (nextCursor) ? `nextCursor=${nextCursor}&limit=${limit}`: `limit=${limit}`;
-            const response = await fetch(`${ApiBaseUrl}/${path}/user?${query}`, {
-                method: "GET",
-                headers,
-            });
-            if (!response.ok) {
-                console.log("There was an error retrieving documents. Response Obj -> ", response);
-                return;
+            const queryParams = new URLSearchParams({ limit: limit.toString() });
+            if (nextCursor) {
+                queryParams.append("nextCursor", nextCursor);
             }
 
+            const response = await f.get<Msg<CursorPaginatedResponse<Document>>>(
+                `${ApiBaseUrl}/${path}/user?${queryParams.toString()}`,
+                {
+                    headers: {
+                        Authorization: `Bearer: ${token}`,
+                    },
+                },
+            );
 
-            const data = await response.json();
-            const responseData: CursorPaginatedResponse<Document> = data["data"];
-            console.log("Documents -> ", responseData);
-            return responseData;
+            return response.data;
         } catch (err) {
             console.log("There was an error retrieving documents-> ", err);
+            throw err;
             //TODO: change this to some daisy UI element
         }
     };
 
     const getDocumentById = async (documentId: string) => {
         const token = await getToken();
-        const headers: Record<string, string> = {
-            "Content-Type": "application/json",
-        };
 
-        if (token) {
-            headers.Authorization = `Bearer ${token}`;
-        }
-        const response = await fetch(`${ApiBaseUrl}/${path}/${documentId}`, {
-            headers,
+        console.log({ documentId });
+        const response = await f.get<Msg<Document>>(`${ApiBaseUrl}/${path}/${documentId}`, {
+            headers: {
+                Authorization: `Bearer: ${token}`,
+            },
         });
-        if (!response.ok) {
-            console.log("There was an error retrieving document. Response Obj -> ", response);
-            return;
-        }
 
-        const data = await response.json();
-        const document: Document = data["data"];
+        const document = response.data;
         console.log("Document -> ", document);
         return document;
     };
@@ -125,56 +102,51 @@ export const useDocumentApi = () => {
 
     const shareDocument = async (documentId: string, email: string, contributorType: ContributorType) => {
         try {
-            //TODO: make this more modular
             const token = await getToken();
-            const headers: Record<string, string> = {
-                "Content-Type": "application/json",
-            };
 
-            if (token) {
-                headers.Authorization = `Bearer ${token}`;
-            }
-            const response = await fetch(`${ApiBaseUrl}/${path}/share`, {
-                method: "POST",
-                headers,
-                body: JSON.stringify({
+            const response = await f.post<
+                Msg,
+                { receiverEmail: string; documentId: string; contributorType: ContributorType }
+            >(
+                `${ApiBaseUrl}/${path}/share`,
+                {
                     receiverEmail: email,
                     documentId,
                     contributorType,
-                }),
-            });
-            if (!response.ok) {
-                console.log("Unable to share document. response Obj-> ", response);
-                return false;
-            }
-            return true;
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer: ${token}`,
+                    },
+                },
+            );
+            return response;
         } catch (err) {
             console.log("Unable to share document -> ", err);
+            throw err;
         }
     };
 
     const removeCollaborator = async (documentId: string, email: string) => {
         try {
             const token = await getToken();
-            const headers: Record<string, string> = {
-                "Content-Type": "application/json",
-            };
 
-            if (token) headers.Authorization = `Bearer ${token}`;
-            const res = await fetch(`${ApiBaseUrl}/${path}/${documentId}/remove-collaborator`, {
-                method: "POST",
-                headers,
-                body: JSON.stringify({
+            const res = await f.post<Msg, { documentId: string; email: string }>(
+                `${ApiBaseUrl}/${path}/${documentId}/remove-collaborator`,
+                {
                     documentId: documentId,
                     email: email,
-                }),
-            });
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer: ${token}`,
+                    },
+                },
+            );
 
-            if (!res.ok) {
-                console.log("Unable to remove collaborator ->", res);
-            }
+            return res;
         } catch (err) {
-            console.log("Unable to remove collaborator -> ", err);
+            console.error("Unable to remove collaborator -> ", err);
             throw err;
         }
     };
@@ -182,24 +154,22 @@ export const useDocumentApi = () => {
     const updateCollaboratorType = async (documentId: string, email: string, collaboratorType: ContributorType) => {
         try {
             const token = await getToken();
-            const headers: Record<string, string> = {
-                "Content-Type": "application/json",
-            };
 
-            if (token) headers.Authorization = `Bearer ${token}`;
-            const res = await fetch(`${ApiBaseUrl}/${path}/${documentId}/update-collaborator-type`, {
-                method: "POST",
-                headers,
-                body: JSON.stringify({
+            const res = await f.post<Msg, { documentId: string; email: string; contributorType: ContributorType }>(
+                `${ApiBaseUrl}/${path}/${documentId}/update-collaborator-type`,
+                {
                     documentId: documentId,
                     email: email,
                     contributorType: collaboratorType,
-                }),
-            });
+                },
+                {
+                    headers: {
+                        Authorization: `Bearer: ${token}`,
+                    },
+                },
+            );
 
-            if (!res.ok) {
-                console.log("Unable to update collaborator type ->", res);
-            }
+            return res;
         } catch (err) {
             console.log("Unable to update collaborator type -> ", err);
             throw err;
