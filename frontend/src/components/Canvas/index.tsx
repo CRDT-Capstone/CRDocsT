@@ -10,6 +10,7 @@ import {
     FugueMessageSerialzier,
     FugueRejectMessage,
     Document,
+    FugueLeaveMessage,
 } from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from "@uiw/react-codemirror";
@@ -105,10 +106,13 @@ const Canvas = () => {
                 console.log("Parsed message -> ", raw);
 
                 // Normalize to array
-                type FugueMessageTypeWithoutReject<P> = Exclude<FugueMessageType<P>, FugueRejectMessage>;
-                const msgs: FugueMessageTypeWithoutReject<StringPosition>[] = Array.isArray(raw)
-                    ? (raw as FugueMessageTypeWithoutReject<string>[])
-                    : ([raw] as FugueMessageTypeWithoutReject<string>[]);
+                type FugueMutationMessageTypes<P> = Exclude<
+                    Exclude<FugueMessageType<P>, FugueRejectMessage>,
+                    FugueLeaveMessage
+                >;
+                const msgs: FugueMutationMessageTypes<StringPosition>[] = Array.isArray(raw)
+                    ? (raw as FugueMutationMessageTypes<string>[])
+                    : ([raw] as FugueMutationMessageTypes<string>[]);
                 const myId = fugue.replicaId();
                 const remoteMsgs = msgs.filter((m) => {
                     // Ignore Join messages or messages with my ID
