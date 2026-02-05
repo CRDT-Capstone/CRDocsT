@@ -68,14 +68,14 @@ wss.on("connection", (ws: WebSocket) => {
         logger.debug("First message", { firstMsg });
         currentDocId = firstMsg.documentID;
         //no email if the user is anonymous so we need an identifier.
-        userIdentity = firstMsg.email || UserService.getIdentifierForAnonymousUser();
+        userIdentity = firstMsg.userIdentity || UserService.getIdentifierForAnonymousUser();
 
         const [hasAccessToDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
             currentDocId,
-            firstMsg.email,
+            firstMsg.userIdentity,
         );
         if (!hasAccessToDocument) {
-            logger.warn("User does not have access to document", { documentID: currentDocId, email: firstMsg.email });
+            logger.warn("User does not have access to document", { documentID: currentDocId, userIdentity: firstMsg.userIdentity });
             const rejectMessage: FugueRejectMessage = { operation: Operation.REJECT };
             const serializedRejectMessage = FugueMessageSerialzier.serialize([rejectMessage]);
             ws.send(serializedRejectMessage);
@@ -108,7 +108,7 @@ wss.on("connection", (ws: WebSocket) => {
                     operation: Operation.JOIN,
                     documentID: currentDocId,
                     state: null,
-                    email: userIdentity
+                    userIdentity
                 };
 
                 const serialisedMsg = FugueMessageSerialzier.serialize<string>([userJoinedNotification]);

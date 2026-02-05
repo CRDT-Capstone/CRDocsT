@@ -85,7 +85,7 @@ const Canvas = () => {
                 operation: Operation.JOIN,
                 documentID: documentID!,
                 state: null,
-                email: user?.primaryEmailAddress?.emailAddress || undefined,
+                userIdentity: user?.primaryEmailAddress?.emailAddress || undefined,
             };
             console.log("joinMsg-> ", joinMsg);
 
@@ -117,7 +117,7 @@ const Canvas = () => {
                 if (receivedPayload.length > 0 && receivedPayload[0].operation === Operation.LEAVE) {
                     console.log('remove message -> ', receivedPayload[0]);
                     console.log('active collaborators -> ', activeCollaborators);
-                    setActiveCollaborators(prev => prev.filter((ac) => ac !== (receivedPayload[0] as FugueLeaveMessage).email));
+                    setActiveCollaborators(prev => [...prev].filter((ac) => ac !== (receivedPayload[0] as FugueLeaveMessage).userIdentity));
                     //email isn't email for anonynous users
                     return;
                 }
@@ -140,7 +140,7 @@ const Canvas = () => {
                         const userEmail = (user) ? user.primaryEmailAddress?.emailAddress : undefined;
                         setActiveCollaborators(prev => [... new Set(prev
                             .concat(msg.collaborators!)
-                            .filter((ac) => userEmail))]);
+                            .filter((ac) => ac!==userEmail))]);
 
                     }
 
@@ -170,7 +170,7 @@ const Canvas = () => {
                     }
                 } else if (remoteMsgs[0].operation === Operation.JOIN && remoteMsgs[0].state === null) {
                     //handle other users joining
-                    setActiveCollaborators(prev => [...prev, remoteMsgs[0].email! ?? "Anonymous User"]);
+                    setActiveCollaborators(prev => [...prev, remoteMsgs[0].userIdentity! ?? "Anonymous User"]);
 
                 }
                 // Handle updates

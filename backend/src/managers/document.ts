@@ -62,7 +62,7 @@ class DocumentManager {
         if (userIdentity) {
             const leaveMessage: FugueLeaveMessage = {
                 operation: Operation.LEAVE,
-                email: userIdentity
+                userIdentity
             };
             await RedisService.removeCollaboratorsByDocumentId(documentID, userIdentity);
 
