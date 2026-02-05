@@ -9,6 +9,7 @@ import {
     FugueMessageType,
     FugueRejectMessage,
     Operation,
+    FugueMutationMessageTypes,
 } from "@cr_docs_t/dts";
 import { DocumentServices } from "../services/DocumentServices";
 import DocumentManager from "../managers/document";
@@ -40,10 +41,6 @@ export class WSService {
         //The join message should have the documentID ... that's pretty much it
         //We can add other things like possibly userId and all that jazz lateer
         //Then for every other message, we'd need to keep the documentID but everything else can be the same
-        type FugueMutationMessageTypes<P> = Exclude<
-            Exclude<FugueMessageType<P>, FugueRejectMessage>,
-            FugueLeaveMessage
-        >;
 
         const raw = FugueMessageSerialzier.deserialize(message);
         const isArray = Array.isArray(raw);

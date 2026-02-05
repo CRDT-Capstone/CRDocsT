@@ -11,6 +11,7 @@ import {
     FugueRejectMessage,
     Document,
     FugueLeaveMessage,
+    FugueMutationMessageTypes,
 } from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from "@uiw/react-codemirror";
@@ -106,10 +107,6 @@ const Canvas = () => {
                 console.log("Parsed message -> ", raw);
 
                 // Normalize to array
-                type FugueMutationMessageTypes<P> = Exclude<
-                    Exclude<FugueMessageType<P>, FugueRejectMessage>,
-                    FugueLeaveMessage
-                >;
                 const msgs: FugueMutationMessageTypes<StringPosition>[] = Array.isArray(raw)
                     ? (raw as FugueMutationMessageTypes<string>[])
                     : ([raw] as FugueMutationMessageTypes<string>[]);
