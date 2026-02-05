@@ -4,22 +4,35 @@ import * as dotenv from "dotenv";
 import cors from "cors";
 import WebSocket, { WebSocketServer } from "ws";
 import mongoose from "mongoose";
-import { ContributorType, FugueJoinMessage, FugueMessage, FugueMessageSerialzier, FugueMessageType, FugueRejectMessage, Operation } from "@cr_docs_t/dts";
+import {
+    ContributorType,
+    FugueJoinMessage,
+    FugueLeaveMessage,
+    FugueMessage,
+    FugueMessageSerialzier,
+    FugueMessageType,
+    FugueRejectMessage,
+    Operation,
+} from "@cr_docs_t/dts";
 import DocumentManager from "./managers/document";
 import { DocumentRouter } from "./routes/documents";
 import { clerkMiddleware } from "@clerk/express";
 import { DocumentServices } from "./services/DocumentServices";
+import { httpLogger, logger } from "./logging";
+import { RedisService } from "./services/RedisService";
+import { UserService } from "./services/UserService";
 
 dotenv.config();
 const mongoUri = process.env.MONGO_URI! as string;
 
 mongoose
     .connect(mongoUri)
-    .then(() => console.log("Successfully connected to mongo db!"))
-    .catch((e) => console.log("error connecting to the db -> ", e));
+    .then(() => logger.info("Successfully connected to mongo db!"))
+    .catch((e) => logger.info("error connecting to the db ", { error: e }));
 
 const app = express();
 app.use(express.json());
+app.use(httpLogger);
 
 const server = http.createServer(app);
 const port = process.env.PORT || 5001;
@@ -28,9 +41,11 @@ const wss = new WebSocketServer({ server });
 DocumentManager.startPersistenceInterval();
 
 wss.on("connection", (ws: WebSocket) => {
-    console.log("New Web Socket Connection!");
+    logger.info("New Web Socket Connection!");
 
     let currentDocId: string | undefined = undefined;
+    let userIdentity: string | undefined = undefined;
+    //userIdentity is the users email when the user is non anonymous and a random identifier for anonymous users
     // let documentUsers: WebSocket[];
 
     ws.on("message", async (message: Uint8Array<ArrayBuffer>) => {
@@ -39,24 +54,30 @@ wss.on("connection", (ws: WebSocket) => {
         //The join message should have the documentID ... that's pretty much it
         //We can add other things like possibly userId and all that jazz lateer
         //Then for every other message, we'd need to keep the documentID but everything else can be the same
-        type FugueMessageTypeWithoutReject<P> = Exclude<FugueMessageType<P>, FugueRejectMessage>;
+        type FugueJoinMessageType<P> = Exclude<FugueMessageType<P>, FugueRejectMessage | FugueLeaveMessage>;
 
         const raw = FugueMessageSerialzier.deserialize(message);
         const isArray = Array.isArray(raw);
-        const msgs: FugueMessageTypeWithoutReject<string>[] = isArray
-            ? (raw as FugueMessageTypeWithoutReject<string>[])
-            : ([raw] as FugueMessageTypeWithoutReject<string>[]);
+        const msgs: FugueJoinMessageType<string>[] = isArray
+            ? (raw as FugueJoinMessageType<string>[])
+            : ([raw] as FugueJoinMessageType<string>[]);
 
         if (msgs.length === 0) return;
 
         const firstMsg = msgs[0];
-        console.log('First message -> ', firstMsg);
+        logger.debug("First message", { firstMsg });
         currentDocId = firstMsg.documentID;
+        //no email if the user is anonymous so we need an identifier.
+        userIdentity = firstMsg.userIdentity || UserService.getIdentifierForAnonymousUser();
 
-        const [hasAccessToDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(currentDocId, firstMsg.email);
+        const [hasAccessToDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
+            currentDocId,
+            firstMsg.userIdentity,
+        );
         if (!hasAccessToDocument) {
+            logger.warn("User does not have access to document", { documentID: currentDocId, userIdentity: firstMsg.userIdentity });
             const rejectMessage: FugueRejectMessage = { operation: Operation.REJECT };
-            const serializedRejectMessage = FugueMessageSerialzier.serialize([rejectMessage])
+            const serializedRejectMessage = FugueMessageSerialzier.serialize([rejectMessage]);
             ws.send(serializedRejectMessage);
             ws.close(1000, "User does not have access");
             // 1000 -> normal expected socket connection closure
@@ -67,27 +88,45 @@ wss.on("connection", (ws: WebSocket) => {
         doc.sockets.add(ws);
 
         if (firstMsg.operation === Operation.JOIN) {
-            console.log(`Join operation for doc id ${currentDocId}`);
+            logger.info(`Join operation for doc id ${currentDocId}`);
             try {
+
+                await RedisService.AddToCollaboratorsByDocumentId(currentDocId, userIdentity);
+                const collaborators = await RedisService.getCollaboratorsByDocumentId(currentDocId);
                 const joinMsg: FugueJoinMessage<string> = {
                     operation: Operation.JOIN,
                     documentID: currentDocId,
                     state: doc.crdt.state,
+                    collaborators
                 };
 
                 const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
-                console.log("Serialized Join Message -> ", serializedJoinMessage);
-                console.log("Serialized Join Message size -> ", serializedJoinMessage.byteLength);
+                logger.info("Serialized Join Message size", { size: serializedJoinMessage.byteLength });
                 ws.send(serializedJoinMessage); //send the state to the joining user
+
+                const userJoinedNotification: FugueJoinMessage<string> = {
+                    operation: Operation.JOIN,
+                    documentID: currentDocId,
+                    state: null,
+                    userIdentity
+                };
+
+                const serialisedMsg = FugueMessageSerialzier.serialize<string>([userJoinedNotification]);
+
+                doc.sockets.forEach((sock) => {
+                    if (sock !== ws && sock.readyState === WebSocket.OPEN) sock.send(serialisedMsg);
+                });
+
+
             } catch (err: any) {
-                console.log("Error handling join operation -> ", err);
+                logger.error("Error handling join operation -> ", err);
             }
             return;
         }
 
         try {
             const ms = msgs as FugueMessage<string>[];
-            console.log(`Received ${msgs.length} operations for doc id ${currentDocId} from ${ms[0].replicaId}`);
+            logger.info(`Received ${msgs.length} operations for doc id ${currentDocId} from ${ms[0].replicaId}`);
 
             if (accessType === ContributorType.EDITOR) {
                 //Ideally the editor would be disabled on the frontend but you can never be too sure.
@@ -99,22 +138,21 @@ wss.on("connection", (ws: WebSocket) => {
                     if (sock !== ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
                 });
             }
-
         } catch (err: any) {
-            console.log("Error handling delete or insert operation -> ", err);
+            logger.error("Error handling delete or insert operation", { err });
         }
     });
 
-    ws.on("close", () => {
+    ws.on("close", async () => {
         //remove the socket from the array
         // const index = documentUsers.indexOf(ws);
         // if (index !== -1) documentUsers.splice(index, 1);
         if (currentDocId) {
-            DocumentManager.removeUser(currentDocId, ws);
+            await DocumentManager.removeUser(currentDocId, ws, userIdentity);
             currentDocId = undefined;
         }
 
-        console.log("Connection closed");
+        logger.info("Connection closed");
     });
 });
 
@@ -139,5 +177,5 @@ app.use(clerkMiddleware()); //by default allows anonymous and authenticated user
 app.use("/docs", DocumentRouter);
 
 server.listen(port, () => {
-    console.log(`Listening on port ${port}. Let's go!`);
+    logger.info(`Listening on port ${port}. Let's go!`);
 });

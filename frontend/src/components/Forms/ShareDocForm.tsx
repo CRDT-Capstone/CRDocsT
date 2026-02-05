@@ -1,7 +1,6 @@
-import { ContributorType } from "@cr_docs_t/dts";
+import { ContributorType, Document } from "@cr_docs_t/dts";
 import { Dispatch, SetStateAction, useState } from "react";
 import { useDocumentApi } from "../../api/document";
-import { Document } from "../../types";
 
 interface ShareDocFormProps {
     documentId: string;

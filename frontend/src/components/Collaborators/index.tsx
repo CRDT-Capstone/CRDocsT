@@ -1,15 +1,14 @@
 import { useState, useRef } from "react";
-import { Contributor, Document } from "../../types";
 import { useDocumentApi } from "../../api/document";
-import { ContributorType } from "@cr_docs_t/dts";
+import { ContributorType, Contributor, Document } from "@cr_docs_t/dts";
 
 interface CollaboratorsProps {
     documentId: string;
-    document: Document;
+    document?: Document;
 }
 
 const Collaborators = ({ documentId, document }: CollaboratorsProps) => {
-    const [localCollaborators, setLocalCollaborators] = useState<Contributor[]>(document.contributors);
+    const [localCollaborators, setLocalCollaborators] = useState<Contributor[]>(document?.contributors || []);
     const { removeCollaborator, updateCollaboratorType, getDocumentById } = useDocumentApi();
     const modalRef = useRef<HTMLDialogElement>(null);
 

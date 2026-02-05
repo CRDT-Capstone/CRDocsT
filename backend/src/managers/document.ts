@@ -1,9 +1,8 @@
-import { FugueList, StringTotalOrder, FugueStateSerializer } from "@cr_docs_t/dts";
+import { FugueList, StringTotalOrder, FugueStateSerializer, FugueLeaveMessage, FugueMessageSerialzier, Operation } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import WebSocket from "ws";
 import crypto from "crypto";
-import { encode, decode } from "@msgpack/msgpack";
-import { compress, decompress } from "lz4js";
+import { logger } from "../logging";
 
 interface ActiveDocument {
     crdt: FugueList<string>;
@@ -21,11 +20,11 @@ class DocumentManager {
         // If the document is already active, return it
         let doc = this.instances.get(documentID);
         if (doc) {
-            console.log(`Found existing ActiveDocument for ID ${documentID}.`);
+            logger.info(`Found existing ActiveDocument for ID ${documentID}.`);
             if (doc.cleanupTimeout) {
                 clearTimeout(doc.cleanupTimeout);
                 doc.cleanupTimeout = undefined;
-                console.log(`Cancelled cleanup for document ${documentID} due to new activity.`);
+                logger.info(`Cancelled cleanup for document ${documentID} due to new activity.`);
             }
             doc.lastActivity = Date.now();
             return doc;
@@ -33,7 +32,7 @@ class DocumentManager {
 
         // Otherwise get from DB or create a new one
         const existingState = await RedisService.getCRDTStateByDocumentID(documentID);
-        console.log(
+        logger.info(
             `Creating new ActiveDocument for ID ${documentID}. Existing state: ${existingState ? "found" : "not found"}`,
         );
         // The central CRDT is a netural observer that just holds the definitive state of a document
@@ -55,14 +54,28 @@ class DocumentManager {
         return newDoc;
     }
 
-    static removeUser(documentID: string, ws: WebSocket) {
+    static async removeUser(documentID: string, ws: WebSocket, userIdentity?: string) {
         const doc = this.instances.get(documentID);
         if (!doc) return;
 
         doc.sockets.delete(ws);
+        if (userIdentity) {
+            const leaveMessage: FugueLeaveMessage = {
+                operation: Operation.LEAVE,
+                userIdentity
+            };
+            await RedisService.removeCollaboratorsByDocumentId(documentID, userIdentity);
+
+            doc.sockets.forEach((sock) => {
+                if (sock.readyState === WebSocket.OPEN) sock.send(FugueMessageSerialzier.serialize([leaveMessage]));
+            });
+        } else {
+            logger.error(`User without email exiting file with documentId: ${documentID}`);
+        }
+
         // If no one is left, start the countdown to offload from memory
         if (doc.sockets.size === 0) {
-            console.log(`Document ${documentID} is empty. Scheduling cleanup...`);
+            logger.info(`Document ${documentID} is empty. Scheduling cleanup...`);
 
             doc.cleanupTimeout = setTimeout(
                 async () => {
@@ -96,7 +109,7 @@ class DocumentManager {
         if (doc) {
             await this.persist(documentID);
             this.instances.delete(documentID);
-            console.log(`Cleaned up document ${documentID} from memory.`);
+            logger.info(`Cleaned up document ${documentID} from memory.`);
         }
     }
 

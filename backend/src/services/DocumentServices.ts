@@ -1,7 +1,9 @@
-import { ContributorType } from "@cr_docs_t/dts";
+import { ContributorType, Document, CursorPaginatedResponse } from "@cr_docs_t/dts";
 import { DocumentModel } from "../models/Document.schema";
-import { Contributor, Document } from "../types/types";
 import { UserService } from "./UserService";
+import { logger } from "../logging";
+import { ObjectId } from "mongodb";
+import { RootFilterQuery } from "mongoose";
 
 const createDocument = async (userId: string | null) => {
     const document = await DocumentModel.create({ ownerId: userId });
@@ -17,9 +19,32 @@ const updateDocumentById = async (documentId: string, updateObj: Partial<Documen
     await DocumentModel.findOneAndUpdate({ _id: documentId }, updateObj);
 };
 
-const getDocumentsByUserId = async (userId: string) => {
-    const documents = await DocumentModel.find({ ownerId: userId });
-    return documents;
+const getDocumentsByUserId = async (userId: string, limit: number = 10, currentCursor?: string) : Promise<CursorPaginatedResponse<Document>> => {
+    //current cursor is the id of the last document from a previous pagination...
+
+    const userEmail = (await UserService.getUserEmailById(userId)) || "";
+    const query: RootFilterQuery<Document> = {
+        $or: [
+            { ownerId: userId },
+            { "contributors.email": userEmail }
+        ]
+    };
+
+    if (currentCursor) {
+        query._id = { $lt: new ObjectId(currentCursor) }
+    }
+
+
+    const documents = await DocumentModel.find(query).sort({ _id: -1 }).limit(limit + 1);
+    const hasNext = documents.length > limit;
+    if (hasNext) documents.pop();
+    const nextCursor = documents[limit- 1]?._id.toString() || undefined;
+
+    return {
+        data: documents,
+        nextCursor,
+        hasNext
+    };
 };
 
 const getDocumentMetadataById = async (documentId: string) => {
@@ -79,7 +104,7 @@ const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string)
     }
 
     const user = await UserService.getUserByEmail(email);
-    console.log("The user -> ", user);
+    logger.info("User info", { user });
 
     const isDocumentOwnerOrCollaborator =
         (user !== undefined && document.ownerId === user.id) ||
@@ -95,7 +120,7 @@ const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string)
         contributorType = contributor!.contributorType;
     }
 
-    console.log([isDocumentOwnerOrCollaborator, contributorType]);
+    logger.info({ isDocumentOwnerOrCollaborator, contributorType });
     return [isDocumentOwnerOrCollaborator, contributorType];
 };
 
@@ -105,7 +130,7 @@ const removeContributor = async (documentId: string, email: string) => {
         { $pull: { contributors: { email } } },
     );
 
-    console.log("remove contributor -> ", result.matchedCount);
+    logger.info("Remove contributor result", { result });
     if (result.matchedCount === 0)
         throw new Error("Document does not exist, user is owner or user was never a contributor");
 };
@@ -141,4 +166,3 @@ export const DocumentServices = {
     changeContributorType,
     isDocumentOwner,
 };
-

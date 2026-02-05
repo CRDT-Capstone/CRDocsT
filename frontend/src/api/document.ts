@@ -1,8 +1,6 @@
 import { useAuth } from "@clerk/clerk-react";
-import { Document } from "../types";
 import { useNavigate } from "react-router-dom";
-import { ContributorType } from "@cr_docs_t/dts";
-import { json } from "stream/consumers";
+import { ContributorType, Document, CursorPaginatedResponse } from "@cr_docs_t/dts";
 
 const ApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 const path = "docs";
@@ -64,7 +62,7 @@ export const useDocumentApi = () => {
         }
     };
 
-    const getDocumentsByUserId = async () => {
+    const getDocumentsByUserId = async (limit: number = 10, nextCursor?: string) => {
         try {
             const token = await getToken();
             const headers: Record<string, string> = {
@@ -74,7 +72,8 @@ export const useDocumentApi = () => {
             if (token) {
                 headers.Authorization = `Bearer ${token}`;
             }
-            const response = await fetch(`${ApiBaseUrl}/${path}/user`, {
+            const query = (nextCursor) ? `nextCursor=${nextCursor}&limit=${limit}`: `limit=${limit}`;
+            const response = await fetch(`${ApiBaseUrl}/${path}/user?${query}`, {
                 method: "GET",
                 headers,
             });
@@ -83,10 +82,11 @@ export const useDocumentApi = () => {
                 return;
             }
 
+
             const data = await response.json();
-            const documents: Document[] = data["data"];
-            console.log("Documents -> ", documents);
-            return documents;
+            const responseData: CursorPaginatedResponse<Document> = data["data"];
+            console.log("Documents -> ", responseData);
+            return responseData;
         } catch (err) {
             console.log("There was an error retrieving documents-> ", err);
             //TODO: change this to some daisy UI element

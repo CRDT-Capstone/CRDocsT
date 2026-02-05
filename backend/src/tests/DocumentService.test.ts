@@ -5,14 +5,17 @@ jest.mock('../services/UserService', () => {
 import { ContributorType } from "@cr_docs_t/dts";
 import { DocumentModel } from "../models/Document.schema";
 import { DocumentServices } from "../services/DocumentServices";
-import { Document } from "../types/types";
+import { Document } from "@cr_docs_t/dts";
 import { OWNER_EMAIL } from "./mocks/userService";
 import { describe } from "node:test";
 
 const documentWithNoOwner: Document = {
     name: "anonymous",
     serializedCRDTState: "",
-    contributors: []
+    contributors: [{
+        email: OWNER_EMAIL,
+        contributorType: ContributorType.VIEWER
+    }]
 }
 
 const documentWithAnOwner: Document = {
@@ -179,6 +182,49 @@ describe("Unit testing the document service functions", () => {
                 expect(canAccessDocument).toEqual(true);
                 expect(accessType).toEqual((contributorType === ContributorType.EDITOR) ? ContributorType.VIEWER : ContributorType.EDITOR);
             });
+    });
+
+    describe("Test that cursor pagination actually works", () => {
+
+        beforeEach(async () => {
+            const documents = [documentWithAnOwner, documentWithNoOwner, documentWithAnOwner, documentWithNoOwner,
+                documentWithAnOwner, documentWithNoOwner, documentWithAnOwner, documentWithNoOwner,
+                documentWithAnOwner, documentWithNoOwner
+            ];
+
+            await DocumentModel.create(documents);
+        })
+
+        it("tests that getting the first page works", async()=>{
+            const firstPage = await DocumentServices.getDocumentsByUserId("user_1", 2);
+
+            expect(firstPage).toBeDefined();
+            expect(firstPage.documents).toHaveLength(2);
+            expect(firstPage.nextCursor).toBeDefined();
+            expect(firstPage.hasNext).toEqual(true);
+        });
+
+        it("tests that getting the next set of pages from the next cursor works", async ()=>{
+            const firstPage = await DocumentServices.getDocumentsByUserId("user_1", 2);
+            const secondPage = await DocumentServices.getDocumentsByUserId("user_1", 2, firstPage.nextCursor);
+
+            expect(secondPage).toBeDefined();
+            expect(secondPage.documents).toHaveLength(2);
+            expect(secondPage.hasNext).toEqual(true);
+            expect(secondPage.nextCursor).toBeDefined();
+
+            expect(secondPage.documents).not.toEqual(firstPage.documents);
+        });
+
+        it("tests that the last page can be gotten with the nextCursor being null", async()=>{
+            const firstAndLastPage = await DocumentServices.getDocumentsByUserId("user_1", 11);
+
+
+            expect(firstAndLastPage).toBeDefined();
+            expect(firstAndLastPage.documents).toHaveLength(10);
+            expect(firstAndLastPage.hasNext).toBe(false);
+            expect(firstAndLastPage.nextCursor).toBeUndefined();
+        })
     });
 
 

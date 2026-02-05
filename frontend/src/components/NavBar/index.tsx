@@ -3,12 +3,12 @@ import { useNavigate } from "react-router-dom";
 import { useSession, useUser } from "@clerk/clerk-react";
 import { useDocumentApi } from "../../api/document";
 import { ShareDocForm } from "../Forms/ShareDocForm";
-import { Document } from "../../types";
+import { Document } from "@cr_docs_t/dts";
 import Collaborators from "../Collaborators";
 
 interface NavBarProps {
     documentID: string;
-    document: Document;
+    document?: Document;
     updateDocument: Dispatch<SetStateAction<Document | undefined>>;
 }
 
@@ -17,7 +17,7 @@ export const NavBar = ({ documentID, document, updateDocument }: NavBarProps) =>
     const userData = useUser();
 
     const [isEditing, setIsEditing] = useState(false);
-    const [title, setTitle] = useState(document.name);
+    const [title, setTitle] = useState(document?.name || "New Document");
 
     const { updateDocumentName } = useDocumentApi();
 
