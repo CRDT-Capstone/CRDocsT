@@ -13,16 +13,21 @@ import {
 } from "@cr_docs_t/dts";
 import { DocumentServices } from "../services/DocumentServices";
 import DocumentManager from "../managers/document";
+import { UserService } from "./UserService";
+import { RedisService } from "./RedisService";
 
 export class WSService {
     private ws: WebSocket;
     private currentDocId: string | undefined;
     private email: string | undefined;
+    // userIdentity is the users email when the user is non anonymous and a random identifier for anonymous users
+    private userIdentity: string | undefined;
 
     constructor(ws: WebSocket) {
         this.ws = ws;
         this.currentDocId = undefined;
         this.email = undefined;
+        this.userIdentity = undefined;
 
         logger.info("New WebSocket connection");
         this.initializeListeners();
@@ -53,15 +58,16 @@ export class WSService {
         const firstMsg = msgs[0];
         logger.debug("First message", { firstMsg });
         this.currentDocId = firstMsg.documentID;
+        this.userIdentity = firstMsg.userIdentity || UserService.getIdentifierForAnonymousUser();
 
         const [hasAccessToDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
             this.currentDocId,
-            firstMsg.email,
+            firstMsg.userIdentity,
         );
         if (!hasAccessToDocument) {
             logger.warn("User does not have access to document", {
                 documentID: this.currentDocId,
-                email: firstMsg.email,
+                userIdentity: firstMsg.userIdentity,
             });
             const rejectMessage: FugueRejectMessage = { operation: Operation.REJECT };
             const serializedRejectMessage = FugueMessageSerialzier.serialize([rejectMessage]);
@@ -77,15 +83,31 @@ export class WSService {
         if (firstMsg.operation === Operation.JOIN) {
             logger.info(`Join operation for doc id ${this.currentDocId}`);
             try {
+                await RedisService.AddToCollaboratorsByDocumentId(this.currentDocId, this.userIdentity!);
+                const collaborators = await RedisService.getCollaboratorsByDocumentId(this.currentDocId);
                 const joinMsg: FugueJoinMessage<string> = {
                     operation: Operation.JOIN,
                     documentID: this.currentDocId,
                     state: doc.crdt.state,
+                    collaborators,
                 };
 
                 const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
                 logger.info("Serialized Join Message size", { size: serializedJoinMessage.byteLength });
                 this.ws.send(serializedJoinMessage); //send the state to the joining user
+
+                const userJoinedNotification: FugueJoinMessage<string> = {
+                    operation: Operation.JOIN,
+                    documentID: this.currentDocId,
+                    state: null,
+                    userIdentity: this.userIdentity,
+                };
+
+                const serialisedMsg = FugueMessageSerialzier.serialize<string>([userJoinedNotification]);
+
+                doc.sockets.forEach((sock) => {
+                    if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(serialisedMsg);
+                });
             } catch (err: any) {
                 logger.error("Error handling join operation -> ", err);
             }
@@ -111,9 +133,9 @@ export class WSService {
         }
     }
 
-    handleClose() {
+    async handleClose() {
         if (this.currentDocId) {
-            DocumentManager.removeUser(this.currentDocId, this.ws);
+            await DocumentManager.removeUser(this.currentDocId, this.ws);
             this.currentDocId = undefined;
         }
 

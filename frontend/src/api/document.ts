@@ -56,19 +56,21 @@ export const createDocumentApi = (getToken: TokenFunc) => {
     const getDocumentsByUserId = async (limit: number = 10, nextCursor?: string) => {
         try {
             const token = await getToken();
-            const query = (nextCursor) ? `nextCursor=${nextCursor}&limit=${limit}`: `limit=${limit}`;
+            const queryParams = new URLSearchParams({ limit: limit.toString() });
+            if (nextCursor) {
+                queryParams.append("nextCursor", nextCursor);
+            }
 
-
-            const response = await f.get<Msg<Document[]>>(`${ApiBaseUrl}/${path}/user?${query}`, {
-                headers: {
-                    Authorization: `Bearer: ${token}`,
+            const response = await f.get<Msg<CursorPaginatedResponse<Document>>>(
+                `${ApiBaseUrl}/${path}/user?${queryParams.toString()}`,
+                {
+                    headers: {
+                        Authorization: `Bearer: ${token}`,
+                    },
                 },
-            });
+            );
 
-            const data = response.data;
-            const documents = data;
-            console.log("Documents -> ", documents);
-            return documents;
+            return response.data;
         } catch (err) {
             console.log("There was an error retrieving documents-> ", err);
             throw err;

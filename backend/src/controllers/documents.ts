@@ -87,7 +87,12 @@ const getDocumentsByUserId = async (req: Request, res: Response) => {
     }
     try {
         const { nextCursor, limit } = req.query;
-        const data = await DocumentServices.getDocumentsByUserId(userId!, Number(limit) ?? undefined, (nextCursor) ? nextCursor.toString() : undefined);
+        const data = await DocumentServices.getDocumentsByUserId(
+            userId!,
+            Number(limit) ?? undefined,
+            nextCursor ? nextCursor.toString() : undefined,
+        );
+        logger.debug("data", { data });
         return sendOk(res, {
             message: "Successfully retrieved documents",
             data: data,

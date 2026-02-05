@@ -15,8 +15,8 @@ importers:
         specifier: ^6.2.4
         version: 6.2.4
       '@cr_docs_t/dts':
-        specifier: ^0.20.1
-        version: 0.20.1
+        specifier: ^0.21.0
+        version: 0.21.0
       '@lexical/react':
         specifier: ^0.38.2
         version: 0.38.2(react-dom@19.2.0(react@19.2.0))(react@19.2.0)(yjs@13.6.27)
@@ -264,8 +264,8 @@ packages:
   '@codemirror/view@6.38.8':
     resolution: {integrity: sha512-XcE9fcnkHCbWkjeKyi0lllwXmBLtyYb5dt89dJyx23I9+LSh5vZDIuk7OLG4VM1lgrXZQcY6cxyZyk5WVPRv/A==}
 
-  '@cr_docs_t/dts@0.20.1':
-    resolution: {integrity: sha512-sLIDM710rrctxZqnBg51gY3rWuf2P9fCn0RZkW1AzW1gEyVFpQObrRdOUs+DyJJVB2i5AQDLugxeFsDAallbYQ==}
+  '@cr_docs_t/dts@0.21.0':
+    resolution: {integrity: sha512-HM+vfNZ/2fkufncEQTroYSJr8yjT5QfbeK/T2D0IFlCI27IxrObBkVHIWvQyLM0Js2OreiCoanuFoVL8xEtmYQ==}
 
   '@esbuild/aix-ppc64@0.25.0':
     resolution: {integrity: sha512-O7vun9Sf8DFjH2UtqK8Ku3LkquL9SZL8OLY1T5NZkA34+wG3OQF7cl4Ql8vdNzM6fzBbYfLaiRLIOZ+2FOCgBQ==}
@@ -2348,7 +2348,7 @@ snapshots:
       style-mod: 4.1.3
       w3c-keyname: 2.2.8
 
-  '@cr_docs_t/dts@0.20.1':
+  '@cr_docs_t/dts@0.21.0':
     dependencies:
       '@msgpack/msgpack': 3.1.3
       lz4js: 0.2.0

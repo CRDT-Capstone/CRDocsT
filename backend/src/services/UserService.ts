@@ -28,8 +28,10 @@ const getUserByEmail = async (email: string) => {
 const getIdentifierForAnonymousUser = () => {
     const randomString = crypto.randomBytes(10).toString("hex");
     return `AnonymousUser-${randomString}`;
-}
+};
 
 export const UserService = {
     getUserEmailById,
     getUserByEmail,
+    getIdentifierForAnonymousUser,
+};

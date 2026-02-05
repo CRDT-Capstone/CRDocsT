@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/clerk-react";
 import { ContributorType, APIError } from "@cr_docs_t/dts";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createDocumentApi } from "../api/document";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import { toast } from "sonner";
 export const documentKeys = {
     all: ["documents"] as const,
     lists: () => [...documentKeys.all, "list"] as const,
+    listsPaginated: (page: string) => [documentKeys.all, "list", page] as const,
     detail: (id: string) => [...documentKeys.all, "detail", id] as const,
 };
 
@@ -35,18 +36,14 @@ export const useDocuments = () => {
         onError: handleError,
     });
 
-    const userDocumentsQuery = useQuery({
+    const userDocumentsQuery = useInfiniteQuery({
         queryKey: documentKeys.lists(),
-        queryFn: () => api.getDocumentsByUserId(),
-        select: (docs) =>
-            docs.map((doc) => {
-                return {
-                    _id: doc._id,
-                    name: doc.name,
-                    createdAt: doc.createdAt,
-                    updatedAt: doc.updatedAt,
-                };
-            }),
+        queryFn: ({ pageParam }) => api.getDocumentsByUserId(10, pageParam === null ? undefined : pageParam),
+        initialPageParam: null as string | null,
+        placeholderData: keepPreviousData,
+        getNextPageParam: (lastPage) => {
+            return lastPage.nextCursor ?? null;
+        },
     });
 
     const createDocumentMutation = useMutation({

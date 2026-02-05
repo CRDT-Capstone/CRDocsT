@@ -60,8 +60,8 @@ const Canvas = () => {
     useEffect(() => {
         if (email && wsClient.current) {
             console.log({ email: email });
-            fugue.email = email;
-            wsClient.current.setEmail(email);
+            fugue.userIdentity = email;
+            wsClient.current.setUserIdentity(email);
         }
     }, [email, wsClient.current]);
 
@@ -82,7 +82,7 @@ const Canvas = () => {
         if (!socketRef.current || !documentID) return;
         fugue.ws = socketRef.current;
 
-        if (!wsClient.current || (wsClient.current && wsClient.current.getEmail() !== email))
+        if (!wsClient.current || (wsClient.current && wsClient.current.getUserIdenity() !== email))
             wsClient.current = new WSClient(
                 socketRef.current,
                 fugue,
@@ -182,17 +182,21 @@ const Canvas = () => {
                         className="text-black rounded-lg border-2 shadow-sm"
                     />
                 </div>
-                <div className="w-full flex justify-end">
+                <div className="flex justify-end w-full">
                     <div className="dropdown dropdown-top dropdown-center">
-                        <div tabIndex={0} role="button" className="btn m-4">Active Collaborators {`(${activeCollaborators.length})`}</div>
-                        <ul tabIndex={-1} className="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+                        <div tabIndex={0} role="button" className="m-4 btn">
+                            Active Collaborators {`(${activeCollaborators.length})`}
+                        </div>
+                        <ul
+                            tabIndex={-1}
+                            className="p-2 w-52 shadow-sm dropdown-content menu bg-base-100 rounded-box z-1"
+                        >
                             {activeCollaborators.map((ac, index) => (
                                 <li key={index}>{ac}</li>
                             ))}
                         </ul>
                     </div>
                 </div>
-
             </div>
         </div>
     );

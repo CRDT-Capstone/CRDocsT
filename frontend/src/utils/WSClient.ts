@@ -1,5 +1,6 @@
 import {
     FugueJoinMessage,
+    FugueLeaveMessage,
     FugueList,
     FugueMessage,
     FugueMessageSerialzier,
@@ -9,13 +10,14 @@ import {
 } from "@cr_docs_t/dts";
 import { AnnotationType, EditorSelection, EditorView } from "@uiw/react-codemirror";
 import { RefObject } from "react";
+import mainStore from "../stores";
 
 export class WSClient {
     private ws: WebSocket;
     private viewRef: RefObject<EditorView | undefined>;
     private previousTextRef: RefObject<string>;
     private documentID: string;
-    private email?: string = undefined;
+    private userIdentity?: string = undefined;
     private fugue: FugueList<string>;
     private remoteUpdate: AnnotationType<boolean>;
 
@@ -26,7 +28,7 @@ export class WSClient {
         remoteUpdate: AnnotationType<boolean>,
         viewRef: RefObject<EditorView | undefined>,
         previousTextRef: RefObject<string>,
-        email: string | undefined = undefined,
+        userIdentity: string | undefined = undefined,
     ) {
         this.ws = ws;
         this.viewRef = viewRef;
@@ -34,7 +36,7 @@ export class WSClient {
         this.fugue = fugue;
         this.remoteUpdate = remoteUpdate;
         this.previousTextRef = previousTextRef;
-        if (email) this.email = email;
+        if (userIdentity) this.userIdentity = userIdentity;
 
         this.handleOpen = this.handleOpen.bind(this);
         this.handleMessage = this.handleMessage.bind(this);
@@ -53,7 +55,7 @@ export class WSClient {
             operation: Operation.JOIN,
             documentID: this.documentID,
             state: null,
-            email: this.email || undefined,
+            userIdentity: this.userIdentity,
         };
         console.log("joinMsg -> ", joinMsg);
 
@@ -65,6 +67,8 @@ export class WSClient {
 
     async handleMessage(ev: MessageEvent) {
         console.log("Received message:", ev.data);
+        const activeCollaborators = () => mainStore.getState().activeCollaborators;
+        const setActiveCollaborators = mainStore.getState().setActiveCollaborators;
 
         try {
             const blob = ev.data as Blob;
@@ -75,21 +79,44 @@ export class WSClient {
             console.log("Parsed message -> ", raw);
 
             // Normalize to array
-            const msgs: FugueMutationMessageTypes<StringPosition>[] = Array.isArray(raw)
-                ? (raw as FugueMutationMessageTypes<string>[])
-                : ([raw] as FugueMutationMessageTypes<string>[]);
+            type FugueMsgType = FugueMutationMessageTypes<StringPosition> | FugueLeaveMessage;
+            const msgs: FugueMsgType[] = Array.isArray(raw) ? (raw as FugueMsgType[]) : ([raw] as FugueMsgType[]);
+
+            if (msgs.length > 0 && msgs[0].operation === Operation.LEAVE) {
+                const leavingUser = (msgs[0] as FugueLeaveMessage).userIdentity;
+                console.log("remove message -> ", msgs[0]);
+                console.log("active collaborators -> ", activeCollaborators);
+                const newActiveCollaborators = activeCollaborators().filter((c) => c !== leavingUser);
+                console.log("new active collaborators -> ", newActiveCollaborators);
+                setActiveCollaborators(newActiveCollaborators);
+                //email isn't email for anonynous users
+                return;
+            }
+
             const myId = this.fugue.replicaId();
-            const remoteMsgs = msgs.filter((m) => {
+            const remoteMsgs = (msgs as FugueMutationMessageTypes<StringPosition>[]).filter((m) => {
                 // Ignore Join messages or messages with my ID
                 if ("state" in m) return true; // Handle state separately
                 return m.replicaId !== myId;
             });
 
             if (remoteMsgs.length === 0) return;
+            const firstMsg = remoteMsgs[0];
 
             // Handle Join message (state sync)
-            if (remoteMsgs[0].operation === Operation.JOIN && remoteMsgs[0].state) {
+            if (firstMsg.operation === Operation.JOIN && firstMsg.state) {
                 const msg = remoteMsgs[0] as FugueJoinMessage<StringPosition>;
+                if (msg.collaborators) {
+                    const newActiveCollaborators = [
+                        ...new Set(
+                            activeCollaborators()
+                                .concat(msg.collaborators!)
+                                .filter((c) => c !== this.userIdentity),
+                        ),
+                    ];
+                    setActiveCollaborators(newActiveCollaborators);
+                }
+
                 console.log({ msg });
                 this.fugue.state = msg.state!;
                 const newText = this.fugue.state.length > 0 ? this.fugue.observe() : "";
@@ -115,9 +142,13 @@ export class WSClient {
                     this.previousTextRef.current = newText;
                 }
             }
+            // Handle other users joining
+            else if (firstMsg.operation === Operation.JOIN && firstMsg.state !== null) {
+                const newActiveCollaborators = [...activeCollaborators(), firstMsg.userIdentity ?? "Anon"];
+                setActiveCollaborators(newActiveCollaborators);
+            }
             // Handle updates
             else {
-                const firstMsg = remoteMsgs[0];
                 let fromIdx: number | undefined = undefined;
                 const msgs = remoteMsgs as FugueMessage<StringPosition>[];
 
@@ -172,11 +203,11 @@ export class WSClient {
         }
     }
 
-    setEmail(email?: string) {
-        if (email) this.email = email;
+    setUserIdentity(email?: string) {
+        if (email) this.userIdentity = email;
     }
 
-    getEmail(): string | undefined {
-        return this.email;
+    getUserIdenity(): string | undefined {
+        return this.userIdentity;
     }
 }

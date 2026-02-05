@@ -1,9 +1,10 @@
 import { useNavigate } from "react-router-dom";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useClerk, useSession } from "@clerk/clerk-react";
 import Loading from "../Loading";
 import { useDocuments } from "../../hooks/queries";
 import mainStore from "../../stores";
+import React from "react";
 
 export const HomePage = () => {
     const navigate = useNavigate();
@@ -22,8 +23,6 @@ export const HomePage = () => {
     const { queries, mutations } = useDocuments();
     const { userDocumentsQuery } = queries;
     const { createDocumentMutation } = mutations;
-    const nextCursor = useRef<string>(undefined);
-    // TODO: Add pagination in react
 
     return (
         //this is just for a proof of concept
@@ -33,6 +32,7 @@ export const HomePage = () => {
                 <Loading fullPage={true} />
             ) : (
                 <>
+                    {/* Header / Actions */}
                     <div className="flex justify-end w-full">
                         <button
                             className="m-4 btn btn-l btn-neutral"
@@ -45,15 +45,16 @@ export const HomePage = () => {
                             Create a document!
                         </button>
                         <button className="m-4 btn btn-l btn-neutral" onClick={() => clerk.signOut()}>
-                            {" "}
                             Sign Out
                         </button>
                     </div>
-                    <div className="flex justify-center w-full">
-                        {userDocumentsQuery.data!.length === 0 ? (
+
+                    {/* Main Content Area: Table + Load More Button */}
+                    <div className="flex flex-col items-center pb-10 w-full">
+                        {userDocumentsQuery.data?.pages[0].data.length === 0 ? (
                             <h1>You have no Documents</h1>
                         ) : (
-                            <table className="table w-[70%]">
+                            <table className="table w-[70%] mb-4">
                                 <thead>
                                     <tr>
                                         <th>Document Name</th>
@@ -62,36 +63,46 @@ export const HomePage = () => {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {userDocumentsQuery.data!.map((document, index) => (
-                                        <tr
-                                            key={index}
-                                            className="hover:text-black hover:bg-white hover:cursor-pointer"
-                                            onClick={() =>
-                                                navigate(`/docs/${document._id}`, {
-                                                    state: {
-                                                        documentName: document.name,
-                                                    },
-                                                })
-                                            }
-                                        >
-                                            <td>{document.name}</td>
-                                            <td>{new Date(document.createdAt || "").toLocaleString()}</td>
-                                            <td>{new Date(document.updatedAt || "").toLocaleString()}</td>
-                                        </tr>
+                                    {userDocumentsQuery.data!.pages.map((group, pageIndex) => (
+                                        <React.Fragment key={pageIndex}>
+                                            {group.data.map((doc) => (
+                                                <tr
+                                                    key={doc._id} // Use unique ID instead of index
+                                                    className="hover:text-black hover:bg-white hover:cursor-pointer"
+                                                    onClick={() =>
+                                                        navigate(`/docs/${doc._id}`, {
+                                                            state: {
+                                                                documentName: doc.name,
+                                                            },
+                                                        })
+                                                    }
+                                                >
+                                                    <td>{doc.name}</td>
+                                                    <td>{new Date(doc.createdAt || "").toLocaleString()}</td>
+                                                    <td>{new Date(doc.updatedAt || "").toLocaleString()}</td>
+                                                </tr>
+                                            ))}
+                                        </React.Fragment>
                                     ))}
                                 </tbody>
                             </table>
                         )}
-                        {hasNext ?
-                            (
-                                <div className="flex w-[70%] justify-end">
-                                    <button
-                                        onClick={loadDocuments}
-                                        className="btn btn-neutral btn-l"> Load More </button>
-                                </div>
-                            ) : <></>
-                        }
 
+                        {/* Load More Button - Centered below table */}
+                        <div className="flex justify-center mt-4 w-full">
+                            <button
+                                // Disable if fetching or if NO next page exists
+                                disabled={!userDocumentsQuery.hasNextPage || userDocumentsQuery.isFetchingNextPage}
+                                onClick={() => userDocumentsQuery.fetchNextPage()}
+                                className="btn btn-neutral btn-l"
+                            >
+                                {userDocumentsQuery.isFetchingNextPage
+                                    ? "Loading more..."
+                                    : userDocumentsQuery.hasNextPage
+                                      ? "Load More"
+                                      : "Nothing more to load"}
+                            </button>
+                        </div>
                     </div>
                 </>
             )}
