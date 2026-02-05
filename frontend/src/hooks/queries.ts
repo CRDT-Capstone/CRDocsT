@@ -38,7 +38,15 @@ export const useDocuments = () => {
     const userDocumentsQuery = useQuery({
         queryKey: documentKeys.lists(),
         queryFn: () => api.getDocumentsByUserId(),
-        select: (docs) => docs.map((doc) => doc._id), // Only rerender if IDs change
+        select: (docs) =>
+            docs.map((doc) => {
+                return {
+                    _id: doc._id,
+                    name: doc.name,
+                    createdAt: doc.createdAt,
+                    updatedAt: doc.updatedAt,
+                };
+            }),
     });
 
     const createDocumentMutation = useMutation({
