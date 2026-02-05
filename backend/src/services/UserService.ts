@@ -1,5 +1,6 @@
 import { createClerkClient } from "@clerk/backend";
 import { logger } from "../logging";
+import crypto from "crypto";
 
 const getUserEmailById = async (userId: string) => {
     const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY! });
@@ -24,7 +25,11 @@ const getUserByEmail = async (email: string) => {
     }
 };
 
+const getIdentifierForAnonymousUser = () => {
+    const randomString = crypto.randomBytes(10).toString("hex");
+    return `AnonymousUser-${randomString}`;
+}
+
 export const UserService = {
     getUserEmailById,
     getUserByEmail,
-};

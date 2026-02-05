@@ -1,5 +1,17 @@
 import { useState, useRef, useEffect } from "react";
-import { FugueList, Operation, StringTotalOrder } from "@cr_docs_t/dts";
+import {
+    FugueList,
+    FugueMessage,
+    Operation,
+    StringPosition,
+    StringTotalOrder,
+    FugueJoinMessage,
+    FugueMessageType,
+    FugueMessageSerialzier,
+    FugueRejectMessage,
+    Document,
+    FugueLeaveMessage,
+} from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView } from "@uiw/react-codemirror";
 import { useLocation, useParams } from "react-router-dom";
@@ -18,6 +30,7 @@ const Canvas = () => {
     const location = useLocation();
     const wsClient = useRef<WSClient | undefined>(undefined);
 
+    const [activeCollaborators, setActiveCollaborators] = useState<string[]>([]);
     const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null, documentID!));
     const email = mainStore((state) => state.email);
     const setDocument = mainStore((state) => state.setDocument);
@@ -169,6 +182,17 @@ const Canvas = () => {
                         className="text-black rounded-lg border-2 shadow-sm"
                     />
                 </div>
+                <div className="w-full flex justify-end">
+                    <div className="dropdown dropdown-top dropdown-center">
+                        <div tabIndex={0} role="button" className="btn m-4">Active Collaborators {`(${activeCollaborators.length})`}</div>
+                        <ul tabIndex={-1} className="dropdown-content menu bg-base-100 rounded-box z-1 w-52 p-2 shadow-sm">
+                            {activeCollaborators.map((ac, index) => (
+                                <li key={index}>{ac}</li>
+                            ))}
+                        </ul>
+                    </div>
+                </div>
+
             </div>
         </div>
     );

@@ -1,4 +1,4 @@
-import express, {} from "express";
+import express, { } from "express";
 import http from "http";
 import * as dotenv from "dotenv";
 import cors from "cors";
@@ -9,6 +9,23 @@ import { clerkMiddleware } from "@clerk/express";
 import { httpLogger, logger } from "./logging";
 import { WSService } from "./services/WSService";
 import ErrorHandler from "./middlewares/errorHandler";
+import {
+    ContributorType,
+    FugueJoinMessage,
+    FugueLeaveMessage,
+    FugueMessage,
+    FugueMessageSerialzier,
+    FugueMessageType,
+    FugueRejectMessage,
+    Operation,
+} from "@cr_docs_t/dts";
+import DocumentManager from "./managers/document";
+import { DocumentRouter } from "./routes/documents";
+import { clerkMiddleware } from "@clerk/express";
+import { DocumentServices } from "./services/DocumentServices";
+import { httpLogger, logger } from "./logging";
+import { RedisService } from "./services/RedisService";
+import { UserService } from "./services/UserService";
 
 dotenv.config();
 const mongoUri = process.env.MONGO_URI! as string;

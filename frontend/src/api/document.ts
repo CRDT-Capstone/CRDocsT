@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
-import { ContributorType, Document, f, Msg } from "@cr_docs_t/dts";
+import { ContributorType, Document, f, Msg, CursorPaginatedResponse } from "@cr_docs_t/dts";
 
 const ApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 const path = "docs";
@@ -53,11 +53,13 @@ export const createDocumentApi = (getToken: TokenFunc) => {
         }
     };
 
-    const getDocumentsByUserId = async () => {
+    const getDocumentsByUserId = async (limit: number = 10, nextCursor?: string) => {
         try {
             const token = await getToken();
+            const query = (nextCursor) ? `nextCursor=${nextCursor}&limit=${limit}`: `limit=${limit}`;
 
-            const response = await f.get<Msg<Document[]>>(`${ApiBaseUrl}/${path}/user`, {
+
+            const response = await f.get<Msg<Document[]>>(`${ApiBaseUrl}/${path}/user?${query}`, {
                 headers: {
                     Authorization: `Bearer: ${token}`,
                 },

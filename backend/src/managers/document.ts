@@ -1,4 +1,4 @@
-import { FugueList, StringTotalOrder, FugueStateSerializer } from "@cr_docs_t/dts";
+import { FugueList, StringTotalOrder, FugueStateSerializer, FugueLeaveMessage, FugueMessageSerialzier, Operation } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import WebSocket from "ws";
 import crypto from "crypto";
@@ -54,11 +54,25 @@ class DocumentManager {
         return newDoc;
     }
 
-    static removeUser(documentID: string, ws: WebSocket) {
+    static async removeUser(documentID: string, ws: WebSocket, userIdentity?: string) {
         const doc = this.instances.get(documentID);
         if (!doc) return;
 
         doc.sockets.delete(ws);
+        if (userIdentity) {
+            const leaveMessage: FugueLeaveMessage = {
+                operation: Operation.LEAVE,
+                userIdentity
+            };
+            await RedisService.removeCollaboratorsByDocumentId(documentID, userIdentity);
+
+            doc.sockets.forEach((sock) => {
+                if (sock.readyState === WebSocket.OPEN) sock.send(FugueMessageSerialzier.serialize([leaveMessage]));
+            });
+        } else {
+            logger.error(`User without email exiting file with documentId: ${documentID}`);
+        }
+
         // If no one is left, start the countdown to offload from memory
         if (doc.sockets.size === 0) {
             logger.info(`Document ${documentID} is empty. Scheduling cleanup...`);

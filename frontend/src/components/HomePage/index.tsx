@@ -22,6 +22,8 @@ export const HomePage = () => {
     const { queries, mutations } = useDocuments();
     const { userDocumentsQuery } = queries;
     const { createDocumentMutation } = mutations;
+    const nextCursor = useRef<string>(undefined);
+    // TODO: Add pagination in react
 
     return (
         //this is just for a proof of concept
@@ -40,7 +42,6 @@ export const HomePage = () => {
                                 navigate(`/docs/${res.data._id}`);
                             }}
                         >
-                            {" "}
                             Create a document!
                         </button>
                         <button className="m-4 btn btn-l btn-neutral" onClick={() => clerk.signOut()}>
@@ -81,6 +82,16 @@ export const HomePage = () => {
                                 </tbody>
                             </table>
                         )}
+                        {hasNext ?
+                            (
+                                <div className="flex w-[70%] justify-end">
+                                    <button
+                                        onClick={loadDocuments}
+                                        className="btn btn-neutral btn-l"> Load More </button>
+                                </div>
+                            ) : <></>
+                        }
+
                     </div>
                 </>
             )}
