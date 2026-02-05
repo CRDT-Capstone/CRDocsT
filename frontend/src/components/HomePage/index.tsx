@@ -3,14 +3,20 @@ import { useEffect } from "react";
 import { useClerk, useSession } from "@clerk/clerk-react";
 import Loading from "../Loading";
 import { useDocuments } from "../../hooks/queries";
+import mainStore from "../../stores";
 
 export const HomePage = () => {
     const navigate = useNavigate();
     const clerk = useClerk();
     const { isSignedIn } = useSession();
+    const setEmail = mainStore((state) => state.setEmail);
 
     useEffect(() => {
         if (clerk.loaded && !isSignedIn) navigate("/sign-in");
+        else if (clerk.loaded && isSignedIn) {
+            const email = clerk.user?.primaryEmailAddress?.emailAddress;
+            if (email) setEmail(email);
+        }
     }, [navigate, isSignedIn, clerk.loaded]);
 
     const { queries, mutations } = useDocuments();

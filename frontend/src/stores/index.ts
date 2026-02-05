@@ -9,18 +9,38 @@ export type DocumentState = {
     setDocument: (v: Document) => void;
 };
 
-export type State = DocumentState;
+export type UserState = {
+    email?: string;
+
+    setEmail: (v: string) => void;
+};
+
+export type State = DocumentState & UserState;
 
 const mainStore = create<State>()(
     immer(
-        devtools((set) => ({
-            document: undefined,
+        devtools(
+            persist(
+                (set) => ({
+                    document: undefined,
+                    email: undefined,
 
-            setDocument: (v) =>
-                set((state) => {
-                    state.document = v;
+                    setDocument: (v) =>
+                        set((state) => {
+                            state.document = v;
+                        }),
+
+                    setEmail: (v) =>
+                        set((state) => {
+                            state.email = v;
+                        }),
                 }),
-        })),
+                {
+                    name: "mainStore",
+                    storage: createJSONStorage(() => sessionStorage),
+                },
+            ),
+        ),
     ),
 );
 

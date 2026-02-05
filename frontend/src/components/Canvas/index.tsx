@@ -1,26 +1,14 @@
 import { useState, useRef, useEffect } from "react";
-import {
-    FugueList,
-    FugueMessage,
-    Operation,
-    StringPosition,
-    StringTotalOrder,
-    FugueJoinMessage,
-    FugueMessageType,
-    FugueMessageSerialzier,
-    FugueRejectMessage,
-    Document,
-    FugueLeaveMessage,
-    FugueMutationMessageTypes,
-} from "@cr_docs_t/dts";
+import { FugueList, Operation, StringTotalOrder } from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
-import CodeMirror, { ViewUpdate, Annotation, EditorView, EditorSelection } from "@uiw/react-codemirror";
+import CodeMirror, { ViewUpdate, Annotation, EditorView } from "@uiw/react-codemirror";
 import { useLocation, useParams } from "react-router-dom";
 import { NavBar } from "../NavBar";
 import { useClerk, useUser } from "@clerk/clerk-react";
 import Loading from "../Loading";
 import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
+import { WSClient } from "../../utils/WSClient";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
@@ -28,11 +16,13 @@ const RemoteUpdate = Annotation.define<boolean>();
 const Canvas = () => {
     const { documentID } = useParams();
     const location = useLocation();
+    const wsClient = useRef<WSClient | undefined>(undefined);
 
     const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null, documentID!));
+    const email = mainStore((state) => state.email);
     const setDocument = mainStore((state) => state.setDocument);
 
-    const viewRef = useRef<EditorView | null>(null);
+    const viewRef = useRef<EditorView | undefined>(undefined);
     const socketRef = useRef<WebSocket>(null);
 
     const previousTextRef = useRef(""); // Track changes with ref
@@ -55,11 +45,12 @@ const Canvas = () => {
     }, [documentQuery.data]);
 
     useEffect(() => {
-        if (user && user.primaryEmailAddress && user.primaryEmailAddress.emailAddress) {
-            console.log({ email: user.primaryEmailAddress.emailAddress });
-            fugue.email = user.primaryEmailAddress.emailAddress;
+        if (email && wsClient.current) {
+            console.log({ email: email });
+            fugue.email = email;
+            wsClient.current.setEmail(email);
         }
-    }, [user]);
+    }, [email, wsClient.current]);
 
     // Garbage Collection of deleted elements every 30 seconds
     useEffect(() => {
@@ -75,134 +66,19 @@ const Canvas = () => {
     useEffect(() => {
         if (!clerk.loaded) return;
         socketRef.current = new WebSocket(webSocketUrl);
-        if (!socketRef.current) return;
-
-        socketRef.current.onopen = () => {
-            console.log("WebSocket connected");
-            const joinMsg: FugueJoinMessage<string> = {
-                operation: Operation.JOIN,
-                documentID: documentID!,
-                state: null,
-                email: user?.primaryEmailAddress?.emailAddress || undefined,
-            };
-            console.log("joinMsg-> ", joinMsg);
-
-            const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
-
-            socketRef.current!.send(serializedJoinMessage);
-            console.log("Sent serialized Join message!");
-        };
-
+        if (!socketRef.current || !documentID) return;
         fugue.ws = socketRef.current;
 
-        socketRef.current.onmessage = async (ev: MessageEvent) => {
-            console.log("Received message:", ev.data);
-
-            try {
-                const blob = ev.data as Blob;
-                const buffer = await blob.arrayBuffer(); //convert blob to buffer
-                const bytes = new Uint8Array(buffer); //convert to Unit8Array
-
-                const raw = FugueMessageSerialzier.deserialize(bytes);
-                console.log("Parsed message -> ", raw);
-
-                // Normalize to array
-                const msgs: FugueMutationMessageTypes<StringPosition>[] = Array.isArray(raw)
-                    ? (raw as FugueMutationMessageTypes<string>[])
-                    : ([raw] as FugueMutationMessageTypes<string>[]);
-                const myId = fugue.replicaId();
-                const remoteMsgs = msgs.filter((m) => {
-                    // Ignore Join messages or messages with my ID
-                    if ("state" in m) return true; // Handle state separately
-                    return m.replicaId !== myId;
-                });
-
-                if (remoteMsgs.length === 0) return;
-
-                // Handle Join message (state sync)
-                if (remoteMsgs[0].operation === Operation.JOIN && remoteMsgs[0].state) {
-                    const msg = remoteMsgs[0] as FugueJoinMessage<StringPosition>;
-                    console.log({ msg });
-                    fugue.state = msg.state!;
-                    const newText = fugue.state.length > 0 ? fugue.observe() : "";
-                    console.log({ newText });
-
-                    // Update CodeMirror programmatically
-                    console.log({ curr: viewRef.current });
-                    if (viewRef.current) {
-                        console.log("Syncing state from JOIN message");
-                        const view = viewRef.current;
-
-                        // Create a transaction using the state's tr builder
-                        const tr = view.state.update({
-                            changes: {
-                                from: 0,
-                                to: view.state.doc.length,
-                                insert: newText,
-                            },
-                            selection: EditorSelection.cursor(Math.min(view.state.selection.main.from, newText.length)),
-                            annotations: [RemoteUpdate.of(true)],
-                        });
-                        view.dispatch(tr);
-                        previousTextRef.current = newText;
-                    }
-                }
-                // Handle updates
-                else {
-                    const firstMsg = remoteMsgs[0];
-                    let fromIdx: number | undefined = undefined;
-                    const msgs = remoteMsgs as FugueMessage<StringPosition>[];
-
-                    // Delta update operatest in this order
-                    // DELETE- Find Index -> Apply CRDT -> Dispatch View
-                    // INSERT - Apply CRDT -> Find Index -> Dispatch View
-
-                    if (firstMsg.operation == Operation.DELETE) {
-                        // Find index before applying effect
-                        fromIdx = fugue.findVisibleIndex(firstMsg.position);
-                        console.log("Remote DELETE at index:", fromIdx);
-                        fugue.effect(msgs);
-
-                        if (fromIdx !== undefined) {
-                            viewRef.current?.dispatch({
-                                changes: {
-                                    from: fromIdx,
-                                    to: fromIdx + remoteMsgs.length,
-                                    insert: "",
-                                },
-                                annotations: [RemoteUpdate.of(true)],
-                            });
-                        }
-                    } else if (firstMsg.operation == Operation.INSERT) {
-                        // Apply effect before finding index, so that we account for concurrent inserts
-                        fugue.effect(msgs);
-
-                        // Find index after applying effect
-                        fromIdx = fugue.findVisibleIndex(firstMsg.position);
-                        console.log("Remote INSERT at index:", fromIdx);
-
-                        if (fromIdx !== undefined) {
-                            const text = msgs.map((m) => m.data || "").join("");
-                            viewRef.current?.dispatch({
-                                changes: {
-                                    from: fromIdx,
-                                    to: fromIdx,
-                                    insert: text,
-                                },
-                                annotations: [RemoteUpdate.of(true)],
-                            });
-                        }
-                    }
-
-                    // Sync local ref so we don't rebroadcast the change
-                    previousTextRef.current = viewRef.current?.state.doc.toString()
-                        ? viewRef.current.state.doc.toString()
-                        : previousTextRef.current;
-                }
-            } catch (error) {
-                console.error("Error processing remote message:", error);
-            }
-        };
+        if (!wsClient.current || (wsClient.current && wsClient.current.getEmail() !== email))
+            wsClient.current = new WSClient(
+                socketRef.current,
+                fugue,
+                documentID,
+                RemoteUpdate,
+                viewRef,
+                previousTextRef,
+                email,
+            );
 
         return () => {
             fugue.ws = null;
