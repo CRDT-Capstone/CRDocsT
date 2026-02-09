@@ -62,7 +62,7 @@ const updateDocumentName = async (req: Request, res: Response) => {
         return;
     }
     try {
-        await DocumentServices.updateDocumentById(documentID, { name });
+        await DocumentServices.updateDocumentById(documentID.toString(), { name });
         res.status(200).send({
             message: "Successfully updated the name of the document",
         });
@@ -111,7 +111,7 @@ const getDocumuentByIdSchema: Schema = {
 const getDocumentById = async (req: Request, res: Response) => {
     const { documentId } = req.params;
     try {
-        const document = await DocumentServices.getDocumentMetadataById(documentId);
+        const document = await DocumentServices.getDocumentMetadataById(documentId.toString());
         if (!document) {
             return sendErr(res, { message: "Not found", error: "Document does not exist" }, 404);
         }

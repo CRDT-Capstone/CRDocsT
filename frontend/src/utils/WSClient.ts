@@ -58,6 +58,7 @@ export class WSClient {
 
     async handleOpen() {
         console.log("WebSocket connected");
+        toast('You are connected');
         const joinMsg: FugueJoinMessage<string> = {
             operation: Operation.JOIN,
             documentID: this.documentID,

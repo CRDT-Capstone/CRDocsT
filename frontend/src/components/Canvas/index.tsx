@@ -143,6 +143,7 @@ const Canvas = () => {
                 fugue.insertMultiple(fromA, insertedTxt);
             }
         });
+        console.log('state -> ', fugue.state);
         previousTextRef.current = newText;
     };
 
