@@ -167,6 +167,7 @@ const shareDocumentViaEmail = async (req: Request, res: Response) => {
 };
 
 const removeContributorSchema: Schema = {
+    params: documentIDSchema(),
     body: documentIDSchema().extend({
         email: z.email(),
     }),
@@ -188,6 +189,7 @@ const removeContributor = async (req: Request, res: Response) => {
 };
 
 const updateContributorTypeSchema: Schema = {
+    params: documentIDSchema(),
     body: documentIDSchema().extend({
         email: z.email(),
         contributorType: z.enum(ContributorType),
