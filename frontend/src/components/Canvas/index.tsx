@@ -1,16 +1,8 @@
 import { useState, useRef, useEffect } from "react";
 import {
     FugueList,
-    FugueMessage,
     Operation,
-    StringPosition,
     StringTotalOrder,
-    FugueJoinMessage,
-    FugueMessageType,
-    FugueMessageSerialzier,
-    FugueRejectMessage,
-    Document,
-    FugueLeaveMessage,
 } from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView } from "@uiw/react-codemirror";
