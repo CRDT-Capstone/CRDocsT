@@ -11,6 +11,7 @@ import {
 import { AnnotationType, EditorSelection, EditorView } from "@uiw/react-codemirror";
 import { RefObject } from "react";
 import mainStore from "../stores";
+import { toast } from "sonner";
 
 export class WSClient {
     private ws: WebSocket;
@@ -47,6 +48,12 @@ export class WSClient {
     initListeners() {
         this.ws.onopen = this.handleOpen;
         this.ws.onmessage = this.handleMessage;
+        this.ws.onclose = this.handleClose;
+    }
+
+    async handleClose(){
+        console.log("WebSocket connection closed");
+        toast.info("You are disconnected");
     }
 
     async handleOpen() {
