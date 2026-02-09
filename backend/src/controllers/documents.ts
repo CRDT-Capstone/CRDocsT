@@ -74,7 +74,7 @@ const updateDocumentName = async (req: Request, res: Response) => {
 };
 
 const getDocumentsByUserId = async (req: Request, res: Response) => {
-    const { userId } = getAuth(req);
+    const { userId } = await getAuth(req);
     if (!userId) {
         return sendErr(
             res,
@@ -167,6 +167,7 @@ const shareDocumentViaEmail = async (req: Request, res: Response) => {
 };
 
 const removeContributorSchema: Schema = {
+    params: documentIDSchema(),
     body: documentIDSchema().extend({
         email: z.email(),
     }),
@@ -188,6 +189,7 @@ const removeContributor = async (req: Request, res: Response) => {
 };
 
 const updateContributorTypeSchema: Schema = {
+    params: documentIDSchema(),
     body: documentIDSchema().extend({
         email: z.email(),
         contributorType: z.enum(ContributorType),
