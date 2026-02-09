@@ -228,7 +228,7 @@ describe("Unit testing the document service functions", () => {
             const firstPage = await DocumentServices.getDocumentsByUserId("user_1", 2);
 
             expect(firstPage).toBeDefined();
-            expect(firstPage.documents).toHaveLength(2);
+            expect(firstPage.data).toHaveLength(2);
             expect(firstPage.nextCursor).toBeDefined();
             expect(firstPage.hasNext).toEqual(true);
         });
@@ -238,11 +238,11 @@ describe("Unit testing the document service functions", () => {
             const secondPage = await DocumentServices.getDocumentsByUserId("user_1", 2, firstPage.nextCursor);
 
             expect(secondPage).toBeDefined();
-            expect(secondPage.documents).toHaveLength(2);
+            expect(secondPage.data).toHaveLength(2);
             expect(secondPage.hasNext).toEqual(true);
             expect(secondPage.nextCursor).toBeDefined();
 
-            expect(secondPage.documents).not.toEqual(firstPage.documents);
+            expect(secondPage.data).not.toEqual(firstPage.data);
         });
 
         it("tests that the last page can be gotten with the nextCursor being null", async()=>{
@@ -250,7 +250,7 @@ describe("Unit testing the document service functions", () => {
 
 
             expect(firstAndLastPage).toBeDefined();
-            expect(firstAndLastPage.documents).toHaveLength(10);
+            expect(firstAndLastPage.data).toHaveLength(10);
             expect(firstAndLastPage.hasNext).toBe(false);
             expect(firstAndLastPage.nextCursor).toBeUndefined();
         })
