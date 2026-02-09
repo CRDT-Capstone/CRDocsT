@@ -74,7 +74,7 @@ const updateDocumentName = async (req: Request, res: Response) => {
 };
 
 const getDocumentsByUserId = async (req: Request, res: Response) => {
-    const { userId } = getAuth(req);
+    const { userId } = await getAuth(req);
     if (!userId) {
         return sendErr(
             res,
