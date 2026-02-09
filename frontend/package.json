@@ -10,6 +10,7 @@
         "preview": "vite preview",
         "deploy": "NODE_ENV='production'; npm run build && cd ./dist && surge ."
     },
+    "packageManager": "pnpm@10.20.0",
     "dependencies": {
         "@clerk/clerk-react": "^5.59.4",
         "@codemirror/lang-javascript": "^6.2.4",
