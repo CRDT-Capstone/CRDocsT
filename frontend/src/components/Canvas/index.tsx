@@ -1,39 +1,34 @@
 import { useState, useRef, useEffect } from "react";
-import {
-    FugueList,
-    FugueMessage,
-    Operation,
-    StringPosition,
-    StringTotalOrder,
-    FugueJoinMessage,
-    FugueMessageType,
-    FugueMessageSerialzier,
-    FugueRejectMessage,
-    Document,
-    FugueLeaveMessage,
-} from "@cr_docs_t/dts";
+import { FugueList, Operation, StringTotalOrder } from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView } from "@uiw/react-codemirror";
-import { useLocation, useParams } from "react-router-dom";
+import { bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
+import { useParams } from "react-router-dom";
 import { NavBar } from "../NavBar";
 import { useClerk, useUser } from "@clerk/clerk-react";
 import Loading from "../Loading";
 import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { WSClient } from "../../utils/WSClient";
+import { Parser } from "web-tree-sitter";
+import { newParser, treeSitterHighlightPlugin } from "../../treesitter";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
 
 const Canvas = () => {
     const { documentID } = useParams();
-    const location = useLocation();
     const wsClient = useRef<WSClient | undefined>(undefined);
 
-    const [activeCollaborators, setActiveCollaborators] = useState<string[]>([]);
     const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null, documentID!));
+    const [parser, setParser] = useState<Parser | null>(null);
     const email = mainStore((state) => state.email);
     const setDocument = mainStore((state) => state.setDocument);
+    const tree = mainStore((state) => state.tree);
+    const isParsing = mainStore((state) => state.isParsing);
+    const activeCollaborators = mainStore((state) => state.activeCollaborators);
+
+    const [exts, setExts] = useState([bracketMatching(), indentOnInput(), EditorView.lineWrapping]);
 
     const viewRef = useRef<EditorView | undefined>(undefined);
     const socketRef = useRef<WebSocket>(null);
@@ -41,7 +36,6 @@ const Canvas = () => {
     const previousTextRef = useRef(""); // Track changes with ref
 
     const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
-    const { user } = useUser();
     const clerk = useClerk();
 
     const { queries } = useDocument(documentID!);
@@ -50,6 +44,16 @@ const Canvas = () => {
     useEffect(() => {
         documentQuery.refetch();
     }, []);
+
+    useEffect(() => {
+        if (tree && tree.rootNode) console.log({ tree: tree.rootNode });
+    }, [tree]);
+
+    useEffect(() => {
+        if (parser) {
+            setExts((prev) => [...prev, treeSitterHighlightPlugin(parser)]);
+        }
+    }, [parser]);
 
     useEffect(() => {
         if (documentQuery.data) {
@@ -80,6 +84,11 @@ const Canvas = () => {
         if (!clerk.loaded) return;
         socketRef.current = new WebSocket(webSocketUrl);
         if (!socketRef.current || !documentID) return;
+        (async () => {
+            if (!parser) {
+                setParser(await newParser());
+            }
+        })();
         fugue.ws = socketRef.current;
 
         if (!wsClient.current || (wsClient.current && wsClient.current.getUserIdenity() !== email))
@@ -163,7 +172,14 @@ const Canvas = () => {
             <NavBar documentID={documentID!} />
             <div className="flex flex-col items-center p-4 w-full h-full">
                 <div className="w-full h-screen max-w-[100vw]">
+                    {isParsing && (
+                        <div className="flex absolute top-4 right-4 z-10 gap-2 items-center py-1 px-3 rounded-full border shadow-md animate-pulse bg-base-200 border-base-300">
+                            <span className="loading loading-spinner loading-xs text-primary"></span>
+                            <span className="font-mono text-xs font-medium opacity-70">AST SYNCING...</span>
+                        </div>
+                    )}
                     <CodeMirror
+                        extensions={exts}
                         onCreateEditor={(view) => {
                             viewRef.current = view;
 
