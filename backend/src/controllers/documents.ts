@@ -40,13 +40,13 @@ const createDocument = async (req: Request, res: Response) => {
     }
 };
 
-const documentIDSchema = () =>
+const documentIdSchema = () =>
     z.strictObject({
         documentId: z.string().min(1, "documentId is required"),
     });
 
 const updateDocumentNameSchema: Schema = {
-    params: documentIDSchema(),
+    params: documentIdSchema(),
     body: z.strictObject({
         name: z.string().min(1, "Name cannot be empty"),
     }),
@@ -54,7 +54,7 @@ const updateDocumentNameSchema: Schema = {
 
 const updateDocumentName = async (req: Request, res: Response) => {
     const { name } = req.body;
-    const { documentID } = req.params;
+    const { documentId } = req.params;
     if (!name) {
         res.status(400).send({
             message: "Title and documentID is required",
@@ -62,7 +62,7 @@ const updateDocumentName = async (req: Request, res: Response) => {
         return;
     }
     try {
-        await DocumentServices.updateDocumentById(documentID, { name });
+        await DocumentServices.updateDocumentById(documentId as string, { name });
         res.status(200).send({
             message: "Successfully updated the name of the document",
         });
@@ -105,13 +105,13 @@ const getDocumentsByUserId = async (req: Request, res: Response) => {
 };
 
 const getDocumuentByIdSchema: Schema = {
-    params: documentIDSchema(),
+    params: documentIdSchema(),
 };
 
 const getDocumentById = async (req: Request, res: Response) => {
     const { documentId } = req.params;
     try {
-        const document = await DocumentServices.getDocumentMetadataById(documentId);
+        const document = await DocumentServices.getDocumentMetadataById(documentId as string);
         if (!document) {
             return sendErr(res, { message: "Not found", error: "Document does not exist" }, 404);
         }
@@ -127,7 +127,7 @@ const getDocumentById = async (req: Request, res: Response) => {
 };
 
 const shareDocumentViaEmailSchema: Schema = {
-    body: documentIDSchema().extend({
+    body: documentIdSchema().extend({
         receiverEmail: z.email(),
         contributorType: z.enum(ContributorType),
     }),
@@ -167,7 +167,7 @@ const shareDocumentViaEmail = async (req: Request, res: Response) => {
 };
 
 const removeContributorSchema: Schema = {
-    body: documentIDSchema().extend({
+    body: documentIdSchema().extend({
         email: z.email(),
     }),
 };
@@ -188,7 +188,7 @@ const removeContributor = async (req: Request, res: Response) => {
 };
 
 const updateContributorTypeSchema: Schema = {
-    body: documentIDSchema().extend({
+    body: documentIdSchema().extend({
         email: z.email(),
         contributorType: z.enum(ContributorType),
     }),
