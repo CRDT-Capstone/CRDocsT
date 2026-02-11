@@ -17,7 +17,7 @@
         "@codemirror/language": "^6.12.1",
         "@codemirror/state": "^6.5.4",
         "@codemirror/view": "^6.39.13",
-        "@cr_docs_t/dts": "^0.21.0",
+        "@cr_docs_t/dts": "link:/home/mads/projects/Typescript/applied_crdt/CRDocsT-dts",
         "@lexical/react": "^0.38.2",
         "@lezer/highlight": "^1.2.3",
         "@tailwindcss/vite": "^4.1.18",

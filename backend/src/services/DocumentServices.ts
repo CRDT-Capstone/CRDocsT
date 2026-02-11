@@ -19,31 +19,33 @@ const updateDocumentById = async (documentId: string, updateObj: Partial<Documen
     await DocumentModel.findOneAndUpdate({ _id: documentId }, updateObj);
 };
 
-const getDocumentsByUserId = async (userId: string, limit: number = 10, currentCursor?: string) : Promise<CursorPaginatedResponse<Document>> => {
+const getDocumentsByUserId = async (
+    userId: string,
+    limit: number = 10,
+    currentCursor?: string,
+): Promise<CursorPaginatedResponse<Document>> => {
     //current cursor is the id of the last document from a previous pagination...
 
     const userEmail = (await UserService.getUserEmailById(userId)) || "";
     const query: RootFilterQuery<Document> = {
-        $or: [
-            { ownerId: userId },
-            { "contributors.email": userEmail }
-        ]
+        $or: [{ ownerId: userId }, { "contributors.email": userEmail }],
     };
 
     if (currentCursor) {
-        query._id = { $lt: new ObjectId(currentCursor) }
+        query._id = { $lt: new ObjectId(currentCursor) };
     }
 
-
-    const documents = await DocumentModel.find(query).sort({ _id: -1 }).limit(limit + 1);
+    const documents = await DocumentModel.find(query)
+        .sort({ _id: -1 })
+        .limit(limit + 1);
     const hasNext = documents.length > limit;
     if (hasNext) documents.pop();
-    const nextCursor = documents[limit- 1]?._id.toString() || undefined;
+    const nextCursor = documents[limit - 1]?._id.toString() || undefined;
 
     return {
         data: documents,
         nextCursor,
-        hasNext
+        hasNext,
     };
 };
 
@@ -115,7 +117,6 @@ const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string)
     }
 
     const user = await UserService.getUserByEmail(email);
-    logger.info("User info", { user });
 
     const isDocumentOwnerOrCollaborator =
         (user !== undefined && document.ownerId === user.id) ||

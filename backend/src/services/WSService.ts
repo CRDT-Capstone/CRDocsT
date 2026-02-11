@@ -55,8 +55,14 @@ export class WSService {
         if (msgs.length === 0) return;
 
         const firstMsg = msgs[0];
-        logger.debug("First message", { firstMsg });
+        logger.debug("First msg info", {
+            OP: firstMsg.operation,
+            DOC_ID: firstMsg.documentID,
+            REP_ID: firstMsg.replicaId,
+            USER_ID: firstMsg.userIdentity,
+        });
         this.currentDocId = firstMsg.documentID;
+        // FIX: Results in duplicate anon users when reloading
         this.userIdentity = firstMsg.userIdentity || UserService.getIdentifierForAnonymousUser();
 
         const [hasAccessToDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
@@ -120,6 +126,10 @@ export class WSService {
             if (accessType === ContributorType.EDITOR) {
                 //Ideally the editor would be disabled on the frontend but you can never be too sure.
 
+                logger.debug(
+                    `Effecting ${ms.length} on server crdt with id ${doc.crdt.replicaId()} from ${ms[0].replicaId}`,
+                    { firstMsg: { OP: ms[0].operation, DATA: ms[0].data } },
+                );
                 doc.crdt.effect(ms);
                 DocumentManager.markDirty(this.currentDocId);
                 const broadcastMsg = message; //relay the message as received
@@ -134,7 +144,7 @@ export class WSService {
 
     async handleClose() {
         if (this.currentDocId) {
-            await DocumentManager.removeUser(this.currentDocId, this.ws);
+            await DocumentManager.removeUser(this.currentDocId, this.ws, this.userIdentity);
             this.currentDocId = undefined;
         }
 
