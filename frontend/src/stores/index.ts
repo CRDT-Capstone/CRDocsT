@@ -1,4 +1,4 @@
-import { Contributor, Document } from "@cr_docs_t/dts";
+import { Document } from "@cr_docs_t/dts";
 import { create } from "zustand";
 import { createJSONStorage, devtools, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";

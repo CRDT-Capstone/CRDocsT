@@ -13,6 +13,8 @@ import Loading from "../Loading";
 import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { WSClient } from "../../utils/WSClient";
+import { DocumentsIndexedDB } from "../../stores/dexie/documents";
+import { toast } from "sonner";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
@@ -67,12 +69,9 @@ const Canvas = () => {
         return () => clearInterval(gcInterval);
     }, [fugue]);
 
-    // WebSocket setup
-    useEffect(() => {
-        if (!clerk.loaded) return;
-        socketRef.current = new WebSocket(webSocketUrl);
+
+    const setUpWSClient = () => {
         if (!socketRef.current || !documentID) return;
-        fugue.ws = socketRef.current;
 
         if (!wsClient.current || (wsClient.current && wsClient.current.getUserIdenity() !== email))
             wsClient.current = new WSClient(
@@ -85,6 +84,32 @@ const Canvas = () => {
                 email,
             );
 
+
+    }
+
+    const handleClose = () => {
+        console.log("WebSocket connection closed");
+        toast.info("You are disconnected");
+
+        wsClient.current = undefined;
+
+        setTimeout(() => {
+            socketRef.current = new WebSocket(webSocketUrl);
+            fugue.ws = socketRef.current;
+            socketRef.current.onclose = handleClose;
+            setUpWSClient();
+        }, 5000);
+    }
+
+    // WebSocket setup
+    useEffect(() => {
+        if (!clerk.loaded) return;
+        socketRef.current = new WebSocket(webSocketUrl);
+        if (!socketRef.current || !documentID) return;
+        fugue.ws = socketRef.current;
+        setUpWSClient();
+        socketRef.current.onclose = handleClose;
+
         return () => {
             fugue.ws = null;
             socketRef.current?.close();
@@ -94,7 +119,7 @@ const Canvas = () => {
     /**
      * Handle changes from CodeMirror
      */
-    const handleChange = (value: string, viewUpdate: ViewUpdate) => {
+    const handleChange = async (value: string, viewUpdate: ViewUpdate) => {
         if (!viewUpdate.docChanged) return;
 
         // If this transaction has our "RemoteUpdate" stamp, we strictly ignore CRDT logic
@@ -143,7 +168,9 @@ const Canvas = () => {
                 fugue.insertMultiple(fromA, insertedTxt);
             }
         });
-        console.log('state -> ', fugue.state);
+        if (wsClient.current?.isOffline()) {
+            await DocumentsIndexedDB.saveBufferedChanges(fugue.documentID, fugue.state);
+        }
         previousTextRef.current = newText;
     };
 

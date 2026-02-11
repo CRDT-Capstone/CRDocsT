@@ -12,6 +12,9 @@ import { AnnotationType, EditorSelection, EditorView } from "@uiw/react-codemirr
 import { RefObject } from "react";
 import mainStore from "../stores";
 import { toast } from "sonner";
+import { DocumentsIndexedDB } from "../stores/dexie/documents";
+
+const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
 
 export class WSClient {
     private ws: WebSocket;
@@ -48,22 +51,29 @@ export class WSClient {
     initListeners() {
         this.ws.onopen = this.handleOpen;
         this.ws.onmessage = this.handleMessage;
-        this.ws.onclose = this.handleClose;
     }
 
-    async handleClose(){
-        console.log("WebSocket connection closed");
-        toast.info("You are disconnected");
-    }
+
 
     async handleOpen() {
         console.log("WebSocket connected");
-        toast('You are connected');
+        toast.success("You are connected");
+
+        let bufferedChanges;
+        try {
+            const savedDocChanges = await DocumentsIndexedDB.getBufferedChanges(this.fugue.documentID);
+            await DocumentsIndexedDB.deleteBufferedChanges(this.fugue.documentID);
+            bufferedChanges = JSON.parse(savedDocChanges!.state);
+        } catch (err) {
+            console.log("Error processing buffered changes -> ", err);
+        }
         const joinMsg: FugueJoinMessage<string> = {
             operation: Operation.JOIN,
             documentID: this.documentID,
             state: null,
             userIdentity: this.userIdentity,
+            offlineChanges: bufferedChanges,
+            replicaId: this.fugue.replicaId()
         };
         console.log("joinMsg -> ", joinMsg);
 
@@ -126,7 +136,9 @@ export class WSClient {
                 }
 
                 console.log({ msg });
-                this.fugue.state = msg.state!;
+
+                //TODO refactor this line
+                if (!msg.offlineChanges) this.fugue.state = msg.state!;
                 const newText = this.fugue.state.length > 0 ? this.fugue.observe() : "";
                 console.log({ newText });
 
@@ -217,5 +229,9 @@ export class WSClient {
 
     getUserIdenity(): string | undefined {
         return this.userIdentity;
+    }
+
+    isOffline() {
+        return this.ws.readyState === WebSocket.CLOSED;
     }
 }

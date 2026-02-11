@@ -85,11 +85,32 @@ export class WSService {
             try {
                 await RedisService.AddToCollaboratorsByDocumentId(this.currentDocId, this.userIdentity!);
                 const collaborators = await RedisService.getCollaboratorsByDocumentId(this.currentDocId);
+                if (firstMsg.offlineChanges) {
+                    const offlineChanges: FugueMessage<string>[] = firstMsg.offlineChanges.flat().map((change) => {
+                        return {
+                            operation: change.operation! as Operation.INSERT | Operation.DELETE,
+                            position: change.position,
+                            data: change.value ?? null,
+                            replicaId: firstMsg.replicaId!,
+                            documentID: firstMsg.documentID,
+                            userIdentity: firstMsg.userIdentity
+                        }
+                    });
+                    doc.crdt.effect(offlineChanges);
+                    logger.info(`Current state -> ${doc.crdt.observe()}`);
+                    DocumentManager.persist(this.currentDocId);
+
+                    doc.sockets.forEach((sock) => {
+                        if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(FugueMessageSerialzier.serialize(offlineChanges));
+                    });
+
+                }
                 const joinMsg: FugueJoinMessage<string> = {
                     operation: Operation.JOIN,
                     documentID: this.currentDocId,
                     state: doc.crdt.state,
                     collaborators,
+                    offlineChanges: firstMsg.offlineChanges
                 };
 
                 const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
