@@ -9,6 +9,7 @@ import { clerkMiddleware } from "@clerk/express";
 import { httpLogger, logger } from "./logging";
 import { WSService } from "./services/WSService";
 import ErrorHandler from "./middlewares/errorHandler";
+import DocumentManager from "./managers/document";
 
 dotenv.config();
 const mongoUri = process.env.MONGO_URI! as string;
@@ -26,6 +27,7 @@ const server = http.createServer(app);
 const port = process.env.PORT || 5001;
 
 const wss = new WebSocketServer({ server });
+DocumentManager.startPersistenceInterval();
 
 wss.on("connection", (ws: WebSocket) => {
     new WSService(ws);

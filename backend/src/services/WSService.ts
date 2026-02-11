@@ -31,7 +31,6 @@ export class WSService {
 
         logger.info("New WebSocket connection");
         this.initializeListeners();
-        DocumentManager.startPersistenceInterval();
     }
 
     initializeListeners() {
