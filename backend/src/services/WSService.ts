@@ -48,9 +48,9 @@ export class WSService {
 
         const raw = FugueMessageSerialzier.deserialize(message);
         const isArray = Array.isArray(raw);
-        const msgs: FugueMutationMessageTypes<string>[] = isArray
-            ? (raw as FugueMutationMessageTypes<string>[])
-            : ([raw] as FugueMutationMessageTypes<string>[]);
+        const msgs: FugueMutationMessageTypes[] = isArray
+            ? (raw as FugueMutationMessageTypes[])
+            : ([raw] as FugueMutationMessageTypes[]);
 
         if (msgs.length === 0) return;
 
@@ -90,25 +90,25 @@ export class WSService {
             try {
                 await RedisService.AddToCollaboratorsByDocumentId(this.currentDocId, this.userIdentity!);
                 const collaborators = await RedisService.getCollaboratorsByDocumentId(this.currentDocId);
-                const joinMsg: FugueJoinMessage<string> = {
+                const joinMsg: FugueJoinMessage = {
                     operation: Operation.JOIN,
                     documentID: this.currentDocId,
-                    state: doc.crdt.state,
+                    state: doc.crdt.save(),
                     collaborators,
                 };
 
-                const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
+                const serializedJoinMessage = FugueMessageSerialzier.serialize([joinMsg]);
                 logger.info("Serialized Join Message size", { size: serializedJoinMessage.byteLength });
                 this.ws.send(serializedJoinMessage); //send the state to the joining user
 
-                const userJoinedNotification: FugueJoinMessage<string> = {
+                const userJoinedNotification: FugueJoinMessage = {
                     operation: Operation.JOIN,
                     documentID: this.currentDocId,
                     state: null,
                     userIdentity: this.userIdentity,
                 };
 
-                const serialisedMsg = FugueMessageSerialzier.serialize<string>([userJoinedNotification]);
+                const serialisedMsg = FugueMessageSerialzier.serialize([userJoinedNotification]);
 
                 doc.sockets.forEach((sock) => {
                     if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(serialisedMsg);
@@ -120,7 +120,7 @@ export class WSService {
         }
 
         try {
-            const ms = msgs as FugueMessage<string>[];
+            const ms = msgs as FugueMessage[];
             logger.info(`Received ${msgs.length} operations for doc id ${this.currentDocId} from ${ms[0].replicaId}`);
 
             if (accessType === ContributorType.EDITOR) {
@@ -137,7 +137,7 @@ export class WSService {
                     if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
                 });
             }
-        } catch (err: any) {
+        } catch (err) {
             logger.error("Error handling delete or insert operation", { err });
         }
     }

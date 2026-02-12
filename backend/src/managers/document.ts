@@ -1,10 +1,11 @@
 import {
-    FugueList,
+    FugueTree as FugueList,
     StringTotalOrder,
     FugueStateSerializer,
     FugueLeaveMessage,
     FugueMessageSerialzier,
     Operation,
+    randomString,
 } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import WebSocket from "ws";
@@ -12,7 +13,7 @@ import crypto from "crypto";
 import { logger } from "../logging";
 
 interface ActiveDocument {
-    crdt: FugueList<string>;
+    crdt: FugueList;
     sockets: Set<WebSocket>;
     lastActivity: number;
     cleanupTimeout?: NodeJS.Timeout;
@@ -52,14 +53,15 @@ class DocumentManager {
                 // The central CRDT is a netural observer that just holds the definitive state of a document
                 // therefore its document ID can be randomly generated, however it should probably have an identifiable
                 // part to help with debugging
-                const crdt = new FugueList(
-                    new StringTotalOrder(`${crypto.randomBytes(3).toString()}-${documentID}`),
-                    null,
-                    documentID,
-                );
+                // const crdt = new FugueList(
+                //     new StringTotalOrder(`${crypto.randomBytes(3).toString()}-${documentID}`),
+                //     null,
+                //     documentID,
+                // );
+                const crdt = new FugueList(null, documentID);
                 if (existingState) {
                     const deserializedState = FugueStateSerializer.deserialize(existingState);
-                    crdt.state = deserializedState;
+                    crdt.load(existingState);
                 }
 
                 const newDoc: ActiveDocument = {
@@ -115,8 +117,8 @@ class DocumentManager {
         logger.debug(`Persisting document ${documentID} to storage.`);
         const doc = this.instances.get(documentID);
         if (doc) {
-            const serializedState = FugueStateSerializer.serialize(doc.crdt.state);
-            await RedisService.updateCRDTStateByDocumentID(documentID, Buffer.from(serializedState));
+            // const serializedState = FugueStateSerializer.serialize(doc.crdt.save());
+            await RedisService.updateCRDTStateByDocumentID(documentID, Buffer.from(doc.crdt.save()));
             // Possibly mongoDB logic too
         }
     }

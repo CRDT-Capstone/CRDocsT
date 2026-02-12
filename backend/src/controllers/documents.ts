@@ -4,7 +4,7 @@ import {
     APIError,
     ContributorSchema,
     ContributorType,
-    FugueList,
+    FugueTree as FugueList,
     FugueStateSerializer,
     StringTotalOrder,
 } from "@cr_docs_t/dts";
@@ -22,11 +22,13 @@ const createDocument = async (req: Request, res: Response) => {
     try {
         const { userId } = getAuth(req);
         const document = await DocumentServices.createDocument(userId);
-        const CRDT = new FugueList(new StringTotalOrder(document._id.toString()), null, document._id.toString());
+        // const CRDT = new FugueList(new StringTotalOrder(document._id.toString()), null, document._id.toString());
+        const CRDT = new FugueList(null, document._id.toString(), document._id.toString());
 
         RedisService.updateCRDTStateByDocumentID(
             document._id.toString(),
-            Buffer.from(FugueStateSerializer.serialize(CRDT.state)),
+            // Buffer.from(FugueStateSerializer.serialize(CRDT.state)),
+            Buffer.from(CRDT.save()),
         );
 
         return sendOk(res, {
