@@ -98,7 +98,7 @@ export class WSService {
                     });
                     doc.crdt.effect(offlineChanges);
                     logger.info(`Current state -> ${doc.crdt.observe()}`);
-                    DocumentManager.persist(this.currentDocId);
+                    if(this.currentDocId) DocumentManager.persist(this.currentDocId);
 
                     doc.sockets.forEach((sock) => {
                         if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(FugueMessageSerialzier.serialize(offlineChanges));
