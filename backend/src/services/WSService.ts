@@ -85,12 +85,15 @@ export class WSService {
             try {
                 await RedisService.AddToCollaboratorsByDocumentId(this.currentDocId, this.userIdentity!);
                 const collaborators = await RedisService.getCollaboratorsByDocumentId(this.currentDocId);
+
                 const joinMsg: FugueJoinMessage<string> = {
                     operation: Operation.JOIN,
                     documentID: this.currentDocId,
                     state: doc.crdt.state,
                     collaborators,
                 };
+
+                logger.info(`JoinMsg collaborators that we're sending -> ${joinMsg.collaborators}`);
 
                 const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
                 logger.info("Serialized Join Message size", { size: serializedJoinMessage.byteLength });
@@ -134,8 +137,10 @@ export class WSService {
     }
 
     async handleClose() {
+        logger.info("About to close connection");
+        logger.info(`Current doc id -> ${this.currentDocId}`);
         if (this.currentDocId) {
-            await DocumentManager.removeUser(this.currentDocId, this.ws);
+            await DocumentManager.removeUser(this.currentDocId, this.ws, this.userIdentity);
             this.currentDocId = undefined;
         }
 

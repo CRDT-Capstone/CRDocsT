@@ -30,7 +30,7 @@ const Canvas = () => {
     const location = useLocation();
     const wsClient = useRef<WSClient | undefined>(undefined);
 
-    const [activeCollaborators, setActiveCollaborators] = useState<string[]>([]);
+    const activeCollaborators = mainStore((state) => state.activeCollaborators);
     const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null, documentID!));
     const email = mainStore((state) => state.email);
     const setDocument = mainStore((state) => state.setDocument);
@@ -49,6 +49,18 @@ const Canvas = () => {
 
     useEffect(() => {
         documentQuery.refetch();
+    }, []);
+
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            sessionStorage.clear();
+        };
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+        };
     }, []);
 
     useEffect(() => {
