@@ -150,12 +150,8 @@ export class WSClient {
             }
             // Handle updates
             else {
-                let fromIdx: number | undefined = undefined;
-                const msgs = remoteMsgs as FugueMessage[];
+                const msgs = remoteMsgs.filter((m) => !("state" in m)) as FugueMessage[];
 
-                // Delta update operatest in this order
-                // DELETE- Find Index -> Apply CRDT -> Dispatch View
-                // INSERT - Apply CRDT -> Find Index -> Dispatch View
                 const applied = this.fugue.effect(msgs);
 
                 if (!this.viewRef.current) return;
