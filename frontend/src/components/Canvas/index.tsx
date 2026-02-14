@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
-import { FugueTree as FugueList, Operation, StringTotalOrder } from "@cr_docs_t/dts";
+import { FugueTree, Operation } from "@cr_docs_t/dts";
 import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView } from "@uiw/react-codemirror";
 import { bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
@@ -22,7 +22,7 @@ const Canvas = () => {
     const { documentID } = useParams();
     const wsClient = useRef<WSClient | undefined>(undefined);
 
-    const [fugue] = useState(() => new FugueList(null, documentID!));
+    const [fugue] = useState(() => new FugueTree(null, documentID!));
     const [parser, setParser] = useState<Parser | null>(null);
     const [query, setQuery] = useState<Query | null>(null);
     const email = mainStore((state) => state.email);

@@ -1,13 +1,6 @@
 import { Request, Response } from "express";
 import { DocumentServices } from "../services/DocumentServices";
-import {
-    APIError,
-    ContributorSchema,
-    ContributorType,
-    FugueTree as FugueList,
-    FugueStateSerializer,
-    StringTotalOrder,
-} from "@cr_docs_t/dts";
+import { APIError, ContributorSchema, ContributorType, FugueTree, FugueStateSerializer } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import { getAuth } from "@clerk/express";
 import { MailService } from "../services/MailService";
@@ -22,8 +15,8 @@ const createDocument = async (req: Request, res: Response) => {
     try {
         const { userId } = getAuth(req);
         const document = await DocumentServices.createDocument(userId);
-        // const CRDT = new FugueList(new StringTotalOrder(document._id.toString()), null, document._id.toString());
-        const CRDT = new FugueList(null, document._id.toString(), document._id.toString());
+        // const CRDT = new FugueTree(new StringTotalOrder(document._id.toString()), null, document._id.toString());
+        const CRDT = new FugueTree(null, document._id.toString(), document._id.toString());
 
         RedisService.updateCRDTStateByDocumentID(
             document._id.toString(),

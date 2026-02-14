@@ -1,7 +1,7 @@
 import {
     FugueJoinMessage,
     FugueLeaveMessage,
-    FugueTree as FugueList,
+    FugueTree,
     FugueMessage,
     FugueMessageSerialzier,
     FugueMutationMessageTypes,
@@ -18,12 +18,12 @@ export class WSClient {
     private previousTextRef: RefObject<string>;
     private documentID: string;
     private userIdentity?: string = undefined;
-    private fugue: FugueList;
+    private fugue: FugueTree;
     private remoteUpdate: AnnotationType<boolean>;
 
     constructor(
         ws: WebSocket,
-        fugue: FugueList,
+        fugue: FugueTree,
         documentID: string,
         remoteUpdate: AnnotationType<boolean>,
         viewRef: RefObject<EditorView | undefined>,

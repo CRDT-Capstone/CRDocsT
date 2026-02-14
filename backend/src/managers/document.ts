@@ -1,19 +1,11 @@
-import {
-    FugueTree as FugueList,
-    StringTotalOrder,
-    FugueStateSerializer,
-    FugueLeaveMessage,
-    FugueMessageSerialzier,
-    Operation,
-    randomString,
-} from "@cr_docs_t/dts";
+import { FugueTree, FugueStateSerializer, FugueLeaveMessage, FugueMessageSerialzier, Operation } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import WebSocket from "ws";
 import crypto from "crypto";
 import { logger } from "../logging";
 
 interface ActiveDocument {
-    crdt: FugueList;
+    crdt: FugueTree;
     sockets: Set<WebSocket>;
     lastActivity: number;
     cleanupTimeout?: NodeJS.Timeout;
@@ -53,12 +45,12 @@ class DocumentManager {
                 // The central CRDT is a netural observer that just holds the definitive state of a document
                 // therefore its document ID can be randomly generated, however it should probably have an identifiable
                 // part to help with debugging
-                // const crdt = new FugueList(
+                // const crdt = new FugueTree(
                 //     new StringTotalOrder(`${crypto.randomBytes(3).toString()}-${documentID}`),
                 //     null,
                 //     documentID,
                 // );
-                const crdt = new FugueList(null, documentID);
+                const crdt = new FugueTree(null, documentID);
                 if (existingState) {
                     const deserializedState = FugueStateSerializer.deserialize(existingState);
                     crdt.load(existingState);
