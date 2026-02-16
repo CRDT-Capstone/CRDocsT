@@ -4,6 +4,8 @@ import { UserService } from "./UserService";
 import { logger } from "../logging";
 import { ObjectId } from "mongodb";
 import { RootFilterQuery } from "mongoose";
+import { redis } from "../redis";
+import { RedisService } from "./RedisService";
 
 const createDocument = async (userId: string | null) => {
     const document = await DocumentModel.create({ ownerId: userId });
@@ -15,6 +17,7 @@ const removeDocument = async (documentId: string) => {
     if (!res) {
         throw new APIError("Document not found", 404);
     }
+    await RedisService.deleteCRDTStateByDocumentID(documentId);
 };
 
 const findDocumentById = async (documentId: string) => {
