@@ -115,32 +115,40 @@ class DocumentManager {
         }
     }
 
-    static startPersistenceInterval() {
-        setInterval(async () => {
+    static async startPersistenceInterval() {
+        const runPersistence = async () => {
             const now = Date.now();
-            for (const documentID of this.dirtyDocs) {
+
+            // Copy to avoid mutation issues during the loop
+            const docsToProcess = Array.from(this.dirtyDocs);
+
+            for (const documentID of docsToProcess) {
                 const doc = this.instances.get(documentID);
 
                 if (doc) {
-                    // Check if the document has been idle for at least 3 seconds
                     const timeSinceLastActivity = now - doc.lastActivity;
 
                     if (timeSinceLastActivity >= this.persistenceIntervalMs) {
-                        logger.debug(`Persisting ${documentID} after idle period.`);
                         try {
+                            logger.debug(`Persisting ${documentID}`);
                             await this.persist(documentID);
-                            // Only remove from dirty set if persistence succeeded
                             this.dirtyDocs.delete(documentID);
                         } catch (err) {
-                            logger.error(`Failed to persist ${documentID}:`, err);
+                            logger.error(`Failed to persist ${documentID}`, { err });
+                            // We leave it in dirtyDocs so it retries next time
                         }
                     }
                 } else {
-                    // Clean up tracking if doc is no longer in memory
                     this.dirtyDocs.delete(documentID);
                 }
             }
-        }, this.persistenceIntervalMs);
+
+            // Schedule the next run only after this one finishes
+            setTimeout(runPersistence, this.persistenceIntervalMs);
+        };
+
+        // Start the first run immediately
+        runPersistence();
     }
 
     private static async cleanup(documentID: string) {

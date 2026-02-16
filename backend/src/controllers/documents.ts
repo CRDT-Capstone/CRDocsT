@@ -8,21 +8,21 @@ import { logger } from "../logging";
 import { sendOk, sendErr } from "../utils/ApiResponseUtils";
 import { handleErrorAsAPIError } from "../utils";
 import { z } from "zod";
-import { Schema } from "../validaton";
-import { ControllerWSchema } from ".";
+import { Schema, ValidatedRequest } from "../validaton";
+import { ControllerWSchema, defineController } from ".";
+
+const documentIdSchema = () =>
+    z.strictObject({
+        documentId: z.string().min(1, "documentId is required"),
+    });
 
 const createDocument = async (req: Request, res: Response) => {
     try {
         const { userId } = getAuth(req);
         const document = await DocumentServices.createDocument(userId);
-        // const CRDT = new FugueTree(new StringTotalOrder(document._id.toString()), null, document._id.toString());
         const CRDT = new FugueTree(null, document._id.toString(), document._id.toString());
 
-        RedisService.updateCRDTStateByDocumentID(
-            document._id.toString(),
-            // Buffer.from(FugueStateSerializer.serialize(CRDT.state)),
-            Buffer.from(CRDT.save()),
-        );
+        RedisService.updateCRDTStateByDocumentID(document._id.toString(), Buffer.from(CRDT.save()));
 
         return sendOk(res, {
             message: "Successfully created document",
@@ -35,27 +35,35 @@ const createDocument = async (req: Request, res: Response) => {
     }
 };
 
-const documentIdSchema = () =>
-    z.strictObject({
-        documentId: z.string().min(1, "documentId is required"),
-    });
+const deleteDocumentSchema = {
+    params: documentIdSchema(),
+};
 
-const updateDocumentNameSchema: Schema = {
+const deleteDocument = async (req: ValidatedRequest<typeof deleteDocumentSchema>, res: Response) => {
+    try {
+        const { documentId } = req.params;
+        await DocumentServices.removeDocument(documentId);
+        return sendOk(res, {
+            message: "Successfully deleted document",
+            data: undefined,
+        });
+    } catch (err: unknown) {
+        logger.error("There was an error deleting document", { err });
+        const e = handleErrorAsAPIError(err);
+        return sendErr(res, e.msg, e.status);
+    }
+};
+
+const updateDocumentNameSchema = {
     params: documentIdSchema(),
     body: z.strictObject({
         name: z.string().min(1, "Name cannot be empty"),
     }),
 };
 
-const updateDocumentName = async (req: Request, res: Response) => {
+const updateDocumentName = async (req: ValidatedRequest<typeof updateDocumentNameSchema>, res: Response) => {
     const { name } = req.body;
     const { documentId } = req.params;
-    if (!name) {
-        res.status(400).send({
-            message: "Title and documentID is required",
-        });
-        return;
-    }
     try {
         await DocumentServices.updateDocumentById(documentId as string, { name });
         res.status(200).send({
@@ -99,7 +107,7 @@ const getDocumentsByUserId = async (req: Request, res: Response) => {
     }
 };
 
-const getDocumuentByIdSchema: Schema = {
+const getDocumuentByIdSchema = {
     params: documentIdSchema(),
 };
 
@@ -121,7 +129,7 @@ const getDocumentById = async (req: Request, res: Response) => {
     }
 };
 
-const shareDocumentViaEmailSchema: Schema = {
+const shareDocumentViaEmailSchema = {
     body: documentIdSchema().extend({
         receiverEmail: z.email(),
         contributorType: z.enum(ContributorType),
@@ -161,7 +169,7 @@ const shareDocumentViaEmail = async (req: Request, res: Response) => {
     }
 };
 
-const removeContributorSchema: Schema = {
+const removeContributorSchema = {
     body: documentIdSchema().extend({
         email: z.email(),
     }),
@@ -182,7 +190,7 @@ const removeContributor = async (req: Request, res: Response) => {
     }
 };
 
-const updateContributorTypeSchema: Schema = {
+const updateContributorTypeSchema = {
     body: documentIdSchema().extend({
         email: z.email(),
         contributorType: z.enum(ContributorType),
@@ -204,10 +212,14 @@ const updateContributorType = async (req: Request, res: Response) => {
     }
 };
 
-export const DocumentController: ControllerWSchema = {
+export const DocumentController = defineController({
     CreateDocument: {
         con: createDocument,
         sch: undefined,
+    },
+    DeleteDocument: {
+        con: deleteDocument,
+        sch: deleteDocumentSchema,
     },
     UpdateDocumentName: {
         con: updateDocumentName,
@@ -233,4 +245,4 @@ export const DocumentController: ControllerWSchema = {
         con: updateContributorType,
         sch: updateContributorTypeSchema,
     },
-};
+});

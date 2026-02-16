@@ -7,6 +7,7 @@ export const DocumentRouter = Router();
 
 const makeDocumentRoute = makeRouterRoute(DocumentRouter);
 makeDocumentRoute("post", "/create", DocumentController.CreateDocument);
+makeDocumentRoute("delete", "/delete/:documentId", DocumentController.DeleteDocument);
 //TODO: make this a general update endpoint
 makeDocumentRoute("put", "/update/:documentId", DocumentController.UpdateDocumentName);
 makeDocumentRoute("get", "/user", DocumentController.GetDocumentsByUserId);

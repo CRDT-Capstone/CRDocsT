@@ -4,6 +4,9 @@ import { APIError } from "@cr_docs_t/dts";
 
 export const ErrorHandler = (err: APIError, req: Request, res: Response, next: NextFunction) => {
     try {
+        if (res.headersSent) {
+            return next(err);
+        }
         const statusCode = err.status || 500;
 
         if (statusCode >= 500) {

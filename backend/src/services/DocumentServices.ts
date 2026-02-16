@@ -10,13 +10,23 @@ const createDocument = async (userId: string | null) => {
     return document;
 };
 
+const removeDocument = async (documentId: string) => {
+    const res = await DocumentModel.findOneAndDelete({ _id: documentId });
+    if (!res) {
+        throw new APIError("Document not found", 404);
+    }
+};
+
 const findDocumentById = async (documentId: string) => {
     const document = await DocumentModel.findById(documentId);
     return document;
 };
 
 const updateDocumentById = async (documentId: string, updateObj: Partial<Document>) => {
-    await DocumentModel.findOneAndUpdate({ _id: documentId }, updateObj);
+    const res = await DocumentModel.findOneAndUpdate({ _id: documentId }, updateObj);
+    if (!res) {
+        throw new APIError("Document not found", 404);
+    }
 };
 
 const getDocumentsByUserId = async (
@@ -168,6 +178,7 @@ const isDocumentOwner = async (documentId: string, userId: string) => {
 
 export const DocumentServices = {
     createDocument,
+    removeDocument,
     findDocumentById,
     updateDocumentById,
     getDocumentsByUserId,
