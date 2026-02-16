@@ -54,12 +54,21 @@ export const useDocuments = () => {
         },
     });
 
+    const deleteDocumentMutation = useMutation({
+        mutationFn: (documentId: string) => api.deleteDocument(documentId),
+        onSuccess: () => {
+            // Invalidate the list so the deleted document disappears immediately
+            queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+        },
+    });
+
     return {
         queries: {
             userDocumentsQuery,
         },
         mutations: {
             createDocumentMutation,
+            deleteDocumentMutation,
         },
     };
 };

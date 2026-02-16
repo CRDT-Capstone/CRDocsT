@@ -24,9 +24,25 @@ export const createDocumentApi = (getToken: TokenFunc) => {
             console.log("The document -> ", document);
             return response;
         } catch (err) {
-            console.log("There was an error creating a document -> ", err);
+            console.error("There was an error creating a document -> ", err);
             throw err;
             //TODO: change this to some daisy UI element
+        }
+    };
+
+    const deleteDocument = async (documentId: string) => {
+        try {
+            const token = await getToken();
+            const response = await f.delete<Msg>(`${ApiBaseUrl}/${path}/delete/${documentId}`, {
+                headers: {
+                    Authorization: `Bearer: ${token}`,
+                },
+            });
+
+            return response;
+        } catch (err) {
+            console.error("There was an error deleting the document -> ", err);
+            throw err;
         }
     };
 
@@ -178,6 +194,7 @@ export const createDocumentApi = (getToken: TokenFunc) => {
 
     return {
         createDocument,
+        deleteDocument,
         updateDocumentName,
         getDocumentsByUserId,
         getDocumentById,

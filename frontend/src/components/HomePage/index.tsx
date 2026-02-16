@@ -5,6 +5,7 @@ import Loading from "../Loading";
 import { useDocuments } from "../../hooks/queries";
 import mainStore from "../../stores";
 import React from "react";
+import { LuTrash2 } from "react-icons/lu";
 
 export const HomePage = () => {
     const navigate = useNavigate();
@@ -22,7 +23,7 @@ export const HomePage = () => {
 
     const { queries, mutations } = useDocuments();
     const { userDocumentsQuery } = queries;
-    const { createDocumentMutation } = mutations;
+    const { createDocumentMutation, deleteDocumentMutation } = mutations;
 
     return (
         //this is just for a proof of concept
@@ -80,6 +81,22 @@ export const HomePage = () => {
                                                     <td>{doc.name}</td>
                                                     <td>{new Date(doc.createdAt || "").toLocaleString()}</td>
                                                     <td>{new Date(doc.updatedAt || "").toLocaleString()}</td>
+                                                    <td>
+                                                        <button
+                                                            className="btn btn-square btn-md btn-error"
+                                                            disabled={
+                                                                deleteDocumentMutation.isPending ||
+                                                                createDocumentMutation.isPending ||
+                                                                userDocumentsQuery.isFetchingNextPage
+                                                            }
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                await deleteDocumentMutation.mutateAsync(doc._id!);
+                                                            }}
+                                                        >
+                                                            <LuTrash2 />
+                                                        </button>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </React.Fragment>
