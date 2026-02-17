@@ -1,7 +1,7 @@
 import {
     FugueJoinMessage,
     FugueLeaveMessage,
-    FugueList,
+    FugueTree,
     FugueMessage,
     FugueMessageSerialzier,
     FugueMutationMessageTypes,
@@ -22,12 +22,12 @@ export class WSClient {
     private previousTextRef: RefObject<string>;
     private documentID: string;
     private userIdentity?: string = undefined;
-    private fugue: FugueList<string>;
+    private fugue: FugueTree;
     private remoteUpdate: AnnotationType<boolean>;
 
     constructor(
         ws: WebSocket,
-        fugue: FugueList<string>,
+        fugue: FugueTree,
         documentID: string,
         remoteUpdate: AnnotationType<boolean>,
         viewRef: RefObject<EditorView | undefined>,
@@ -41,6 +41,7 @@ export class WSClient {
         this.remoteUpdate = remoteUpdate;
         this.previousTextRef = previousTextRef;
         if (userIdentity) this.userIdentity = userIdentity;
+        mainStore.getState().setActiveCollaborators([]);
 
         this.handleOpen = this.handleOpen.bind(this);
         this.handleMessage = this.handleMessage.bind(this);
@@ -77,7 +78,7 @@ export class WSClient {
         };
         console.log("joinMsg -> ", joinMsg);
 
-        const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
+        const serializedJoinMessage = FugueMessageSerialzier.serialize([joinMsg]);
 
         this.ws.send(serializedJoinMessage);
         console.log("Sent serialized Join message!");
@@ -97,7 +98,7 @@ export class WSClient {
             console.log("Parsed message -> ", raw);
 
             // Normalize to array
-            type FugueMsgType = FugueMutationMessageTypes<StringPosition> | FugueLeaveMessage;
+            type FugueMsgType = FugueMutationMessageTypes | FugueLeaveMessage;
             const msgs: FugueMsgType[] = Array.isArray(raw) ? (raw as FugueMsgType[]) : ([raw] as FugueMsgType[]);
 
             if (msgs.length > 0 && msgs[0].operation === Operation.LEAVE) {
@@ -112,7 +113,7 @@ export class WSClient {
             }
 
             const myId = this.fugue.replicaId();
-            const remoteMsgs = (msgs as FugueMutationMessageTypes<StringPosition>[]).filter((m) => {
+            const remoteMsgs = (msgs as FugueMutationMessageTypes[]).filter((m) => {
                 // Ignore Join messages or messages with my ID
                 if ("state" in m) return true; // Handle state separately
                 return m.replicaId !== myId;
@@ -123,7 +124,7 @@ export class WSClient {
 
             // Handle Join message (state sync)
             if (firstMsg.operation === Operation.JOIN && firstMsg.state) {
-                const msg = remoteMsgs[0] as FugueJoinMessage<StringPosition>;
+                const msg = remoteMsgs[0] as FugueJoinMessage;
                 if (msg.collaborators) {
                     const newActiveCollaborators = [
                         ...new Set(
@@ -136,10 +137,8 @@ export class WSClient {
                 }
 
                 console.log({ msg });
-
-                //TODO refactor this line
-                if (!msg.offlineChanges) this.fugue.state = msg.state!;
-                const newText = this.fugue.state.length > 0 ? this.fugue.observe() : "";
+                this.fugue.load(msg.state!);
+                const newText = this.fugue.length() > 0 ? this.fugue.observe() : "";
                 console.log({ newText });
 
                 // Update CodeMirror programmatically
@@ -169,47 +168,40 @@ export class WSClient {
             }
             // Handle updates
             else {
-                let fromIdx: number | undefined = undefined;
-                const msgs = remoteMsgs as FugueMessage<StringPosition>[];
+                const msgs = remoteMsgs.filter((m) => !("state" in m)) as FugueMessage[];
 
-                // Delta update operatest in this order
-                // DELETE- Find Index -> Apply CRDT -> Dispatch View
-                // INSERT - Apply CRDT -> Find Index -> Dispatch View
+                const applied = this.fugue.effect(msgs);
 
-                if (firstMsg.operation == Operation.DELETE) {
-                    // Find index before applying effect
-                    fromIdx = this.fugue.findVisibleIndex(firstMsg.position);
-                    console.log("Remote DELETE at index:", fromIdx);
-                    this.fugue.effect(msgs);
+                if (!this.viewRef.current) return;
+                for (const m of applied) {
+                    try {
+                        const node = this.fugue.getById(m.id);
+                        const fromIdx = this.fugue.getVisibleIndex(node);
+                        const l = this.viewRef.current.state.doc.length;
 
-                    if (fromIdx !== undefined && this.viewRef.current) {
-                        this.viewRef.current.dispatch({
-                            changes: {
-                                from: fromIdx,
-                                to: fromIdx + remoteMsgs.length,
-                                insert: "",
-                            },
-                            annotations: [this.remoteUpdate.of(true)],
-                        });
-                    }
-                } else if (firstMsg.operation == Operation.INSERT) {
-                    // Apply effect before finding index, so that we account for concurrent inserts
-                    this.fugue.effect(msgs);
-
-                    // Find index after applying effect
-                    fromIdx = this.fugue.findVisibleIndex(firstMsg.position);
-                    console.log("Remote INSERT at index:", fromIdx);
-
-                    if (fromIdx !== undefined && this.viewRef.current) {
-                        const text = msgs.map((m) => m.data || "").join("");
-                        this.viewRef.current?.dispatch({
-                            changes: {
-                                from: fromIdx,
-                                to: fromIdx,
-                                insert: text,
-                            },
-                            annotations: [this.remoteUpdate.of(true)],
-                        });
+                        if (fromIdx <= l) {
+                            if (m.operation === Operation.DELETE) {
+                                this.viewRef.current.dispatch({
+                                    changes: {
+                                        from: fromIdx,
+                                        to: fromIdx + 1,
+                                        insert: "",
+                                    },
+                                    annotations: [this.remoteUpdate.of(true)],
+                                });
+                            } else if (m.operation === Operation.INSERT) {
+                                this.viewRef.current.dispatch({
+                                    changes: {
+                                        from: fromIdx,
+                                        to: fromIdx,
+                                        insert: m.data!,
+                                    },
+                                    annotations: [this.remoteUpdate.of(true)],
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.error("Failed to sync UI state ->", e);
                     }
                 }
 

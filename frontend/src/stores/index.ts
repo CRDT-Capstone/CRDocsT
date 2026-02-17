@@ -1,13 +1,18 @@
-import { Document } from "@cr_docs_t/dts";
+import { Contributor, Document } from "@cr_docs_t/dts";
+import { Tree } from "web-tree-sitter";
 import { create } from "zustand";
 import { createJSONStorage, devtools, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 
 export type DocumentState = {
     document?: Document;
+    tree?: Tree;
+    isParsing: boolean;
     activeCollaborators: string[];
 
     setDocument: (v: Document) => void;
+    setTree: (v: Tree) => void;
+    setIsParsing: (v: boolean) => void;
     setActiveCollaborators: (v: string[]) => void;
 };
 
@@ -26,11 +31,22 @@ const mainStore = create<State>()(
                 (set) => ({
                     document: undefined,
                     activeCollaborators: [],
+                    isParsing: false,
                     email: undefined,
 
                     setDocument: (v) =>
                         set((state) => {
                             state.document = v;
+                        }),
+
+                    setTree: (v) =>
+                        set((state) => {
+                            state.tree = v;
+                        }),
+
+                    setIsParsing: (v) =>
+                        set((state) => {
+                            state.isParsing = v;
                         }),
 
                     setActiveCollaborators: (v) =>

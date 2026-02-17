@@ -31,7 +31,6 @@ export class WSService {
 
         logger.info("New WebSocket connection");
         this.initializeListeners();
-        DocumentManager.startPersistenceInterval();
     }
 
     initializeListeners() {
@@ -49,15 +48,21 @@ export class WSService {
 
         const raw = FugueMessageSerialzier.deserialize(message);
         const isArray = Array.isArray(raw);
-        const msgs: FugueMutationMessageTypes<string>[] = isArray
-            ? (raw as FugueMutationMessageTypes<string>[])
-            : ([raw] as FugueMutationMessageTypes<string>[]);
+        const msgs: FugueMutationMessageTypes[] = isArray
+            ? (raw as FugueMutationMessageTypes[])
+            : ([raw] as FugueMutationMessageTypes[]);
 
         if (msgs.length === 0) return;
 
         const firstMsg = msgs[0];
-        logger.debug("First message", { firstMsg });
+        logger.debug("First msg info", {
+            OP: firstMsg.operation,
+            DOC_ID: firstMsg.documentID,
+            REP_ID: firstMsg.replicaId,
+            USER_ID: firstMsg.userIdentity,
+        });
         this.currentDocId = firstMsg.documentID;
+        // FIX: Results in duplicate anon users when reloading
         this.userIdentity = firstMsg.userIdentity || UserService.getIdentifierForAnonymousUser();
 
         const [hasAccessToDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
@@ -105,26 +110,26 @@ export class WSService {
                     });
 
                 }
-                const joinMsg: FugueJoinMessage<string> = {
+                const joinMsg: FugueJoinMessage = {
                     operation: Operation.JOIN,
                     documentID: this.currentDocId,
-                    state: doc.crdt.state,
+                    state: doc.crdt.save(),
                     collaborators,
                     offlineChanges: firstMsg.offlineChanges
                 };
 
-                const serializedJoinMessage = FugueMessageSerialzier.serialize<string>([joinMsg]);
+                const serializedJoinMessage = FugueMessageSerialzier.serialize([joinMsg]);
                 logger.info("Serialized Join Message size", { size: serializedJoinMessage.byteLength });
                 this.ws.send(serializedJoinMessage); //send the state to the joining user
 
-                const userJoinedNotification: FugueJoinMessage<string> = {
+                const userJoinedNotification: FugueJoinMessage = {
                     operation: Operation.JOIN,
                     documentID: this.currentDocId,
                     state: null,
                     userIdentity: this.userIdentity,
                 };
 
-                const serialisedMsg = FugueMessageSerialzier.serialize<string>([userJoinedNotification]);
+                const serialisedMsg = FugueMessageSerialzier.serialize([userJoinedNotification]);
 
                 doc.sockets.forEach((sock) => {
                     if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(serialisedMsg);
@@ -136,12 +141,16 @@ export class WSService {
         }
 
         try {
-            const ms = msgs as FugueMessage<string>[];
+            const ms = msgs as FugueMessage[];
             logger.info(`Received ${msgs.length} operations for doc id ${this.currentDocId} from ${ms[0].replicaId}`);
 
             if (accessType === ContributorType.EDITOR) {
                 //Ideally the editor would be disabled on the frontend but you can never be too sure.
 
+                logger.debug(
+                    `Effecting ${ms.length} on server crdt with id ${doc.crdt.replicaId()} from ${ms[0].replicaId}`,
+                    { firstMsg: { OP: ms[0].operation, DATA: ms[0].data } },
+                );
                 doc.crdt.effect(ms);
                 DocumentManager.markDirty(this.currentDocId);
                 const broadcastMsg = message; //relay the message as received
@@ -149,14 +158,14 @@ export class WSService {
                     if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
                 });
             }
-        } catch (err: any) {
+        } catch (err) {
             logger.error("Error handling delete or insert operation", { err });
         }
     }
 
     async handleClose() {
         if (this.currentDocId) {
-            await DocumentManager.removeUser(this.currentDocId, this.ws);
+            await DocumentManager.removeUser(this.currentDocId, this.ws, this.userIdentity);
             this.currentDocId = undefined;
         }
 

@@ -4,10 +4,20 @@ import { UserService } from "./UserService";
 import { logger } from "../logging";
 import { ObjectId } from "mongodb";
 import { RootFilterQuery } from "mongoose";
+import { redis } from "../redis";
+import { RedisService } from "./RedisService";
 
 const createDocument = async (userId: string | null) => {
     const document = await DocumentModel.create({ ownerId: userId });
     return document;
+};
+
+const removeDocument = async (documentId: string) => {
+    const res = await DocumentModel.findOneAndDelete({ _id: documentId });
+    if (!res) {
+        throw new APIError("Document not found", 404);
+    }
+    await RedisService.deleteCRDTStateByDocumentID(documentId);
 };
 
 const findDocumentById = async (documentId: string) => {
@@ -16,34 +26,39 @@ const findDocumentById = async (documentId: string) => {
 };
 
 const updateDocumentById = async (documentId: string, updateObj: Partial<Document>) => {
-    await DocumentModel.findOneAndUpdate({ _id: documentId }, updateObj);
+    const res = await DocumentModel.findOneAndUpdate({ _id: documentId }, updateObj);
+    if (!res) {
+        throw new APIError("Document not found", 404);
+    }
 };
 
-const getDocumentsByUserId = async (userId: string, limit: number = 10, currentCursor?: string) : Promise<CursorPaginatedResponse<Document>> => {
+const getDocumentsByUserId = async (
+    userId: string,
+    limit: number = 10,
+    currentCursor?: string,
+): Promise<CursorPaginatedResponse<Document>> => {
     //current cursor is the id of the last document from a previous pagination...
 
     const userEmail = (await UserService.getUserEmailById(userId)) || "";
     const query: RootFilterQuery<Document> = {
-        $or: [
-            { ownerId: userId },
-            { "contributors.email": userEmail }
-        ]
+        $or: [{ ownerId: userId }, { "contributors.email": userEmail }],
     };
 
     if (currentCursor) {
-        query._id = { $lt: new ObjectId(currentCursor) }
+        query._id = { $lt: new ObjectId(currentCursor) };
     }
 
-
-    const documents = await DocumentModel.find(query).sort({ _id: -1 }).limit(limit + 1);
+    const documents = await DocumentModel.find(query)
+        .sort({ _id: -1 })
+        .limit(limit + 1);
     const hasNext = documents.length > limit;
     if (hasNext) documents.pop();
-    const nextCursor = documents[limit- 1]?._id.toString() || undefined;
+    const nextCursor = documents[limit - 1]?._id.toString() || undefined;
 
     return {
         data: documents,
         nextCursor,
-        hasNext
+        hasNext,
     };
 };
 
@@ -115,7 +130,6 @@ const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string)
     }
 
     const user = await UserService.getUserByEmail(email);
-    logger.info("User info", { user });
 
     const isDocumentOwnerOrCollaborator =
         (user !== undefined && document.ownerId === user.id) ||
@@ -167,6 +181,7 @@ const isDocumentOwner = async (documentId: string, userId: string) => {
 
 export const DocumentServices = {
     createDocument,
+    removeDocument,
     findDocumentById,
     updateDocumentById,
     getDocumentsByUserId,
