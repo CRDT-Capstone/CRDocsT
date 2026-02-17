@@ -37,6 +37,7 @@ export class WSClient {
         this.remoteUpdate = remoteUpdate;
         this.previousTextRef = previousTextRef;
         if (userIdentity) this.userIdentity = userIdentity;
+        mainStore.getState().setActiveCollaborators([]);
 
         this.handleOpen = this.handleOpen.bind(this);
         this.handleMessage = this.handleMessage.bind(this);
