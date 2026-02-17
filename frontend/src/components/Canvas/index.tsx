@@ -1,6 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { FugueTree, Operation } from "@cr_docs_t/dts";
-import { randomString } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView } from "@uiw/react-codemirror";
 import { bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
 import { useParams } from "react-router-dom";
@@ -10,10 +9,10 @@ import Loading from "../Loading";
 import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { WSClient } from "../../utils/WSClient";
-import { latexSupportInline, latexSupportWorker } from "../../treesitter/codemirror";
-import TreeSitterWorker from "../../treesitter/worker.ts?worker";
+import { latexSupport } from "../../treesitter/codemirror";
 import { Parser, Query } from "web-tree-sitter";
 import { newParser } from "../../treesitter";
+import { toast } from "sonner";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
@@ -27,10 +26,12 @@ const Canvas = () => {
     const [query, setQuery] = useState<Query | null>(null);
     const email = mainStore((state) => state.email);
     const setDocument = mainStore((state) => state.setDocument);
-    const tree = mainStore((state) => state.tree);
+    const ygg = mainStore((state) => state.ygg);
     const isParsing = mainStore((state) => state.isParsing);
     const activeCollaborators = mainStore((state) => state.activeCollaborators);
-    const [worker, setWorker] = useState<Worker | null>(null);
+    const isEffecting = mainStore((state) => state.isEffecting);
+    const unEffectedMsgs = mainStore((state) => state.unEffectedMsgs);
+    const setUnEffectedMsgs = mainStore((state) => state.setUnEffectedMsgs);
     const [editorView, setEditorView] = useState<EditorView | undefined>(undefined);
 
     const viewRef = useRef<EditorView | undefined>(undefined);
@@ -46,30 +47,12 @@ const Canvas = () => {
 
     useEffect(() => {
         documentQuery.refetch();
-        const w = new TreeSitterWorker({ name: "TreeSitterWorker" });
-        setWorker(w);
-        return () => {
-            w.terminate();
-        };
     }, []);
-
-    // useEffect(() => {
-    //     if (tree && tree.rootNode) console.log({ tree: tree.rootNode });
-    // }, [tree]);
-
-    // useEffect(() => {
-    //     if (worker) {
-    //         setExts((prev) => [
-    //             ...prev,
-    //             ...latexSupportWorker(worker),
-    //         ]);
-    //     }
-    // }, [worker]);
 
     const exts = useMemo(() => {
         const base = [bracketMatching(), indentOnInput(), EditorView.lineWrapping];
         if (parser && query) {
-            return [...base, ...latexSupportInline(parser, query)];
+            return [...base, ...latexSupport(parser, query)];
         }
         return base;
     }, [parser, query]);
@@ -87,16 +70,6 @@ const Canvas = () => {
             wsClient.current.setUserIdentity(email);
         }
     }, [email, wsClient.current]);
-
-    // Garbage Collection of deleted elements every 30 seconds
-    // useEffect(() => {
-    //     const gcInterval = setInterval(() => {
-    //         console.log("Performing garbage collection");
-    //         fugue.garbageCollect();
-    //     }, 30000);
-    //
-    //     return () => clearInterval(gcInterval);
-    // }, [fugue]);
 
     // WebSocket setup
     useEffect(() => {
@@ -128,6 +101,17 @@ const Canvas = () => {
             socketRef.current?.close();
         };
     }, [fugue, clerk.loaded, editorView, email, webSocketUrl]);
+
+    useEffect(() => {
+        if (isEffecting && editorView && wsClient.current) {
+            if (isEffecting && unEffectedMsgs.length > 0) {
+                console.log("Applying buffered messages ->", unEffectedMsgs);
+                toast.info("Applying buffered messages");
+                wsClient.current.effectMsgs(unEffectedMsgs);
+                setUnEffectedMsgs([]);
+            }
+        }
+    }, [isEffecting]);
 
     /**
      * Handle changes from CodeMirror

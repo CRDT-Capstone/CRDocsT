@@ -1,11 +1,10 @@
-import { Language, Parser, Tree, Query } from "web-tree-sitter";
+import { Parser, Tree, Query } from "web-tree-sitter";
 import { Decoration, DecorationSet, ViewPlugin, PluginValue, EditorView, ViewUpdate } from "@codemirror/view";
-import { EditorState, Range, RangeSetBuilder } from "@codemirror/state";
+import { EditorState, Range, RangeSetBuilder, StateField } from "@codemirror/state";
 import { Edit } from "web-tree-sitter";
 import mainStore from "../stores";
 import TagMap from "./mappings";
 import { highlightingFor } from "@codemirror/language";
-import { ResultsMessage, TreeSitterWorkerMessage } from "./worker";
 
 /**
  * Helper to convert a linear index to a Tree-sitter Point (row/column)
@@ -15,73 +14,10 @@ function getPoint(doc: any, pos: number) {
     return { row: line.number - 1, column: pos - line.from };
 }
 
-export const treeSitterHighlightPluginWorker = (worker: Worker) => {
-    return ViewPlugin.fromClass(
-        class implements PluginValue {
-            decorations: DecorationSet = Decoration.none;
-
-            constructor(readonly view: EditorView) {
-                console.log("Initializing Tree-sitter plugin and worker");
-                worker.onmessage = (e: MessageEvent<TreeSitterWorkerMessage>) => {
-                    console.log({ type: e.data.type, payload: e.data.payload });
-                    if (e.data.type === "results") {
-                        console.log("Received results from worker:", e.data.payload);
-                        this.recvResults(e.data.payload);
-                    }
-                };
-
-                this.reqParse();
-            }
-
-            update(update: ViewUpdate) {
-                if (update.docChanged || update.viewportChanged) this.reqParse();
-            }
-
-            reqParse() {
-                worker.postMessage({
-                    type: "parse",
-                    payload: {
-                        code: this.view.state.doc.toString(),
-                        viewport: { from: this.view.viewport.from, to: this.view.viewport.to },
-                    },
-                } as TreeSitterWorkerMessage);
-            }
-
-            recvResults(results: ResultsMessage[]) {
-                const builder: Range<Decoration>[] = [];
-
-                for (const { from, to, name } of results) {
-                    const parts = name.split(".");
-                    let tag = null;
-                    for (let i = parts.length; i > 0; i--) {
-                        const search = parts.slice(0, i).join(".");
-                        if (TagMap[search]) {
-                            tag = TagMap[search];
-                            break;
-                        }
-                    }
-                    if (!tag) continue;
-
-                    const highlightClass = highlightingFor(this.view.state, [tag]);
-                    const classes = [highlightClass, `cm-${name.replace(/\./g, "-")}`].filter(Boolean).join(" ");
-
-                    builder.push(Decoration.mark({ class: classes }).range(from, to));
-                }
-
-                this.decorations = Decoration.set(
-                    builder.sort((a, b) => a.from - b.from),
-                    true,
-                );
-                this.view.requestMeasure(); // Force redraw
-            }
-        },
-        {
-            decorations: (v) => v.decorations,
-        },
-    );
-};
-
-export const treeSitterHighlightPluginInline = (parser: Parser, query: Query) => {
+/**
+ * Codemirror highligher plugin that uses treesitter tree queries to generate decorations.
+ */
+export const treeSitterHighlightPlugin = (parser: Parser, query: Query) => {
     return ViewPlugin.fromClass(
         class implements PluginValue {
             decorations: DecorationSet;
@@ -91,7 +27,7 @@ export const treeSitterHighlightPluginInline = (parser: Parser, query: Query) =>
             constructor(readonly view: EditorView) {
                 this.tree = parser.parse(view.state.doc.toString());
                 this.decorations = this.buildDecorations(view);
-                mainStore.getState().setTree(this.tree!);
+                mainStore.getState().setYgg(this.tree!);
             }
 
             update(update: ViewUpdate) {
@@ -129,7 +65,7 @@ export const treeSitterHighlightPluginInline = (parser: Parser, query: Query) =>
             private scheduleStoreUpdate() {
                 if (this.debounceTimeout) clearTimeout(this.debounceTimeout);
                 this.debounceTimeout = setTimeout(() => {
-                    if (this.tree) mainStore.getState().setTree(this.tree);
+                    if (this.tree) mainStore.getState().setYgg(this.tree);
                     mainStore.getState().setIsParsing(false);
                 }, 150);
             }
@@ -201,20 +137,9 @@ export const treeSitterHighlightPluginInline = (parser: Parser, query: Query) =>
     );
 };
 
-export const latexSupportWorker = (worker: Worker) => {
+export const latexSupport = (parser: Parser, query: Query) => {
     return [
-        treeSitterHighlightPluginWorker(worker),
-        EditorState.languageData.of(() => [
-            {
-                commentTokens: { line: "%" },
-            },
-        ]),
-    ];
-};
-
-export const latexSupportInline = (parser: Parser, query: Query) => {
-    return [
-        treeSitterHighlightPluginInline(parser, query),
+        treeSitterHighlightPlugin(parser, query),
         EditorState.languageData.of(() => [
             {
                 commentTokens: { line: "%" },

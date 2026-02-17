@@ -151,40 +151,17 @@ export class WSClient {
             // Handle updates
             else {
                 const msgs = remoteMsgs.filter((m) => !("state" in m)) as FugueMessage[];
+                const isEffecting = mainStore.getState().isEffecting;
+                const unEffectedMsgs = mainStore.getState().unEffectedMsgs;
+                const setUnEffectedMsgs = mainStore.getState().setUnEffectedMsgs;
 
-                const applied = this.fugue.effect(msgs);
-
-                if (!this.viewRef.current) return;
-                for (const m of applied) {
-                    try {
-                        const node = this.fugue.getById(m.id);
-                        const fromIdx = this.fugue.getVisibleIndex(node);
-                        const l = this.viewRef.current.state.doc.length;
-
-                        if (fromIdx <= l) {
-                            if (m.operation === Operation.DELETE) {
-                                this.viewRef.current.dispatch({
-                                    changes: {
-                                        from: fromIdx,
-                                        to: fromIdx + 1,
-                                        insert: "",
-                                    },
-                                    annotations: [this.remoteUpdate.of(true)],
-                                });
-                            } else if (m.operation === Operation.INSERT) {
-                                this.viewRef.current.dispatch({
-                                    changes: {
-                                        from: fromIdx,
-                                        to: fromIdx,
-                                        insert: m.data!,
-                                    },
-                                    annotations: [this.remoteUpdate.of(true)],
-                                });
-                            }
-                        }
-                    } catch (e) {
-                        console.error("Failed to sync UI state ->", e);
-                    }
+                if (isEffecting) {
+                    this.effectMsgs(msgs);
+                } else {
+                    // If not effecting, store the messages to be effected later
+                    console.log("Not effecting, storing messages for later -> ", msgs);
+                    const newUnEffectedMsgs = unEffectedMsgs.concat(msgs);
+                    setUnEffectedMsgs(newUnEffectedMsgs);
                 }
 
                 // Sync local ref so we don't rebroadcast the change
@@ -203,5 +180,42 @@ export class WSClient {
 
     getUserIdenity(): string | undefined {
         return this.userIdentity;
+    }
+
+    effectMsgs(msgs: FugueMessage[]) {
+        const applied = this.fugue.effect(msgs);
+
+        if (!this.viewRef.current) return;
+        for (const m of applied) {
+            try {
+                const node = this.fugue.getById(m.id);
+                const fromIdx = this.fugue.getVisibleIndex(node);
+                const l = this.viewRef.current.state.doc.length;
+
+                if (fromIdx <= l) {
+                    if (m.operation === Operation.DELETE) {
+                        this.viewRef.current.dispatch({
+                            changes: {
+                                from: fromIdx,
+                                to: fromIdx + 1,
+                                insert: "",
+                            },
+                            annotations: [this.remoteUpdate.of(true)],
+                        });
+                    } else if (m.operation === Operation.INSERT) {
+                        this.viewRef.current.dispatch({
+                            changes: {
+                                from: fromIdx,
+                                to: fromIdx,
+                                insert: m.data!,
+                            },
+                            annotations: [this.remoteUpdate.of(true)],
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error("Failed to sync UI state ->", e);
+            }
+        }
     }
 }

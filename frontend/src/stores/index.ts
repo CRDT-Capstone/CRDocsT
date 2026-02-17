@@ -1,4 +1,4 @@
-import { Contributor, Document } from "@cr_docs_t/dts";
+import { Contributor, Document, FugueMessage } from "@cr_docs_t/dts";
 import { Tree } from "web-tree-sitter";
 import { create } from "zustand";
 import { createJSONStorage, devtools, persist } from "zustand/middleware";
@@ -6,14 +6,20 @@ import { immer } from "zustand/middleware/immer";
 
 export type DocumentState = {
     document?: Document;
-    tree?: Tree;
+    ygg?: Tree; // Concrete Syntax Tree (Yggdrasil)
     isParsing: boolean;
     activeCollaborators: string[];
 
+    isEffecting: boolean;
+    unEffectedMsgs: FugueMessage[];
+
     setDocument: (v: Document) => void;
-    setTree: (v: Tree) => void;
+    setYgg: (v: Tree) => void;
     setIsParsing: (v: boolean) => void;
     setActiveCollaborators: (v: string[]) => void;
+
+    toggleIsEffecting: () => void;
+    setUnEffectedMsgs: (v: FugueMessage[]) => void;
 };
 
 export type UserState = {
@@ -33,15 +39,17 @@ const mainStore = create<State>()(
                     activeCollaborators: [],
                     isParsing: false,
                     email: undefined,
+                    isEffecting: true,
+                    unEffectedMsgs: [],
 
                     setDocument: (v) =>
                         set((state) => {
                             state.document = v;
                         }),
 
-                    setTree: (v) =>
+                    setYgg: (v) =>
                         set((state) => {
-                            state.tree = v;
+                            state.ygg = v;
                         }),
 
                     setIsParsing: (v) =>
@@ -57,6 +65,16 @@ const mainStore = create<State>()(
                     setEmail: (v) =>
                         set((state) => {
                             state.email = v;
+                        }),
+
+                    toggleIsEffecting: () =>
+                        set((state) => {
+                            state.isEffecting = !state.isEffecting;
+                        }),
+
+                    setUnEffectedMsgs: (v) =>
+                        set((state) => {
+                            state.unEffectedMsgs = v;
                         }),
                 }),
                 {
