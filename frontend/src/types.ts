@@ -1,5 +1,13 @@
+import { FugueMessage, Operation } from "@cr_docs_t/dts";
+
 export type Position = string;
 export type IDBDocumentSchema = {
     documentId: string, //document Id
-    state: string //stringified state
+};
+
+
+export type IDBOperationSchema = {
+    id?: number;
+    documentId: string;
+    fugueMsg: FugueMessage
 };

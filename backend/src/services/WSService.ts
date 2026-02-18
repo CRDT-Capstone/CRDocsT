@@ -10,6 +10,9 @@ import {
     FugueRejectMessage,
     Operation,
     FugueMutationMessageTypes,
+    FugueUserJoinMessage,
+    FTree,
+    FugueStateSerializer,
 } from "@cr_docs_t/dts";
 import { DocumentServices } from "../services/DocumentServices";
 import DocumentManager from "../managers/document";
@@ -90,42 +93,42 @@ export class WSService {
             try {
                 await RedisService.AddToCollaboratorsByDocumentId(this.currentDocId, this.userIdentity!);
                 const collaborators = await RedisService.getCollaboratorsByDocumentId(this.currentDocId);
-                if (firstMsg.offlineChanges) {
-                    const offlineChanges: FugueMessage<string>[] = firstMsg.offlineChanges.flat().map((change) => {
-                        return {
-                            operation: change.operation! as Operation.INSERT | Operation.DELETE,
-                            position: change.position,
-                            data: change.value ?? null,
-                            replicaId: firstMsg.replicaId!,
-                            documentID: firstMsg.documentID,
-                            userIdentity: firstMsg.userIdentity
-                        }
-                    });
-                    doc.crdt.effect(offlineChanges);
-                    logger.info(`Current state -> ${doc.crdt.observe()}`);
-                    if(this.currentDocId) DocumentManager.persist(this.currentDocId);
+                // if (firstMsg.localState) {
+                //     const changes = FugueStateSerializer.deserialize(firstMsg.localState);
+                //     changes.
+                //     const offlineChanges: FugueMessage<string>[] = firstMsg.offlineChanges.flat().map((change) => {
+                //         return {
+                //             operation: change.operation! as Operation.INSERT | Operation.DELETE,
+                //             position: change.position,
+                //             data: change.value ?? null,
+                //             replicaId: firstMsg.replicaId!,
+                //             documentID: firstMsg.documentID,
+                //             userIdentity: firstMsg.userIdentity
+                //         }
+                //     });
+                //     doc.crdt.effect(offlineChanges);
+                //     logger.info(`Current state -> ${doc.crdt.observe()}`);
+                //     if(this.currentDocId) DocumentManager.persist(this.currentDocId);
 
-                    doc.sockets.forEach((sock) => {
-                        if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(FugueMessageSerialzier.serialize(offlineChanges));
-                    });
+                //     doc.sockets.forEach((sock) => {
+                //         if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(FugueMessageSerialzier.serialize(offlineChanges));
+                //     });
 
-                }
+                // }
                 const joinMsg: FugueJoinMessage = {
                     operation: Operation.JOIN,
                     documentID: this.currentDocId,
                     state: doc.crdt.save(),
                     collaborators,
-                    offlineChanges: firstMsg.offlineChanges
+                    localState: null
                 };
 
                 const serializedJoinMessage = FugueMessageSerialzier.serialize([joinMsg]);
                 logger.info("Serialized Join Message size", { size: serializedJoinMessage.byteLength });
                 this.ws.send(serializedJoinMessage); //send the state to the joining user
 
-                const userJoinedNotification: FugueJoinMessage = {
+                const userJoinedNotification: FugueUserJoinMessage = {
                     operation: Operation.JOIN,
-                    documentID: this.currentDocId,
-                    state: null,
                     userIdentity: this.userIdentity,
                 };
 

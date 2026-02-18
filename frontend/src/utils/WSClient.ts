@@ -60,20 +60,30 @@ export class WSClient {
         console.log("WebSocket connected");
         toast.success("You are connected");
 
-        let bufferedChanges;
+        let savedDocChanges;
         try {
-            const savedDocChanges = await DocumentsIndexedDB.getBufferedChanges(this.fugue.documentID);
-            await DocumentsIndexedDB.deleteBufferedChanges(this.fugue.documentID);
-            bufferedChanges = JSON.parse(savedDocChanges!.state);
+            //get any local changes 
+            console.log('Fugue Id -> ', this.fugue.documentID);
+            savedDocChanges = await DocumentsIndexedDB.getBufferedChanges(this.fugue.documentID);
+            console.log('Changes that we are about to send -> ', savedDocChanges);
+
+            const FugueMessages: FugueMessage[] = savedDocChanges.map((changes)=> changes.fugueMsg);
+            const serialisedLocalChangeMessage = FugueMessageSerialzier.serialize(FugueMessages);
+            this.ws.send(serialisedLocalChangeMessage);
+            //send buffered local changes messages 
+
+            //await DocumentsIndexedDB.deleteBufferedChanges(this.fugue.documentID);
         } catch (err) {
             console.log("Error processing buffered changes -> ", err);
         }
-        const joinMsg: FugueJoinMessage<string> = {
+
+        //send the join message with the local changes
+        const joinMsg: FugueJoinMessage = {
             operation: Operation.JOIN,
             documentID: this.documentID,
             state: null,
             userIdentity: this.userIdentity,
-            offlineChanges: bufferedChanges,
+            localState: null,
             replicaId: this.fugue.replicaId()
         };
         console.log("joinMsg -> ", joinMsg);
@@ -137,7 +147,15 @@ export class WSClient {
                 }
 
                 console.log({ msg });
-                this.fugue.load(msg.state!);
+                const localChanges = await DocumentsIndexedDB.getBufferedChanges(this.documentID!);
+                if(localChanges.length > 0){
+                    //get the buffered changes from redis
+                    //delete
+                    await DocumentsIndexedDB.deleteBufferedChanges(this.documentID);
+                }
+                    this.fugue.load(msg.state!);
+                
+                
                 const newText = this.fugue.length() > 0 ? this.fugue.observe() : "";
                 console.log({ newText });
 
