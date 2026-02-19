@@ -63,21 +63,27 @@ export class WSService {
             DOC_ID: firstMsg.documentID,
             REP_ID: firstMsg.replicaId,
             USER_ID: firstMsg.userIdentity,
+            msg: firstMsg,
         });
         this.currentDocId = firstMsg.documentID;
         // FIX: Results in duplicate anon users when reloading
         this.userIdentity = firstMsg.userIdentity || UserService.getIdentifierForAnonymousUser();
 
-        const [hasAccessToDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
+        const { hasAccess, contributorType: accessType } = await DocumentServices.IsDocumentOwnerOrCollaborator(
             this.currentDocId,
             firstMsg.userIdentity,
         );
-        if (!hasAccessToDocument) {
+        logger.debug("Has access to document", { hasAccessToDocument: hasAccess, accessType });
+
+        if (!hasAccess) {
             logger.warn("User does not have access to document", {
                 documentID: this.currentDocId,
                 userIdentity: firstMsg.userIdentity,
             });
-            const rejectMessage: FugueRejectMessage = { operation: Operation.REJECT };
+            const rejectMessage: FugueRejectMessage = {
+                operation: Operation.REJECT,
+                reason: "User does not have access",
+            };
             const serializedRejectMessage = FugueMessageSerialzier.serialize([rejectMessage]);
             this.ws.send(serializedRejectMessage);
             this.ws.close(1000, "User does not have access");
@@ -120,7 +126,7 @@ export class WSService {
                     documentID: this.currentDocId,
                     state: doc.crdt.save(),
                     collaborators,
-                    localState: null
+                    localState: null,
                 };
 
                 const serializedJoinMessage = FugueMessageSerialzier.serialize([joinMsg]);

@@ -111,22 +111,27 @@ const addUserAsCollaborator = async (
 };
 
 //TODO: write a unit test for this
-const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string) => {
+type IsDocumentOwnerOrCollaboratorReturn = { hasAccess: boolean; contributorType: ContributorType | undefined };
+const IsDocumentOwnerOrCollaborator = async (
+    documentId: string,
+    email?: string,
+): Promise<IsDocumentOwnerOrCollaboratorReturn> => {
     logger.debug("Checking if user is owner or collaborator", { documentId, email });
     const document = await DocumentModel.findById(documentId);
+    logger.debug("Document", { document });
     if (!document) throw Error("Document does not exist!");
-    if (!document.ownerId) return [true, ContributorType.EDITOR];
+    if (!document.ownerId) return { hasAccess: true, contributorType: ContributorType.EDITOR };
     //if it was created by an anonymous user then anyone can have access to it...?
     //I don't think this is the most secure but I'm not quite sure what the solution is
     //We don't let anonymous users share?
 
     if (!email) {
-        /* 
-        If there's no email then it is possibly because the user is an anonymous owner 
-        But that is covered by an earlier if statement where we handle all anonymous documents
-        So we should probably return false here 
-        */
-        return [false, undefined];
+        /*
+         * If there's no email then it is possibly because the user is an anonymous owner
+         * But that is covered by an earlier if statement where we handle all anonymous documents
+         * So we should probably return false here
+         */
+        return { hasAccess: false, contributorType: undefined };
     }
 
     const user = await UserService.getUserByEmail(email);
@@ -135,8 +140,10 @@ const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string)
         (user !== undefined && document.ownerId === user.id) ||
         (document.contributors.length > 0 &&
             document.contributors.find((contributor) => contributor.email === email) !== undefined);
+    logger.debug("Is Document Owner or Collaborator", { isDocumentOwnerOrCollaborator });
 
-    if (!isDocumentOwnerOrCollaborator) return [false, undefined];
+    if (!isDocumentOwnerOrCollaborator) return { hasAccess: false, contributorType: undefined };
+
     let contributorType;
     if (document.ownerId === user!.id) {
         contributorType = ContributorType.EDITOR;
@@ -146,7 +153,7 @@ const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string)
     }
 
     logger.info({ isDocumentOwnerOrCollaborator, contributorType });
-    return [isDocumentOwnerOrCollaborator, contributorType];
+    return { hasAccess: isDocumentOwnerOrCollaborator, contributorType: contributorType };
 };
 
 const removeContributor = async (documentId: string, email: string) => {

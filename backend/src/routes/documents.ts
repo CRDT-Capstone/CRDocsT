@@ -15,3 +15,4 @@ makeDocumentRoute("get", "/:documentId", DocumentController.GetDocumentById);
 makeDocumentRoute("post", "/share", DocumentController.ShareDocumentViaEmail);
 makeDocumentRoute("post", "/:documentId/remove-collaborator", DocumentController.RemoveContributor);
 makeDocumentRoute("post", "/:documentId/update-collaborator-type", DocumentController.UpdateContributorType);
+makeDocumentRoute("post", "/:documentId/check-access", DocumentController.GetUserDocumentAccess);

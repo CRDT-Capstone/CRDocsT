@@ -111,7 +111,7 @@ const getDocumuentByIdSchema = {
     params: documentIdSchema(),
 };
 
-const getDocumentById = async (req: Request, res: Response) => {
+const getDocumentById = async (req: ValidatedRequest<typeof getDocumuentByIdSchema>, res: Response) => {
     const { documentId } = req.params;
     try {
         const document = await DocumentServices.getDocumentMetadataById(documentId as string);
@@ -136,7 +136,7 @@ const shareDocumentViaEmailSchema = {
     }),
 };
 
-const shareDocumentViaEmail = async (req: Request, res: Response) => {
+const shareDocumentViaEmail = async (req: ValidatedRequest<typeof shareDocumentViaEmailSchema>, res: Response) => {
     try {
         const { receiverEmail, documentId, contributorType } = req.body;
         if (!documentId || !contributorType || !receiverEmail) {
@@ -175,7 +175,7 @@ const removeContributorSchema = {
     }),
 };
 
-const removeContributor = async (req: Request, res: Response) => {
+const removeContributor = async (req: ValidatedRequest<typeof removeContributorSchema>, res: Response) => {
     try {
         const { documentId, email } = req.body;
         await DocumentServices.removeContributor(documentId, email);
@@ -197,7 +197,7 @@ const updateContributorTypeSchema = {
     }),
 };
 
-const updateContributorType = async (req: Request, res: Response) => {
+const updateContributorType = async (req: ValidatedRequest<typeof updateContributorTypeSchema>, res: Response) => {
     try {
         const { documentId, email, contributorType } = req.body;
         await DocumentServices.changeContributorType(documentId, email, contributorType);
@@ -209,6 +209,35 @@ const updateContributorType = async (req: Request, res: Response) => {
         logger.error("Unable to change contributor type", { err });
         const e = handleErrorAsAPIError(err, "Unable to change contributor type");
         return sendErr(res, e.msg, e.status);
+    }
+};
+
+const getUserDocumentAccessSchema = {
+    params: documentIdSchema(),
+    body: z.strictObject({
+        userIdentifier: z.email().or(z.undefined()),
+    }),
+};
+
+const getUserDocumentAccess = async (req: ValidatedRequest<typeof getUserDocumentAccessSchema>, res: Response) => {
+    try {
+        const { documentId } = req.params;
+        const { userIdentifier } = req.body;
+        const { hasAccess, contributorType } = await DocumentServices.IsDocumentOwnerOrCollaborator(
+            documentId,
+            userIdentifier,
+        );
+        return sendOk<{ hasAccess: boolean; contributorType: ContributorType | undefined }>(res, {
+            message: "Successfully checked if user has access to document",
+            data: {
+                hasAccess,
+                contributorType,
+            },
+        });
+    } catch (err: any) {
+        logger.error("Unable to check if user has access to document", { err });
+        const er = handleErrorAsAPIError(err, "Unable to check if user has access to document");
+        return sendErr(res, er.msg, er.status);
     }
 };
 
@@ -244,5 +273,9 @@ export const DocumentController = defineController({
     UpdateContributorType: {
         con: updateContributorType,
         sch: updateContributorTypeSchema,
+    },
+    GetUserDocumentAccess: {
+        con: getUserDocumentAccess,
+        sch: getUserDocumentAccessSchema,
     },
 });
