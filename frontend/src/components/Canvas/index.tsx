@@ -13,6 +13,7 @@ import { latexSupport } from "../../treesitter/codemirror";
 import { Parser, Query } from "web-tree-sitter";
 import { newParser } from "../../treesitter";
 import { toast } from "sonner";
+import { DocumentsIndexedDB } from "../../stores/dexie/documents";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
@@ -71,19 +72,10 @@ const Canvas = () => {
         }
     }, [email, wsClient.current]);
 
-    // WebSocket setup
-    useEffect(() => {
-        if (!clerk.loaded) return;
-        socketRef.current = new WebSocket(webSocketUrl);
+    
+    const setUpWSClient = ()=>{
         if (!socketRef.current || !documentID || !editorView) return;
-        (async () => {
-            if (!parser || !query) {
-                const { parser, query } = await newParser();
-                setParser(parser);
-                setQuery(query);
-            }
-        })();
-        fugue.ws = socketRef.current;
+         fugue.ws = socketRef.current;
 
         if (!wsClient.current || (wsClient.current && wsClient.current.getUserIdenity() !== email))
             wsClient.current = new WSClient(
@@ -95,12 +87,41 @@ const Canvas = () => {
                 previousTextRef,
                 email,
             );
+    };
+
+    // WebSocket setup
+    useEffect(() => {
+        if (!clerk.loaded) return;
+        socketRef.current = new WebSocket(webSocketUrl);
+        socketRef.current.onclose = handleClose;
+        setUpWSClient();
+        (async () => {
+            if (!parser || !query) {
+                const { parser, query } = await newParser();
+                setParser(parser);
+                setQuery(query);
+            }
+        })();
 
         return () => {
             fugue.ws = null;
             socketRef.current?.close();
         };
     }, [fugue, clerk.loaded, editorView, email, webSocketUrl]);
+
+    const handleClose = () => {
+        console.log("WebSocket connection closed");
+
+        wsClient.current = undefined;
+
+        //try to reconect every 5 seconds 
+        setTimeout(() => {
+            socketRef.current = new WebSocket(webSocketUrl);
+            fugue.ws = socketRef.current;
+            socketRef.current.onclose = handleClose;
+            setUpWSClient();
+        }, 5000);
+    }
 
     useEffect(() => {
         if (isEffecting && editorView && wsClient.current) {
@@ -116,7 +137,7 @@ const Canvas = () => {
     /**
      * Handle changes from CodeMirror
      */
-    const handleChange = (value: string, viewUpdate: ViewUpdate) => {
+    const handleChange = async (value: string, viewUpdate: ViewUpdate) => {
         if (!viewUpdate.docChanged) return;
 
         // If this transaction has our "RemoteUpdate" stamp, we strictly ignore CRDT logic
@@ -139,7 +160,7 @@ const Canvas = () => {
         });
 
         // TODO: This might be sending duplicate operations per multi operation
-        viewUpdate.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
+        viewUpdate.changes.iterChanges(async (fromA, toA, fromB, toB, inserted) => {
             const deleteLen = toA - fromA;
             const insertedLen = toB - fromB;
             const insertedTxt = inserted.toString();
@@ -151,7 +172,10 @@ const Canvas = () => {
                     index: fromA,
                     count: deleteLen,
                 });
-                fugue.deleteMultiple(fromA, deleteLen);
+                const msgs = fugue.deleteMultiple(fromA, deleteLen);
+                if(wsClient.current?.isOffline()){
+                    await DocumentsIndexedDB.saveBufferedChanges(documentID!, msgs);
+                }
             }
 
             // Handle insertion
@@ -162,9 +186,13 @@ const Canvas = () => {
                     text: insertedTxt,
                 });
 
-                fugue.insertMultiple(fromA, insertedTxt);
+                const msgs = fugue.insertMultiple(fromA, insertedTxt);
+                if(socketRef.current?.readyState !== WebSocket.OPEN){
+                    await DocumentsIndexedDB.saveBufferedChanges(documentID!, msgs);
+                }
             }
         });
+
         previousTextRef.current = newText;
     };
 

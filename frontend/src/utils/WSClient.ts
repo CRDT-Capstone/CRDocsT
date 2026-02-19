@@ -11,6 +11,10 @@ import {
 import { AnnotationType, EditorSelection, EditorView } from "@uiw/react-codemirror";
 import { RefObject } from "react";
 import mainStore from "../stores";
+import { toast } from "sonner";
+import { DocumentsIndexedDB } from "../stores/dexie/documents";
+
+const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
 
 export class WSClient {
     private ws: WebSocket;
@@ -50,13 +54,37 @@ export class WSClient {
         this.ws.onmessage = this.handleMessage;
     }
 
+
+
     async handleOpen() {
         console.log("WebSocket connected");
+        toast.success("You are connected");
+
+        let savedDocChanges;
+        try {
+            //get any local changes 
+            console.log('Fugue Id -> ', this.fugue.documentID);
+            savedDocChanges = await DocumentsIndexedDB.getBufferedChanges(this.fugue.documentID);
+            console.log('Changes that we are about to send -> ', savedDocChanges);
+
+            const FugueMessages: FugueMessage[] = savedDocChanges.map((changes)=> changes.fugueMsg);
+            const serialisedLocalChangeMessage = FugueMessageSerialzier.serialize(FugueMessages);
+            this.ws.send(serialisedLocalChangeMessage);
+            //send buffered local changes messages 
+
+            //await DocumentsIndexedDB.deleteBufferedChanges(this.fugue.documentID);
+        } catch (err) {
+            console.log("Error processing buffered changes -> ", err);
+        }
+
+        //send the join message with the local changes
         const joinMsg: FugueJoinMessage = {
             operation: Operation.JOIN,
             documentID: this.documentID,
             state: null,
             userIdentity: this.userIdentity,
+            localState: null,
+            replicaId: this.fugue.replicaId()
         };
         console.log("joinMsg -> ", joinMsg);
 
@@ -119,7 +147,15 @@ export class WSClient {
                 }
 
                 console.log({ msg });
-                this.fugue.load(msg.state!);
+                const localChanges = await DocumentsIndexedDB.getBufferedChanges(this.documentID!);
+                if(localChanges.length > 0){
+                    //get the buffered changes from redis
+                    //delete
+                    await DocumentsIndexedDB.deleteBufferedChanges(this.documentID);
+                }
+                    this.fugue.load(msg.state!);
+                
+                
                 const newText = this.fugue.length() > 0 ? this.fugue.observe() : "";
                 console.log({ newText });
 
@@ -217,5 +253,9 @@ export class WSClient {
                 console.error("Failed to sync UI state ->", e);
             }
         }
+    }
+
+    isOffline() {
+        return this.ws.readyState === WebSocket.CLOSED;
     }
 }

@@ -7,6 +7,10 @@ const path = "docs";
 
 type TokenFunc = () => Promise<string | null>;
 
+const includeToken = (token: string | null) => {
+    return { Authorization: `Bearer ${token}` };
+};
+
 export const createDocumentApi = (getToken: TokenFunc) => {
     const navigate = useNavigate();
 
@@ -16,7 +20,7 @@ export const createDocumentApi = (getToken: TokenFunc) => {
 
             const response = await f.post<Msg<Document>>(`${ApiBaseUrl}/${path}/create`, undefined, {
                 headers: {
-                    Authorization: `Bearer: ${token}`,
+                    ...includeToken(token),
                 },
             });
 
@@ -55,7 +59,7 @@ export const createDocumentApi = (getToken: TokenFunc) => {
                 { name: newDocName },
                 {
                     headers: {
-                        Authorization: `Bearer: ${token}`,
+                        ...includeToken(token),
                     },
                 },
             );
@@ -81,7 +85,7 @@ export const createDocumentApi = (getToken: TokenFunc) => {
                 `${ApiBaseUrl}/${path}/user?${queryParams.toString()}`,
                 {
                     headers: {
-                        Authorization: `Bearer: ${token}`,
+                        ...includeToken(token),
                     },
                 },
             );
@@ -100,7 +104,7 @@ export const createDocumentApi = (getToken: TokenFunc) => {
         console.log({ documentId });
         const response = await f.get<Msg<Document>>(`${ApiBaseUrl}/${path}/${documentId}`, {
             headers: {
-                Authorization: `Bearer: ${token}`,
+                ...includeToken(token),
             },
         });
 
@@ -132,7 +136,7 @@ export const createDocumentApi = (getToken: TokenFunc) => {
                 },
                 {
                     headers: {
-                        Authorization: `Bearer: ${token}`,
+                        ...includeToken(token),
                     },
                 },
             );
@@ -155,7 +159,7 @@ export const createDocumentApi = (getToken: TokenFunc) => {
                 },
                 {
                     headers: {
-                        Authorization: `Bearer: ${token}`,
+                        ...includeToken(token),
                     },
                 },
             );
@@ -180,7 +184,7 @@ export const createDocumentApi = (getToken: TokenFunc) => {
                 },
                 {
                     headers: {
-                        Authorization: `Bearer: ${token}`,
+                        ...includeToken(token),
                     },
                 },
             );
