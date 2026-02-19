@@ -7,6 +7,7 @@ import {
     FugueMutationMessageTypes,
     Operation,
     StringPosition,
+    FugueMessageType,
 } from "@cr_docs_t/dts";
 import { AnnotationType, EditorSelection, EditorView } from "@uiw/react-codemirror";
 import { RefObject } from "react";
@@ -34,6 +35,7 @@ export class WSClient {
         previousTextRef: RefObject<string>,
         userIdentity: string | undefined = undefined,
     ) {
+        console.log("In WSClient");
         this.ws = ws;
         this.viewRef = viewRef;
         this.documentID = documentID;
@@ -46,6 +48,7 @@ export class WSClient {
         this.handleOpen = this.handleOpen.bind(this);
         this.handleMessage = this.handleMessage.bind(this);
 
+        if (this.ws.readyState === WebSocket.OPEN) this.handleOpen();
         this.initListeners();
     }
 
@@ -54,23 +57,20 @@ export class WSClient {
         this.ws.onmessage = this.handleMessage;
     }
 
-
-
     async handleOpen() {
         console.log("WebSocket connected");
-        toast.success("You are connected");
 
         let savedDocChanges;
         try {
-            //get any local changes 
-            console.log('Fugue Id -> ', this.fugue.documentID);
+            //get any local changes
+            console.log("Fugue Id -> ", this.fugue.documentID);
             savedDocChanges = await DocumentsIndexedDB.getBufferedChanges(this.fugue.documentID);
-            console.log('Changes that we are about to send -> ', savedDocChanges);
+            console.log("Changes that we are about to send -> ", savedDocChanges);
 
-            const FugueMessages: FugueMessage[] = savedDocChanges.map((changes)=> changes.fugueMsg);
+            const FugueMessages: FugueMessage[] = savedDocChanges.map((changes) => changes.fugueMsg);
             const serialisedLocalChangeMessage = FugueMessageSerialzier.serialize(FugueMessages);
             this.ws.send(serialisedLocalChangeMessage);
-            //send buffered local changes messages 
+            //send buffered local changes messages
 
             //await DocumentsIndexedDB.deleteBufferedChanges(this.fugue.documentID);
         } catch (err) {
@@ -84,7 +84,7 @@ export class WSClient {
             state: null,
             userIdentity: this.userIdentity,
             localState: null,
-            replicaId: this.fugue.replicaId()
+            replicaId: this.fugue.replicaId(),
         };
         console.log("joinMsg -> ", joinMsg);
 
@@ -108,17 +108,30 @@ export class WSClient {
             console.log("Parsed message -> ", raw);
 
             // Normalize to array
-            type FugueMsgType = FugueMutationMessageTypes | FugueLeaveMessage;
-            const msgs: FugueMsgType[] = Array.isArray(raw) ? (raw as FugueMsgType[]) : ([raw] as FugueMsgType[]);
+            const msgs: FugueMessageType[] = Array.isArray(raw) ? raw : [raw];
 
-            if (msgs.length > 0 && msgs[0].operation === Operation.LEAVE) {
+            if (msgs.length === 0) return;
+
+            // Handle leave message
+            if (msgs[0].operation === Operation.LEAVE) {
                 const leavingUser = (msgs[0] as FugueLeaveMessage).userIdentity;
                 console.log("remove message -> ", msgs[0]);
-                console.log("active collaborators -> ", activeCollaborators);
+                console.log("active collaborators -> ", activeCollaborators());
                 const newActiveCollaborators = activeCollaborators().filter((c) => c !== leavingUser);
                 console.log("new active collaborators -> ", newActiveCollaborators);
                 setActiveCollaborators(newActiveCollaborators);
                 //email isn't email for anonynous users
+                return;
+            }
+
+            // Handle reject message
+            if (msgs[0].operation === Operation.REJECT) {
+                console.log("reject message");
+                // Show toast and prevent canvas editing
+                // possibly kick them back to home if signed in
+                toast.error("User Rejected", {
+                    description: msgs[0].reason,
+                });
                 return;
             }
 
@@ -129,7 +142,6 @@ export class WSClient {
                 return m.replicaId !== myId;
             });
 
-            if (remoteMsgs.length === 0) return;
             const firstMsg = remoteMsgs[0];
 
             // Handle Join message (state sync)
@@ -148,14 +160,13 @@ export class WSClient {
 
                 console.log({ msg });
                 const localChanges = await DocumentsIndexedDB.getBufferedChanges(this.documentID!);
-                if(localChanges.length > 0){
+                if (localChanges.length > 0) {
                     //get the buffered changes from redis
                     //delete
                     await DocumentsIndexedDB.deleteBufferedChanges(this.documentID);
                 }
-                    this.fugue.load(msg.state!);
-                
-                
+                this.fugue.load(msg.state!);
+
                 const newText = this.fugue.length() > 0 ? this.fugue.observe() : "";
                 console.log({ newText });
 
@@ -186,7 +197,9 @@ export class WSClient {
             }
             // Handle updates
             else {
-                const msgs = remoteMsgs.filter((m) => !("state" in m)) as FugueMessage[];
+                const msgs = remoteMsgs.filter((m) => {
+                    return !("state" in m);
+                }) as FugueMessage[];
                 const isEffecting = mainStore.getState().isEffecting;
                 const unEffectedMsgs = mainStore.getState().unEffectedMsgs;
                 const setUnEffectedMsgs = mainStore.getState().setUnEffectedMsgs;

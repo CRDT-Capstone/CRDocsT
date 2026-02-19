@@ -1,54 +1,79 @@
-import { useState, useRef, useEffect, useMemo } from "react";
-import { FugueTree, Operation } from "@cr_docs_t/dts";
-import CodeMirror, { ViewUpdate, Annotation, EditorView } from "@uiw/react-codemirror";
-import { bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
-import { useParams } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import { Operation } from "@cr_docs_t/dts";
+import CodeMirror, { ViewUpdate, EditorView } from "@uiw/react-codemirror";
+import { bracketMatching, indentOnInput } from "@codemirror/language";
+import { useNavigate, useParams } from "react-router-dom";
 import { NavBar } from "../NavBar";
-import { useClerk } from "@clerk/clerk-react";
 import Loading from "../Loading";
 import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
-import { WSClient } from "../../utils/WSClient";
 import { latexSupport } from "../../treesitter/codemirror";
 import { Parser, Query } from "web-tree-sitter";
 import { newParser } from "../../treesitter";
-import { toast } from "sonner";
 import { DocumentsIndexedDB } from "../../stores/dexie/documents";
-
-// Ref to ignore next change (to prevent rebroadcasting remote changes)
-const RemoteUpdate = Annotation.define<boolean>();
+import { useCollab } from "../../hooks/collab";
+import { createDocumentApi } from "../../api/document";
+import { useAuth } from "@clerk/clerk-react";
+import { toast } from "sonner";
 
 const Canvas = () => {
     const { documentID } = useParams();
-    const wsClient = useRef<WSClient | undefined>(undefined);
+    const nav = useNavigate();
 
-    const [fugue] = useState(() => new FugueTree(null, documentID!));
     const [parser, setParser] = useState<Parser | null>(null);
     const [query, setQuery] = useState<Query | null>(null);
-    const email = mainStore((state) => state.email);
+
     const setDocument = mainStore((state) => state.setDocument);
     const ygg = mainStore((state) => state.ygg);
+
+    const { getToken } = useAuth();
+    const api = createDocumentApi(getToken);
+
     const isParsing = mainStore((state) => state.isParsing);
     const activeCollaborators = mainStore((state) => state.activeCollaborators);
-    const isEffecting = mainStore((state) => state.isEffecting);
-    const unEffectedMsgs = mainStore((state) => state.unEffectedMsgs);
-    const setUnEffectedMsgs = mainStore((state) => state.setUnEffectedMsgs);
+
     const [editorView, setEditorView] = useState<EditorView | undefined>(undefined);
 
-    const viewRef = useRef<EditorView | undefined>(undefined);
-    const socketRef = useRef<WebSocket>(null);
+    const { fugue, wsClient, isAuthError, previousTextRef, RemoteUpdate, socketRef, viewRef, userIdentity } = useCollab(
+        documentID!,
+        editorView,
+    );
 
-    const previousTextRef = useRef(""); // Track changes with ref
+    if (isAuthError) {
+        nav("/sign-in");
+    }
 
-    const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
-    const clerk = useClerk();
+    useEffect(() => {
+        (async () => {
+            // Check if user has access and if not redirect to home
+            const res = await api.getUserDocumentAccess(documentID!, userIdentity);
+            if (!res.data.hasAccess) {
+                toast.error("You do not have access to this document. Redirecting...");
+                nav("/");
+            }
+        })();
+    }, [userIdentity]);
 
     const { queries } = useDocument(documentID!);
     const { documentQuery } = queries;
 
     useEffect(() => {
         documentQuery.refetch();
+
+        (async () => {
+            if (!parser || !query) {
+                const { parser, query } = await newParser();
+                setParser(parser);
+                setQuery(query);
+            }
+        })();
     }, []);
+
+    useEffect(() => {
+        if (documentQuery.data) {
+            setDocument(documentQuery.data);
+        }
+    }, [documentQuery.data]);
 
     const exts = useMemo(() => {
         const base = [bracketMatching(), indentOnInput(), EditorView.lineWrapping];
@@ -57,82 +82,6 @@ const Canvas = () => {
         }
         return base;
     }, [parser, query]);
-
-    useEffect(() => {
-        if (documentQuery.data) {
-            setDocument(documentQuery.data);
-        }
-    }, [documentQuery.data]);
-
-    useEffect(() => {
-        if (email && wsClient.current) {
-            console.log({ email: email });
-            fugue.userIdentity = email;
-            wsClient.current.setUserIdentity(email);
-        }
-    }, [email, wsClient.current]);
-
-    
-    const setUpWSClient = ()=>{
-        if (!socketRef.current || !documentID || !editorView) return;
-         fugue.ws = socketRef.current;
-
-        if (!wsClient.current || (wsClient.current && wsClient.current.getUserIdenity() !== email))
-            wsClient.current = new WSClient(
-                socketRef.current,
-                fugue,
-                documentID,
-                RemoteUpdate,
-                viewRef,
-                previousTextRef,
-                email,
-            );
-    };
-
-    // WebSocket setup
-    useEffect(() => {
-        if (!clerk.loaded) return;
-        socketRef.current = new WebSocket(webSocketUrl);
-        socketRef.current.onclose = handleClose;
-        setUpWSClient();
-        (async () => {
-            if (!parser || !query) {
-                const { parser, query } = await newParser();
-                setParser(parser);
-                setQuery(query);
-            }
-        })();
-
-        return () => {
-            fugue.ws = null;
-            socketRef.current?.close();
-        };
-    }, [fugue, clerk.loaded, editorView, email, webSocketUrl]);
-
-    const handleClose = () => {
-        console.log("WebSocket connection closed");
-
-        wsClient.current = undefined;
-
-        //try to reconect every 5 seconds 
-        setTimeout(() => {
-            socketRef.current = new WebSocket(webSocketUrl);
-            fugue.ws = socketRef.current;
-            socketRef.current.onclose = handleClose;
-            setUpWSClient();
-        }, 5000);
-    }
-
-    useEffect(() => {
-        if (isEffecting && editorView && wsClient.current) {
-            if (isEffecting && unEffectedMsgs.length > 0) {
-                console.log("Applying buffered messages ->", unEffectedMsgs);
-                toast.info("Applying buffered messages");
-                wsClient.current.effectMsgs(unEffectedMsgs);
-                setUnEffectedMsgs([]);
-            }
-        }
-    }, [isEffecting]);
 
     /**
      * Handle changes from CodeMirror
@@ -159,7 +108,6 @@ const Canvas = () => {
             docChanged: viewUpdate.docChanged,
         });
 
-        // TODO: This might be sending duplicate operations per multi operation
         viewUpdate.changes.iterChanges(async (fromA, toA, fromB, toB, inserted) => {
             const deleteLen = toA - fromA;
             const insertedLen = toB - fromB;
@@ -171,9 +119,10 @@ const Canvas = () => {
                     operation: Operation.DELETE,
                     index: fromA,
                     count: deleteLen,
+                    userIdentity,
                 });
                 const msgs = fugue.deleteMultiple(fromA, deleteLen);
-                if(wsClient.current?.isOffline()){
+                if (wsClient?.isOffline()) {
                     await DocumentsIndexedDB.saveBufferedChanges(documentID!, msgs);
                 }
             }
@@ -184,10 +133,12 @@ const Canvas = () => {
                     operation: Operation.INSERT,
                     index: fromA,
                     text: insertedTxt,
+                    userIdentity,
+                    fugueIdentity: fugue.userIdentity,
                 });
 
                 const msgs = fugue.insertMultiple(fromA, insertedTxt);
-                if(socketRef.current?.readyState !== WebSocket.OPEN){
+                if (socketRef.current?.readyState !== WebSocket.OPEN) {
                     await DocumentsIndexedDB.saveBufferedChanges(documentID!, msgs);
                 }
             }
@@ -238,14 +189,14 @@ const Canvas = () => {
                 </div>
             </main>
 
-            <footer className="flex justify-end p-2 border-t bg-base-200">
-                <div className="dropdown dropdown-top dropdown-end">
+            <footer className="flex justify-start p-2 border-t bg-base-200">
+                <div className="dropdown dropdown-top dropdown-start">
                     <div tabIndex={0} role="button" className="btn btn-sm btn-ghost">
                         Collaborators ({activeCollaborators.length})
                     </div>
                     <ul
                         tabIndex={0}
-                        className="p-2 w-52 border shadow-xl dropdown-content menu bg-base-100 rounded-box z-[100] border-base-300"
+                        className="overflow-y-auto flex-nowrap p-2 border shadow-xl w-fit max-h-100 dropdown-content menu bg-base-100 rounded-box z-100 border-base-300"
                     >
                         {activeCollaborators.length > 0 ? (
                             activeCollaborators.map((ac, index) => (

@@ -1,40 +1,54 @@
-import { useState } from "react";
-import { LuTerminal, LuSettings2, LuEye, LuEyeOff, LuBug } from "react-icons/lu";
+import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
+import { LuTerminal, LuSettings2, LuEye, LuEyeOff, LuBug, LuGripVertical } from "react-icons/lu";
 import mainStore from "../../stores";
-import { toast } from "sonner";
+
+const STORAGE_KEY = "dev-bar-position";
 
 const DevBar = () => {
     const [isExpanded, setIsExpanded] = useState(false);
     const isEffecting = mainStore((state) => state.isEffecting);
     const toggleIsEffecting = mainStore((state) => state.toggleIsEffecting);
+    const devBarPos = mainStore((state) => state.devBarPos);
+    const setDevBarPos = mainStore((state) => state.setDevBarPos);
+
+    const handleDragEnd = (_: any, info: any) => {
+        const newPos = { x: info.point.x, y: info.point.y };
+        setDevBarPos(newPos);
+    };
 
     return (
-        <div className="flex fixed left-0 bottom-4 flex-col gap-2 items-center z-9999">
-            <div className="flex flex-col gap-2 items-center p-2 rounded-2xl border shadow-2xl bg-base-200 border-white/10">
+        <motion.div
+            drag
+            dragMomentum={false}
+            initial={{ x: devBarPos.x, y: devBarPos.y }}
+            onDragEnd={handleDragEnd}
+            className="flex fixed bottom-10 left-10 flex-col gap-2 items-center z-9999"
+        >
+            <div className="flex flex-col gap-2 items-center p-2 rounded-2xl border border-white/10 bg-base-200 backdrop-blur-md">
                 <div className="flex gap-2 items-center">
-                    {/* Dev Badge */}
-                    <div className="flex gap-2 items-center py-1 px-3 font-mono text-xs font-bold rounded-xl border bg-primary/20 text-primary border-primary/20">
+                    <div className="opacity-30 transition-opacity hover:opacity-100 cursor-grab active:cursor-grabbing">
+                        <LuGripVertical size={20} />
+                    </div>
+
+                    <div className="flex gap-2 items-center py-1 px-3 font-mono text-xs font-bold rounded-xl border select-none border-primary/20 bg-primary/20 text-primary">
                         <LuBug size={14} />
-                        <span>DEV MODE</span>
+                        <span>DEV</span>
                     </div>
 
                     <div className="m-0 w-1 divider divider-horizontal"></div>
 
                     {isExpanded && (
-                        <div className="flex gap-2 items-center animate-in fade-in slide-in-from-bottom-2">
+                        <div className="flex gap-2 items-center animate-in fade-in zoom-in-95">
                             <button
                                 className="gap-2 normal-case btn btn-sm btn-ghost"
                                 onClick={(e) => {
-                                    e.preventDefault();
+                                    e.stopPropagation();
                                     toggleIsEffecting();
                                 }}
                             >
                                 <LuTerminal size={16} />
                                 Toggle Effecting
-                            </button>
-
-                            <button className="btn btn-sm btn-circle btn-ghost">
-                                <LuSettings2 size={16} />
                             </button>
                         </div>
                     )}
@@ -46,19 +60,19 @@ const DevBar = () => {
                         {isExpanded ? <LuEyeOff size={16} /> : <LuEye size={16} />}
                     </button>
                 </div>
-                <div>
-                    {isExpanded && (
-                        <span className="font-mono text-xs opacity-70">
-                            Effecting is currently <span className="font-bold">{isEffecting ? "ON" : "OFF"}</span>
-                        </span>
-                    )}
-                </div>
-            </div>
 
-            {!isExpanded && (
-                <span className="font-bold tracking-widest uppercase opacity-50 text-[10px]">Dev Tools</span>
-            )}
-        </div>
+                {isExpanded && (
+                    <div className="pb-1 select-none">
+                        <span className="font-mono opacity-70 text-[10px]">
+                            Effecting:{" "}
+                            <span className={isEffecting ? "font-bold text-success" : "text-error"}>
+                                {isEffecting ? "ON" : "OFF"}
+                            </span>
+                        </span>
+                    </div>
+                )}
+            </div>
+        </motion.div>
     );
 };
 

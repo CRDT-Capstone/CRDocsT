@@ -9,17 +9,12 @@ import { LuTrash2 } from "react-icons/lu";
 
 export const HomePage = () => {
     const navigate = useNavigate();
-    const clerk = useClerk();
-    const { isSignedIn } = useSession();
-    const setEmail = mainStore((state) => state.setEmail);
+    const { signOut } = useClerk();
+    const { isSignedIn, isLoaded } = useSession();
 
     useEffect(() => {
-        if (clerk.loaded && !isSignedIn) navigate("/sign-in");
-        else if (clerk.loaded && isSignedIn) {
-            const email = clerk.user?.primaryEmailAddress?.emailAddress;
-            if (email) setEmail(email);
-        }
-    }, [navigate, isSignedIn, clerk.loaded]);
+        if (isLoaded && !isSignedIn) navigate("/sign-in");
+    }, [navigate, isSignedIn, isLoaded]);
 
     const { queries, mutations } = useDocuments();
     const { userDocumentsQuery } = queries;
@@ -45,7 +40,7 @@ export const HomePage = () => {
                         >
                             Create a document!
                         </button>
-                        <button className="m-4 btn btn-l btn-neutral" onClick={() => clerk.signOut()}>
+                        <button className="m-4 btn btn-l btn-neutral" onClick={() => signOut()}>
                             Sign Out
                         </button>
                     </div>

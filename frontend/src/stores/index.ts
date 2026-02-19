@@ -22,66 +22,72 @@ export type DocumentState = {
     setUnEffectedMsgs: (v: FugueMessage[]) => void;
 };
 
-export type UserState = {
-    email?: string;
+export type DevState = {
+    devBarPos: { x: number; y: number };
 
-    setEmail: (v: string) => void;
+    setDevBarPos: (v: { x: number; y: number }) => void;
 };
 
-export type State = DocumentState & UserState;
+export type UserState = {};
+
+export type State = DocumentState & UserState & DevState;
 
 const mainStore = create<State>()(
     immer(
         devtools(
-            persist(
-                (set) => ({
-                    document: undefined,
-                    activeCollaborators: [],
-                    isParsing: false,
-                    email: undefined,
-                    isEffecting: true,
-                    unEffectedMsgs: [],
+            // persist(
+            (set) => ({
+                document: undefined,
+                activeCollaborators: [],
+                isParsing: false,
+                isEffecting: true,
+                unEffectedMsgs: [],
 
-                    setDocument: (v) =>
-                        set((state) => {
-                            state.document = v;
-                        }),
+                setDocument: (v) =>
+                    set((state) => {
+                        state.document = v;
+                    }),
 
-                    setYgg: (v) =>
-                        set((state) => {
-                            state.ygg = v;
-                        }),
+                setYgg: (v) =>
+                    set((state) => {
+                        state.ygg = v;
+                    }),
 
-                    setIsParsing: (v) =>
-                        set((state) => {
-                            state.isParsing = v;
-                        }),
+                setIsParsing: (v) =>
+                    set((state) => {
+                        state.isParsing = v;
+                    }),
 
-                    setActiveCollaborators: (v) =>
-                        set((state) => {
-                            state.activeCollaborators = v;
-                        }),
+                setActiveCollaborators: (v) =>
+                    set((state) => {
+                        state.activeCollaborators = v;
+                    }),
 
-                    setEmail: (v) =>
-                        set((state) => {
-                            state.email = v;
-                        }),
+                toggleIsEffecting: () =>
+                    set((state) => {
+                        state.isEffecting = !state.isEffecting;
+                    }),
 
-                    toggleIsEffecting: () =>
-                        set((state) => {
-                            state.isEffecting = !state.isEffecting;
-                        }),
+                setUnEffectedMsgs: (v) =>
+                    set((state) => {
+                        state.unEffectedMsgs = v;
+                    }),
 
-                    setUnEffectedMsgs: (v) =>
-                        set((state) => {
-                            state.unEffectedMsgs = v;
-                        }),
-                }),
-                {
-                    name: "mainStore",
-                    storage: createJSONStorage(() => sessionStorage),
-                },
-            ),
+                // DevState
+
+                devBarPos: { x: 20, y: -20 },
+
+                setDevBarPos: (v) =>
+                    set((state) => {
+                        state.devBarPos = v;
+                    }),
+            }),
+            //     {
+            //         name: "devStore",
+            //         storage: createJSONStorage(() => localStorage),
+            //         partialize: (state) => ({ devBarPos: state.devBarPos }),
+            //     },
+            // ),
         ),
     ),
 );

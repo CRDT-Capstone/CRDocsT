@@ -196,6 +196,31 @@ export const createDocumentApi = (getToken: TokenFunc) => {
         }
     };
 
+    const getUserDocumentAccess = async (documentId: string, userIdentifier: string | undefined) => {
+        try {
+            const token = await getToken();
+            const res = await f.post<
+                Msg<{ hasAccess: boolean; contributorType: ContributorType | undefined }>,
+                { userIdentifier: string | undefined }
+            >(
+                `${ApiBaseUrl}/${path}/${documentId}/check-access`,
+                {
+                    userIdentifier: userIdentifier,
+                },
+                {
+                    headers: {
+                        ...includeToken(token),
+                    },
+                },
+            );
+
+            return res;
+        } catch (err) {
+            console.log("Unable to get user document access -> ", err);
+            throw err;
+        }
+    };
+
     return {
         createDocument,
         deleteDocument,
@@ -206,5 +231,6 @@ export const createDocumentApi = (getToken: TokenFunc) => {
         shareDocument,
         removeCollaborator,
         updateCollaboratorType,
+        getUserDocumentAccess,
     };
 };
