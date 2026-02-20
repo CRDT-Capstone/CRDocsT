@@ -136,6 +136,8 @@ const Canvas = () => {
                 const msgs = fugue.deleteMultiple(fromA, deleteLen);
                 if (wsClient?.isOffline()) {
                     await DocumentsIndexedDB.saveBufferedChanges(documentID!, msgs);
+                }else{
+                    saveLatestOnlineCounter(msgs);
                 }
             }
 
@@ -152,6 +154,8 @@ const Canvas = () => {
                 const msgs = fugue.insertMultiple(fromA, insertedTxt);
                 if (socketRef.current?.readyState !== WebSocket.OPEN) {
                     await DocumentsIndexedDB.saveBufferedChanges(documentID!, msgs);
+                }else{
+                    saveLatestOnlineCounter(msgs);
                 }
             }
         });

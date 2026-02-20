@@ -14,6 +14,7 @@ import { RefObject } from "react";
 import mainStore from "../stores";
 import { toast } from "sonner";
 import { DocumentsIndexedDB } from "../stores/dexie/documents";
+import { loadBufferedOperations, saveLatestOnlineCounter } from ".";
 
 const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
 
@@ -83,8 +84,7 @@ export class WSClient {
             documentID: this.documentID,
             state: null,
             userIdentity: this.userIdentity,
-            localState: null,
-            replicaId: this.fugue.replicaId(),
+            replicaId: this.fugue.replicaId()
         };
         console.log("joinMsg -> ", joinMsg);
 
@@ -95,6 +95,9 @@ export class WSClient {
     }
 
     async handleMessage(ev: MessageEvent) {
+        
+
+
         console.log("Received message:", ev.data);
         const activeCollaborators = () => mainStore.getState().activeCollaborators;
         const setActiveCollaborators = mainStore.getState().setActiveCollaborators;
@@ -166,8 +169,30 @@ export class WSClient {
                     //delete
                     await DocumentsIndexedDB.deleteBufferedChanges(this.documentID);
                 }
-                this.fugue.load(msg.state!);
 
+
+                if(msg.bufferedOperations){
+                    const lastOnlineCounter = Number(sessionStorage.getItem("lastOnlineCounter"))
+
+                    console.log("last Online Counter -> ", lastOnlineCounter)
+                    //if lastOnlineCounterCopy == -1 then we haven't been online yet
+
+                    const parsedOps = loadBufferedOperations(msg.bufferedOperations);
+                    console.log("Parsed Ops -> ", parsedOps);
+                    //remove things that have a lesser counter number
+                    const counterFilteredOps = parsedOps.filter((op)=> op.id.counter >= lastOnlineCounter);
+                    console.log("Counter filtered Ops -> ", counterFilteredOps);
+                    //remove duplicates by removing those that come from the user
+                    const senderFilteredOps = counterFilteredOps.filter((op)=> op.id.sender !== this.fugue.replicaId());
+                    console.log("Sender filtered Ops -> ", senderFilteredOps);
+
+                    this.fugue.effect(senderFilteredOps);
+                }else{
+                    this.fugue.load(msg.state!);
+                }
+                
+                
+                
                 const newText = this.fugue.length() > 0 ? this.fugue.observe() : "";
                 console.log({ newText });
 
@@ -206,6 +231,8 @@ export class WSClient {
                 const unEffectedMsgs = mainStore.getState().unEffectedMsgs;
                 const setUnEffectedMsgs = mainStore.getState().setUnEffectedMsgs;
 
+                // TODO: check the order of ops here
+                saveLatestOnlineCounter(msgs);
                 if (isEffecting) {
                     this.effectMsgs(msgs);
                 } else {
@@ -214,6 +241,7 @@ export class WSClient {
                     const newUnEffectedMsgs = unEffectedMsgs.concat(msgs);
                     setUnEffectedMsgs(newUnEffectedMsgs);
                 }
+
 
                 // Sync local ref so we don't rebroadcast the change
                 this.previousTextRef.current = this.viewRef.current?.state.doc.toString()
@@ -273,4 +301,5 @@ export class WSClient {
     isOffline() {
         return this.ws.readyState === WebSocket.CLOSED;
     }
+
 }
