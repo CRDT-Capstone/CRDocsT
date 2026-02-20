@@ -83,7 +83,7 @@ export class WSClient {
             documentID: this.documentID,
             state: null,
             userIdentity: this.userIdentity,
-            localState: null,
+            bufferedOperations: undefined,
             replicaId: this.fugue.replicaId(),
         };
         console.log("joinMsg -> ", joinMsg);
@@ -150,8 +150,7 @@ export class WSClient {
                 if (msg.collaborators) {
                     const newActiveCollaborators = [
                         ...new Set(
-                            activeCollaborators()
-                                .concat(msg.collaborators!)
+                            activeCollaborators().concat(msg.collaborators!),
                             // .filter((c) => c !== this.userIdentity),
                             //removing the filter for my sanity
                         ),

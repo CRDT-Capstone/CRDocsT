@@ -126,7 +126,7 @@ export class WSService {
                     documentID: this.currentDocId,
                     state: doc.crdt.save(),
                     collaborators,
-                    localState: null,
+                    bufferedOperations: undefined,
                 };
 
                 const serializedJoinMessage = FugueMessageSerialzier.serialize([joinMsg]);
