@@ -15,6 +15,7 @@ import { useCollab } from "../../hooks/collab";
 import { createDocumentApi } from "../../api/document";
 import { useAuth } from "@clerk/clerk-react";
 import { toast } from "sonner";
+import { saveLatestOnlineCounter } from "../../utils";
 
 const Canvas = () => {
     const { documentID } = useParams();
@@ -136,7 +137,7 @@ const Canvas = () => {
                 const msgs = fugue.deleteMultiple(fromA, deleteLen);
                 if (wsClient?.isOffline()) {
                     await DocumentsIndexedDB.saveBufferedChanges(documentID!, msgs);
-                }else{
+                } else {
                     saveLatestOnlineCounter(msgs);
                 }
             }
@@ -154,7 +155,7 @@ const Canvas = () => {
                 const msgs = fugue.insertMultiple(fromA, insertedTxt);
                 if (socketRef.current?.readyState !== WebSocket.OPEN) {
                     await DocumentsIndexedDB.saveBufferedChanges(documentID!, msgs);
-                }else{
+                } else {
                     saveLatestOnlineCounter(msgs);
                 }
             }

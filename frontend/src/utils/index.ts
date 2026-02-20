@@ -12,8 +12,12 @@ export function loadBufferedOperations(bufferedOps: Buffer<ArrayBuffer>[]) {
 }
 
 export function saveLatestOnlineCounter(msgs: FugueMessage[]) {
-    let counter = msgs[msgs.length - 1].id.counter;
+    if (msgs.length === 0) return;
+
+    const lastMsg = msgs[msgs.length - 1];
+    if (!("id" in lastMsg)) return;
+    console.log({ lastMsg });
+    let counter = lastMsg.id.counter;
     let storedCounter = Number(sessionStorage.getItem("lastOnlineCounter"));
     if (counter > storedCounter) sessionStorage.setItem("lastOnlineCounter", counter.toString());
-
 }

@@ -16,8 +16,6 @@ import { toast } from "sonner";
 import { DocumentsIndexedDB } from "../stores/dexie/documents";
 import { loadBufferedOperations, saveLatestOnlineCounter } from ".";
 
-const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
-
 export class WSClient {
     private ws: WebSocket;
     private viewRef: RefObject<EditorView | undefined>;
@@ -36,7 +34,6 @@ export class WSClient {
         previousTextRef: RefObject<string>,
         userIdentity: string | undefined = undefined,
     ) {
-        console.log("In WSClient");
         this.ws = ws;
         this.viewRef = viewRef;
         this.documentID = documentID;
@@ -49,12 +46,11 @@ export class WSClient {
         this.handleOpen = this.handleOpen.bind(this);
         this.handleMessage = this.handleMessage.bind(this);
 
-        if (this.ws.readyState === WebSocket.OPEN) this.handleOpen();
+        if (!this.isOffline()) this.handleOpen();
         this.initListeners();
     }
 
     initListeners() {
-        this.ws.onopen = this.handleOpen;
         this.ws.onmessage = this.handleMessage;
     }
 
@@ -73,9 +69,9 @@ export class WSClient {
             this.ws.send(serialisedLocalChangeMessage);
             //send buffered local changes messages
 
-            //await DocumentsIndexedDB.deleteBufferedChanges(this.fugue.documentID);
+            // await DocumentsIndexedDB.deleteBufferedChanges(this.fugue.documentID);
         } catch (err) {
-            console.log("Error processing buffered changes -> ", err);
+            console.error("Error processing buffered changes -> ", err);
         }
 
         //send the join message with the local changes
@@ -84,9 +80,8 @@ export class WSClient {
             documentID: this.documentID,
             state: null,
             userIdentity: this.userIdentity,
-            replicaId: this.fugue.replicaId()
+            replicaId: this.fugue.replicaId(),
         };
-        console.log("joinMsg -> ", joinMsg);
 
         const serializedJoinMessage = FugueMessageSerialzier.serialize([joinMsg]);
 
@@ -95,9 +90,6 @@ export class WSClient {
     }
 
     async handleMessage(ev: MessageEvent) {
-        
-
-
         console.log("Received message:", ev.data);
         const activeCollaborators = () => mainStore.getState().activeCollaborators;
         const setActiveCollaborators = mainStore.getState().setActiveCollaborators;
@@ -108,7 +100,6 @@ export class WSClient {
             const bytes = new Uint8Array(buffer); //convert to Unit8Array
 
             const raw = FugueMessageSerialzier.deserialize(bytes);
-            console.log("Parsed message -> ", raw);
 
             // Normalize to array
             const msgs: FugueMessageType[] = Array.isArray(raw) ? raw : [raw];
@@ -118,10 +109,7 @@ export class WSClient {
             // Handle leave message
             if (msgs[0].operation === Operation.LEAVE) {
                 const leavingUser = (msgs[0] as FugueLeaveMessage).userIdentity;
-                console.log("remove message -> ", msgs[0]);
-                console.log("active collaborators -> ", activeCollaborators());
                 const newActiveCollaborators = activeCollaborators().filter((c) => c !== leavingUser);
-                console.log("new active collaborators -> ", newActiveCollaborators);
                 setActiveCollaborators(newActiveCollaborators);
                 //email isn't email for anonynous users
                 return;
@@ -153,8 +141,7 @@ export class WSClient {
                 if (msg.collaborators) {
                     const newActiveCollaborators = [
                         ...new Set(
-                            activeCollaborators()
-                                .concat(msg.collaborators!)
+                            activeCollaborators().concat(msg.collaborators!),
                             // .filter((c) => c !== this.userIdentity),
                             //removing the filter for my sanity
                         ),
@@ -162,7 +149,6 @@ export class WSClient {
                     setActiveCollaborators(newActiveCollaborators);
                 }
 
-                console.log({ msg });
                 const localChanges = await DocumentsIndexedDB.getBufferedChanges(this.documentID!);
                 if (localChanges.length > 0) {
                     //get the buffered changes from redis
@@ -170,34 +156,33 @@ export class WSClient {
                     await DocumentsIndexedDB.deleteBufferedChanges(this.documentID);
                 }
 
+                if (msg.bufferedOperations) {
+                    const lastOnlineCounter = Number(sessionStorage.getItem("lastOnlineCounter"));
 
-                if(msg.bufferedOperations){
-                    const lastOnlineCounter = Number(sessionStorage.getItem("lastOnlineCounter"))
-
-                    console.log("last Online Counter -> ", lastOnlineCounter)
+                    console.log("last Online Counter -> ", lastOnlineCounter);
                     //if lastOnlineCounterCopy == -1 then we haven't been online yet
 
                     const parsedOps = loadBufferedOperations(msg.bufferedOperations);
                     console.log("Parsed Ops -> ", parsedOps);
                     //remove things that have a lesser counter number
-                    const counterFilteredOps = parsedOps.filter((op)=> op.id.counter >= lastOnlineCounter);
+                    const counterFilteredOps = parsedOps.filter((op) => op.id.counter >= lastOnlineCounter);
                     console.log("Counter filtered Ops -> ", counterFilteredOps);
                     //remove duplicates by removing those that come from the user
-                    const senderFilteredOps = counterFilteredOps.filter((op)=> op.id.sender !== this.fugue.replicaId());
+                    const senderFilteredOps = counterFilteredOps.filter(
+                        (op) => op.id.sender !== this.fugue.replicaId(),
+                    );
                     console.log("Sender filtered Ops -> ", senderFilteredOps);
 
-                    this.fugue.effect(senderFilteredOps);
-                }else{
+                    this.handleEffectMsgs(senderFilteredOps);
+                    // this.fugue.effect(senderFilteredOps);
+                } else {
                     this.fugue.load(msg.state!);
                 }
-                
-                
-                
-                const newText = this.fugue.length() > 0 ? this.fugue.observe() : "";
+
+                const newText = this.fugue.observe();
                 console.log({ newText });
 
                 // Update CodeMirror programmatically
-                console.log({ curr: this.viewRef.current });
                 if (this.viewRef.current) {
                     console.log("Syncing state from JOIN message");
                     const view = this.viewRef.current;
@@ -227,21 +212,9 @@ export class WSClient {
                 const msgs = remoteMsgs.filter((m) => {
                     return !("state" in m);
                 }) as FugueMessage[];
-                const isEffecting = mainStore.getState().isEffecting;
-                const unEffectedMsgs = mainStore.getState().unEffectedMsgs;
-                const setUnEffectedMsgs = mainStore.getState().setUnEffectedMsgs;
 
-                // TODO: check the order of ops here
-                saveLatestOnlineCounter(msgs);
-                if (isEffecting) {
-                    this.effectMsgs(msgs);
-                } else {
-                    // If not effecting, store the messages to be effected later
-                    console.log("Not effecting, storing messages for later -> ", msgs);
-                    const newUnEffectedMsgs = unEffectedMsgs.concat(msgs);
-                    setUnEffectedMsgs(newUnEffectedMsgs);
-                }
-
+                // Handle msg effecting based on conditions
+                this.handleEffectMsgs(msgs);
 
                 // Sync local ref so we don't rebroadcast the change
                 this.previousTextRef.current = this.viewRef.current?.state.doc.toString()
@@ -261,15 +234,31 @@ export class WSClient {
         return this.userIdentity;
     }
 
+    handleEffectMsgs(msgs: FugueMessage[]) {
+        const isEffecting = mainStore.getState().isEffecting;
+        const unEffectedMsgs = mainStore.getState().unEffectedMsgs;
+        const setUnEffectedMsgs = mainStore.getState().setUnEffectedMsgs;
+
+        if (isEffecting) {
+            this.effectMsgs(msgs);
+        } else {
+            // If not effecting, store the messages to be effected later
+            const newUnEffectedMsgs = unEffectedMsgs.concat(msgs);
+            setUnEffectedMsgs(newUnEffectedMsgs);
+        }
+    }
+
     effectMsgs(msgs: FugueMessage[]) {
         const applied = this.fugue.effect(msgs);
 
+        saveLatestOnlineCounter(msgs);
         if (!this.viewRef.current) return;
         for (const m of applied) {
             try {
                 const node = this.fugue.getById(m.id);
                 const fromIdx = this.fugue.getVisibleIndex(node);
                 const l = this.viewRef.current.state.doc.length;
+                console.log({ m, fromIdx, l, node });
 
                 if (fromIdx <= l) {
                     if (m.operation === Operation.DELETE) {
@@ -301,5 +290,4 @@ export class WSClient {
     isOffline() {
         return this.ws.readyState === WebSocket.CLOSED;
     }
-
 }

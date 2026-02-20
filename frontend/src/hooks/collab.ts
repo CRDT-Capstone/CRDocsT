@@ -48,21 +48,23 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
             const sock = new WebSocket(webSocketUrl);
             socketRef.current = sock;
 
-            console.log("Socket opened");
-            fugue.ws = sock;
-            fugue.userIdentity = userIdentity;
+            sock.onopen = () => {
+                console.log("Socket opened");
+                fugue.ws = sock;
+                fugue.userIdentity = userIdentity;
 
-            const wsClient = new WSClient(
-                sock,
-                fugue,
-                documentID,
-                RemoteUpdate,
-                viewRef,
-                previousTextRef,
-                userIdentity,
-            );
-            setWsClient(wsClient);
-            console.log({ ready: !wsClient.isOffline() });
+                const wsClient = new WSClient(
+                    sock,
+                    fugue,
+                    documentID,
+                    RemoteUpdate,
+                    viewRef,
+                    previousTextRef,
+                    userIdentity,
+                );
+                setWsClient(wsClient);
+                console.log({ ready: !wsClient.isOffline() });
+            };
 
             sock.onclose = () => {
                 socketRef.current = null;
