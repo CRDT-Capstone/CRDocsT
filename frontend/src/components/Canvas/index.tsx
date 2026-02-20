@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { FugueTree, Operation } from "@cr_docs_t/dts";
-import { randomString } from "../../utils";
+import { randomString, saveLatestOnlineCounter } from "../../utils";
 import CodeMirror, { ViewUpdate, Annotation, EditorView } from "@uiw/react-codemirror";
 import { bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
 import { useParams } from "react-router-dom";
@@ -16,6 +16,7 @@ import { Parser, Query } from "web-tree-sitter";
 import { newParser } from "../../treesitter";
 import { toast } from "sonner";
 import { DocumentsIndexedDB } from "../../stores/dexie/documents";
+import crypt from "crypto";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
@@ -67,6 +68,13 @@ const Canvas = () => {
     //         ]);
     //     }
     // }, [worker]);
+
+    //for testing purposes
+    useEffect(()=>{
+        const randomId = randomString(6);
+        sessionStorage.setItem("windowId", randomId);
+        sessionStorage.setItem("lastOnlineCount", "-1");
+    }, []);
 
     const exts = useMemo(() => {
         const base = [bracketMatching(), indentOnInput(), EditorView.lineWrapping];
@@ -191,8 +199,11 @@ const Canvas = () => {
                     count: deleteLen,
                 });
                 const msgs = fugue.deleteMultiple(fromA, deleteLen);
-                if(wsClient.current?.isOffline()){
+
+                if(socketRef.current?.readyState !== WebSocket.OPEN){
                     await DocumentsIndexedDB.saveBufferedChanges(documentID!, msgs);
+                }else{
+                    saveLatestOnlineCounter(msgs);
                 }
             }
 
@@ -207,6 +218,8 @@ const Canvas = () => {
                 const msgs = fugue.insertMultiple(fromA, insertedTxt);
                 if(socketRef.current?.readyState !== WebSocket.OPEN){
                     await DocumentsIndexedDB.saveBufferedChanges(documentID!, msgs);
+                }else{
+                    saveLatestOnlineCounter(msgs);
                 }
             }
         });

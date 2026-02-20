@@ -93,35 +93,20 @@ export class WSService {
             try {
                 await RedisService.AddToCollaboratorsByDocumentId(this.currentDocId, this.userIdentity!);
                 const collaborators = await RedisService.getCollaboratorsByDocumentId(this.currentDocId);
-                // if (firstMsg.localState) {
-                //     const changes = FugueStateSerializer.deserialize(firstMsg.localState);
-                //     changes.
-                //     const offlineChanges: FugueMessage<string>[] = firstMsg.offlineChanges.flat().map((change) => {
-                //         return {
-                //             operation: change.operation! as Operation.INSERT | Operation.DELETE,
-                //             position: change.position,
-                //             data: change.value ?? null,
-                //             replicaId: firstMsg.replicaId!,
-                //             documentID: firstMsg.documentID,
-                //             userIdentity: firstMsg.userIdentity
-                //         }
-                //     });
-                //     doc.crdt.effect(offlineChanges);
-                //     logger.info(`Current state -> ${doc.crdt.observe()}`);
-                //     if(this.currentDocId) DocumentManager.persist(this.currentDocId);
-
-                //     doc.sockets.forEach((sock) => {
-                //         if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(FugueMessageSerialzier.serialize(offlineChanges));
-                //     });
-
-                // }
+                const bufferedOps = await RedisService.getBufferedCRDTOperationsByDocumentId(this.currentDocId);
                 const joinMsg: FugueJoinMessage = {
                     operation: Operation.JOIN,
                     documentID: this.currentDocId,
                     state: doc.crdt.save(),
                     collaborators,
-                    localState: null
+                    bufferedOperations: bufferedOps
                 };
+
+                /* 
+                When a user rejoins we make use of the normal send function when the user comes back online
+                But we buffer for all messages 
+                So... we'd just send all buffered operations for now
+                */
 
                 const serializedJoinMessage = FugueMessageSerialzier.serialize([joinMsg]);
                 logger.info("Serialized Join Message size", { size: serializedJoinMessage.byteLength });
@@ -154,6 +139,7 @@ export class WSService {
                     `Effecting ${ms.length} on server crdt with id ${doc.crdt.replicaId()} from ${ms[0].replicaId}`,
                     { firstMsg: { OP: ms[0].operation, DATA: ms[0].data } },
                 );
+                await RedisService.bufferCRDTOperationsByDocumentID(this.currentDocId, ms);
                 doc.crdt.effect(ms);
                 DocumentManager.markDirty(this.currentDocId);
                 const broadcastMsg = message; //relay the message as received
