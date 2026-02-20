@@ -173,6 +173,8 @@ export class WSService {
     }
 
     async handleClose() {
+        logger.info("About to close connection");
+        logger.info(`Current doc id -> ${this.currentDocId}`);
         if (this.currentDocId) {
             await DocumentManager.removeUser(this.currentDocId, this.ws, this.userIdentity);
             this.currentDocId = undefined;

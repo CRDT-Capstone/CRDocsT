@@ -152,7 +152,8 @@ export class WSClient {
                         ...new Set(
                             activeCollaborators()
                                 .concat(msg.collaborators!)
-                                .filter((c) => c !== this.userIdentity),
+                            // .filter((c) => c !== this.userIdentity),
+                            //removing the filter for my sanity
                         ),
                     ];
                     setActiveCollaborators(newActiveCollaborators);
@@ -191,8 +192,9 @@ export class WSClient {
                 }
             }
             // Handle other users joining
-            else if (firstMsg.operation === Operation.JOIN && firstMsg.state !== null) {
+            else if (firstMsg.operation === Operation.JOIN && firstMsg.state === null) {
                 const newActiveCollaborators = [...activeCollaborators(), firstMsg.userIdentity ?? "Anon"];
+                console.log("Collaborators -> ", newActiveCollaborators);
                 setActiveCollaborators(newActiveCollaborators);
             }
             // Handle updates

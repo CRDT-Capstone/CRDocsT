@@ -89,7 +89,7 @@ class DocumentManager {
                 if (sock.readyState === WebSocket.OPEN) sock.send(FugueMessageSerialzier.serialize([leaveMessage]));
             });
         } else {
-            logger.error(`User without email exiting file with documentId: ${documentID}`);
+            logger.error(`User without userIdentity exiting file with documentId: ${documentID}`);
         }
 
         // If no one is left, start the countdown to offload from memory

@@ -70,6 +70,18 @@ const Canvas = () => {
     }, []);
 
     useEffect(() => {
+        const handleBeforeUnload = () => {
+            sessionStorage.clear();
+        };
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+        };
+    }, []);
+
+    useEffect(() => {
         if (documentQuery.data) {
             setDocument(documentQuery.data);
         }
