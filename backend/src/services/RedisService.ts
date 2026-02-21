@@ -17,11 +17,16 @@ const bufferCRDTOperationsByDocumentID = async (documentID: string, op: FugueMes
 
     //converting to base 64 because sets only take strings
 
-    const pipeline = redis.pipeline();
     //const serializedMessages = op.map((operation)=> Buffer.from(FugueMessageSerialzier.serializeSingleMessage(operation)).toString("base64"));
     //serializedMessages.forEach((msg)=> pipeline.sadd(`doc:${documentID}:operations`, msg));
-    op.forEach((operation)=> pipeline.sadd(`doc:${documentID}:operations`, JSON.stringify(operation)));
-    await pipeline.exec();
+    
+    const CHUNK_SIZE = 1000;
+
+    for(let i = 0; i<op.length; i+=CHUNK_SIZE){
+        const chunkedOps = op.slice(i, i+CHUNK_SIZE);
+        const processedChunkedOps = chunkedOps.map((op)=> JSON.stringify(op));
+        await redis.sadd(`doc:${documentID}:operations`, ...processedChunkedOps);
+    }
 }
 
 const getBufferedCRDTOperationsByDocumentId = async (documentID: string)=>{
