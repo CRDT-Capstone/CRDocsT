@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect } from "react";
 import { FugueTree, Operation } from "@cr_docs_t/dts";
 import CodeMirror, { ViewUpdate, Annotation, EditorView } from "@uiw/react-codemirror";
 import { bracketMatching, indentOnInput, syntaxHighlighting } from "@codemirror/language";
@@ -19,12 +19,15 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
 
     const viewRef = useRef<EditorView | undefined>(undefined);
     const socketRef = useRef<WebSocket>(null);
+    const isReconnectRef = useRef(false);
     const [wsClient, setWsClient] = useState<WSClient | undefined>(undefined);
     const previousTextRef = useRef(""); // Track changes with ref
     const [fugue] = useState(() => new FugueTree(null, documentID!));
     const isEffecting = mainStore((state) => state.isEffecting);
     const unEffectedMsgs = mainStore((state) => state.unEffectedMsgs);
     const setUnEffectedMsgs = mainStore((state) => state.setUnEffectedMsgs);
+
+    const [retries, setRetries] = useState(0);
 
     const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
 
@@ -48,32 +51,41 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
             const sock = new WebSocket(webSocketUrl);
             socketRef.current = sock;
 
-            console.log("Socket opened");
-            fugue.ws = sock;
-            fugue.userIdentity = userIdentity;
+            sock.onopen = () => {
+                console.log("Socket opened");
+                fugue.ws = sock;
+                fugue.userIdentity = userIdentity;
 
-            const wsClient = new WSClient(
-                sock,
-                fugue,
-                documentID,
-                RemoteUpdate,
-                viewRef,
-                previousTextRef,
-                userIdentity,
-            );
-            setWsClient(wsClient);
-            console.log({ ready: !wsClient.isOffline() });
-
-            sock.onclose = () => {
-                socketRef.current = null;
-                // TODO: exponential backoff
-                setTimeout(connect, 5000); // Reconnect after 5 seconds
+                const newWsClient = new WSClient(
+                    sock,
+                    fugue,
+                    documentID,
+                    RemoteUpdate,
+                    viewRef,
+                    previousTextRef,
+                    userIdentity,
+                );
+                setWsClient(newWsClient);
+                isReconnectRef.current = true;
+                console.log({ ready: !newWsClient.isOffline() });
             };
+
+            // sock.onclose = () => {
+            //     console.log(`Socket closed. Attempting to reconnect #${retries} ...`);
+            //     socketRef.current = null;
+            //     setWsClient(undefined);
+            //     const delay = Math.min(1000 * 2 ** retries, 30000);
+            //     setTimeout(() => {
+            //         setRetries((prev) => prev + 1);
+            //         connect();
+            //     }, delay);
+            // };
         };
 
         connect();
         return () => {
             if (socketRef.current) socketRef.current.close();
+            isReconnectRef.current = false;
         };
     }, [documentID, isLoaded, userIdentity, !!editorView]);
 

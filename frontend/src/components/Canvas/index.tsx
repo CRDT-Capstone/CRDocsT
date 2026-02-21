@@ -101,24 +101,18 @@ const Canvas = () => {
     const handleChange = async (value: string, viewUpdate: ViewUpdate) => {
         if (!viewUpdate.docChanged) return;
 
-        // If this transaction has our "RemoteUpdate" stamp, we strictly ignore CRDT logic
+        // If this transaction has our "RemoteUpdate" annotation, we strictly ignore CRDT logic
         const isRemote = viewUpdate.transactions.some((tr) => tr.annotation(RemoteUpdate));
 
         if (isRemote) {
+            console.log("Remote update - skipping CRDT processing");
             // Just sync the ref so we don't diff against stale text later
             previousTextRef.current = value;
             return;
         }
 
         // Get the actual changes from viewUpdate
-        const oldText = previousTextRef.current;
         const newText = value;
-
-        console.log({
-            oldText,
-            newText,
-            docChanged: viewUpdate.docChanged,
-        });
 
         viewUpdate.changes.iterChanges(async (fromA, toA, fromB, toB, inserted) => {
             const deleteLen = toA - fromA;
@@ -134,9 +128,6 @@ const Canvas = () => {
                     userIdentity,
                 });
                 const msgs = fugue.deleteMultiple(fromA, deleteLen);
-                if (wsClient?.isOffline()) {
-                    await DocumentsIndexedDB.saveBufferedChanges(documentID!, msgs);
-                }
             }
 
             // Handle insertion
@@ -150,9 +141,6 @@ const Canvas = () => {
                 });
 
                 const msgs = fugue.insertMultiple(fromA, insertedTxt);
-                if (socketRef.current?.readyState !== WebSocket.OPEN) {
-                    await DocumentsIndexedDB.saveBufferedChanges(documentID!, msgs);
-                }
             }
         });
 
@@ -182,6 +170,7 @@ const Canvas = () => {
                         height="100%"
                         width="100%"
                         className="w-full h-full text-black rounded-lg border-2 shadow-sm"
+                        // editable={wsClient ? !wsClient.isOffline() : false}
                         onCreateEditor={(view) => {
                             viewRef.current = view;
                             setEditorView(view);
@@ -190,7 +179,7 @@ const Canvas = () => {
                             const currentContent = fugue.observe();
                             if (currentContent.length > 0) {
                                 view.dispatch({
-                                    changes: { from: 0, insert: currentContent },
+                                    changes: { from: 0, to: view.state.doc.length, insert: currentContent },
                                     annotations: [RemoteUpdate.of(true)],
                                 });
                                 previousTextRef.current = currentContent;

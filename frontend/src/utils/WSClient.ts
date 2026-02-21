@@ -9,13 +9,10 @@ import {
     StringPosition,
     FugueMessageType,
 } from "@cr_docs_t/dts";
-import { AnnotationType, EditorSelection, EditorView } from "@uiw/react-codemirror";
+import { AnnotationType, ChangeSet, ChangeSpec, EditorSelection, EditorView } from "@uiw/react-codemirror";
 import { RefObject } from "react";
 import mainStore from "../stores";
 import { toast } from "sonner";
-import { DocumentsIndexedDB } from "../stores/dexie/documents";
-
-const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
 
 export class WSClient {
     private ws: WebSocket;
@@ -24,7 +21,8 @@ export class WSClient {
     private documentID: string;
     private userIdentity?: string = undefined;
     private fugue: FugueTree;
-    private remoteUpdate: AnnotationType<boolean>;
+    private remoteUpdate: AnnotationType<boolean>; // Annotation to mark remote updates and prevent rebroadcasting
+    private readonly dispatchBatchSize = 50;
 
     constructor(
         ws: WebSocket,
@@ -35,7 +33,6 @@ export class WSClient {
         previousTextRef: RefObject<string>,
         userIdentity: string | undefined = undefined,
     ) {
-        console.log("In WSClient");
         this.ws = ws;
         this.viewRef = viewRef;
         this.documentID = documentID;
@@ -48,35 +45,16 @@ export class WSClient {
         this.handleOpen = this.handleOpen.bind(this);
         this.handleMessage = this.handleMessage.bind(this);
 
-        if (this.ws.readyState === WebSocket.OPEN) this.handleOpen();
+        if (!this.isOffline()) this.handleJoin();
         this.initListeners();
     }
 
     initListeners() {
-        this.ws.onopen = this.handleOpen;
+        // this.ws.onopen = this.handleOpen;
         this.ws.onmessage = this.handleMessage;
     }
 
-    async handleOpen() {
-        console.log("WebSocket connected");
-
-        let savedDocChanges;
-        try {
-            //get any local changes
-            console.log("Fugue Id -> ", this.fugue.documentID);
-            savedDocChanges = await DocumentsIndexedDB.getBufferedChanges(this.fugue.documentID);
-            console.log("Changes that we are about to send -> ", savedDocChanges);
-
-            const FugueMessages: FugueMessage[] = savedDocChanges.map((changes) => changes.fugueMsg);
-            const serialisedLocalChangeMessage = FugueMessageSerialzier.serialize(FugueMessages);
-            this.ws.send(serialisedLocalChangeMessage);
-            //send buffered local changes messages
-
-            //await DocumentsIndexedDB.deleteBufferedChanges(this.fugue.documentID);
-        } catch (err) {
-            console.log("Error processing buffered changes -> ", err);
-        }
-
+    async handleJoin() {
         //send the join message with the local changes
         const joinMsg: FugueJoinMessage = {
             operation: Operation.JOIN,
@@ -92,6 +70,27 @@ export class WSClient {
 
         this.ws.send(serializedJoinMessage);
         console.log("Sent serialized Join message!");
+    }
+
+    async handleOpen() {
+        console.log("WebSocket connected");
+        //
+        // let savedDocChanges;
+        // try {
+        //     //get any local changes
+        //     console.log("Fugue Id -> ", this.fugue.documentID);
+        //     savedDocChanges = await DocumentsIndexedDB.getBufferedChanges(this.fugue.documentID);
+        //     console.log("Changes that we are about to send -> ", savedDocChanges);
+        //
+        //     const FugueMessages: FugueMessage[] = savedDocChanges.map((changes) => changes.fugueMsg);
+        //     const serialisedLocalChangeMessage = FugueMessageSerialzier.serialize(FugueMessages);
+        //     this.ws.send(serialisedLocalChangeMessage);
+        //     //send buffered local changes messages
+        //
+        //     //await DocumentsIndexedDB.deleteBufferedChanges(this.fugue.documentID);
+        // } catch (err) {
+        //     console.log("Error processing buffered changes -> ", err);
+        // }
     }
 
     async handleMessage(ev: MessageEvent) {
@@ -158,17 +157,11 @@ export class WSClient {
                     setActiveCollaborators(newActiveCollaborators);
                 }
 
-                console.log({ msg });
-                const localChanges = await DocumentsIndexedDB.getBufferedChanges(this.documentID!);
-                if (localChanges.length > 0) {
-                    //get the buffered changes from redis
-                    //delete
-                    await DocumentsIndexedDB.deleteBufferedChanges(this.documentID);
-                }
                 this.fugue.load(msg.state!);
 
-                const newText = this.fugue.length() > 0 ? this.fugue.observe() : "";
+                const newText = this.fugue.observe();
                 console.log({ newText });
+                this.previousTextRef.current = newText;
 
                 // Update CodeMirror programmatically
                 console.log({ curr: this.viewRef.current });
@@ -177,17 +170,20 @@ export class WSClient {
                     const view = this.viewRef.current;
 
                     // Create a transaction using the state's tr builder
+                    console.debug({ pos: 2, editorState: this.viewRef.current.state.doc.toString() });
                     const tr = view.state.update({
-                        changes: {
-                            from: 0,
-                            to: view.state.doc.length,
-                            insert: newText,
-                        },
+                        changes: [
+                            {
+                                from: 0,
+                                to: view.state.doc.length,
+                                insert: newText,
+                            },
+                        ],
                         selection: EditorSelection.cursor(Math.min(view.state.selection.main.from, newText.length)),
                         annotations: [this.remoteUpdate.of(true)],
                     });
                     view.dispatch(tr);
-                    this.previousTextRef.current = newText;
+                    console.debug({ pos: 3, editorState: this.viewRef.current.state.doc.toString() });
                 }
             }
             // Handle other users joining
