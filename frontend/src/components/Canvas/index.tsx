@@ -71,8 +71,10 @@ const Canvas = () => {
 
     //for testing purposes
     useEffect(()=>{
-        const randomId = randomString(6);
-        sessionStorage.setItem("windowId", randomId);
+        if(import.meta.env.DEV){
+            const randomId = randomString(6);
+            sessionStorage.setItem("windowId", randomId);
+        }
         sessionStorage.setItem("lastOnlineCount", "-1");
     }, []);
 

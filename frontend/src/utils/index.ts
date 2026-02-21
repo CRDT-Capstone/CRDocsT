@@ -6,8 +6,11 @@ export function randomString(length: number = 10): string {
     return res.join("");
 }
 
-export function loadBufferedOperations(bufferedOps: Buffer<ArrayBuffer>[]) {
-    const parsedOps = bufferedOps.map((op) => FugueMessageSerialzier.deserializeSingleMessage(op));
+//bufferedOps: Buffer<ArrayBuffer>[]
+
+export function loadBufferedOperations(bufferedOps: string[]) {
+    // const parsedOps = bufferedOps.map((op) => FugueMessageSerialzier.deserializeSingleMessage(op));
+    const parsedOps = bufferedOps.map((op) => JSON.parse(op));
     return parsedOps as FugueMessage[];
 }
 

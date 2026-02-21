@@ -18,16 +18,20 @@ const bufferCRDTOperationsByDocumentID = async (documentID: string, op: FugueMes
     //converting to base 64 because sets only take strings
 
     const pipeline = redis.pipeline();
-    const serializedMessages = op.map((operation)=> Buffer.from(FugueMessageSerialzier.serializeSingleMessage(operation)).toString("base64"));
-    serializedMessages.forEach((msg)=> pipeline.sadd(`doc:${documentID}:operations`, msg));
+    //const serializedMessages = op.map((operation)=> Buffer.from(FugueMessageSerialzier.serializeSingleMessage(operation)).toString("base64"));
+    //serializedMessages.forEach((msg)=> pipeline.sadd(`doc:${documentID}:operations`, msg));
+    op.forEach((operation)=> pipeline.sadd(`doc:${documentID}:operations`, JSON.stringify(operation)));
     await pipeline.exec();
 }
 
 const getBufferedCRDTOperationsByDocumentId = async (documentID: string)=>{
-    const base64CRDTOps = await redis.smembers(`doc:${documentID}:operations`);
-    if(!base64CRDTOps) return undefined;
-    const bufferedCRDTOps = base64CRDTOps.map((op)=> Buffer.from(op, "base64"));
-    return bufferedCRDTOps;
+    // const base64CRDTOps = await redis.smembers(`doc:${documentID}:operations`);
+    // if(!base64CRDTOps) return undefined;
+    
+
+    const ops = await redis.smembers(`doc:${documentID}:operations`);
+    return ops;
+    
 }
 
 const deleteCRDTStateByDocumentID = async (documentID: string) => {

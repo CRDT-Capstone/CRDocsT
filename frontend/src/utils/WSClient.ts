@@ -14,6 +14,7 @@ import mainStore from "../stores";
 import { toast } from "sonner";
 import { DocumentsIndexedDB } from "../stores/dexie/documents";
 import { loadBufferedOperations, saveLatestOnlineCounter } from ".";
+import { parse } from "path";
 
 const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
 
@@ -68,12 +69,9 @@ export class WSClient {
             savedDocChanges = await DocumentsIndexedDB.getBufferedChanges(this.fugue.documentID);
             console.log('Changes that we are about to send -> ', savedDocChanges);
 
-            const FugueMessages: FugueMessage[] = savedDocChanges.map((changes)=> changes.fugueMsg);
+            const FugueMessages: FugueMessage[] = savedDocChanges.map((changes) => changes.fugueMsg);
             const serialisedLocalChangeMessage = FugueMessageSerialzier.serialize(FugueMessages);
             this.ws.send(serialisedLocalChangeMessage);
-            //send buffered local changes messages 
-
-            //await DocumentsIndexedDB.deleteBufferedChanges(this.fugue.documentID);
         } catch (err) {
             console.log("Error processing buffered changes -> ", err);
         }
@@ -95,7 +93,7 @@ export class WSClient {
     }
 
     async handleMessage(ev: MessageEvent) {
-        
+
 
 
         console.log("Received message:", ev.data);
@@ -151,35 +149,55 @@ export class WSClient {
 
                 console.log({ msg });
                 const localChanges = await DocumentsIndexedDB.getBufferedChanges(this.documentID!);
-                if(localChanges.length > 0){
+                if (localChanges.length > 0) {
                     //get the buffered changes from redis
                     //delete
                     await DocumentsIndexedDB.deleteBufferedChanges(this.documentID);
                 }
 
 
-                if(msg.bufferedOperations){
-                    const lastOnlineCounter = Number(sessionStorage.getItem("lastOnlineCounter"))
 
-                    console.log("last Online Counter -> ", lastOnlineCounter)
-                    //if lastOnlineCounterCopy == -1 then we haven't been online yet
+                if (msg.bufferedOperations) {
 
-                    const parsedOps = loadBufferedOperations(msg.bufferedOperations);
-                    console.log("Parsed Ops -> ", parsedOps);
-                    //remove things that have a lesser counter number
-                    const counterFilteredOps = parsedOps.filter((op)=> op.id.counter >= lastOnlineCounter);
-                    console.log("Counter filtered Ops -> ", counterFilteredOps);
-                    //remove duplicates by removing those that come from the user
-                    const senderFilteredOps = counterFilteredOps.filter((op)=> op.id.sender !== this.fugue.replicaId());
-                    console.log("Sender filtered Ops -> ", senderFilteredOps);
+                    if (localChanges.length > 0) {
+                        //flow for when we are rejoining
 
-                    this.fugue.effect(senderFilteredOps);
+                        const lastOnlineCounter = Number(sessionStorage.getItem("lastOnlineCounter"))
+
+                        console.log("last Online Counter -> ", lastOnlineCounter)
+
+                        const parsedOps = loadBufferedOperations(msg.bufferedOperations!);
+                        const counterFilteredOps = parsedOps.filter((op) => op.id.counter > lastOnlineCounter);
+                        //remove duplicates by removing those that come from the user
+                        const senderFilteredOps = counterFilteredOps.filter((op) => op.id.sender !== this.fugue.replicaId());
+
+                        if (import.meta.env.DEV) {
+                            console.log("Parsed Ops -> ", parsedOps);
+                            console.log("Counter filtered Ops -> ", counterFilteredOps);
+                            console.log("Sender filtered Ops -> ", senderFilteredOps);
+                        }
+
+
+                        this.fugue.effect(senderFilteredOps);
+                    } else {
+                        //this.fugue.load(msg.state!);
+                        //We should treat this state as a snapshot. It updates every 3 seconds (possibly even more)
+                        //When the buffered ops updates whenever there's an op.
+                        //Should be a way to find the largest ID.
+                        //for now I'd just do the inefficient way
+
+                        const parsedOps = loadBufferedOperations(msg.bufferedOperations);
+                        console.log('The parsed ops from the buffered operations -> ', parsedOps);
+                        this.fugue.effect(parsedOps);
+
+
+                    }
                 }else{
                     this.fugue.load(msg.state!);
                 }
-                
-                
-                
+
+
+
                 const newText = this.fugue.length() > 0 ? this.fugue.observe() : "";
                 console.log({ newText });
 
