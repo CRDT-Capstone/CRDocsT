@@ -1,27 +1,34 @@
-import { Router } from "express";
+import { Router, RequestHandler } from "express";
 import { EndpointWSchema } from "../controllers";
 import { validate } from "../middlewares/validationMiddleware";
 import { APIError } from "@cr_docs_t/dts";
+import type { Schema } from "../validaton";
 
 export type VERB = "get" | "post" | "put" | "delete";
 
-export const makeRoute = (router: Router, v: VERB, route: string, c: EndpointWSchema) => {
+const toReqHandler = (h: unknown): RequestHandler => h as RequestHandler;
+
+export const makeRoute = <T extends Schema>(router: Router, v: VERB, route: string, c: EndpointWSchema<T>) => {
+    // build handlers, but cast to RequestHandler for the router call
+    const handlers: RequestHandler[] = c.sch
+        ? [toReqHandler(validate(c.sch)), toReqHandler(c.con)]
+        : [toReqHandler(c.con)];
+
     switch (v) {
         case "get":
-            if (c.sch) return router.get(route, validate(c.sch), c.con);
-            else router.get(route, c.con);
+            return router.get(route, ...handlers);
         case "post":
-            if (c.sch) return router.post(route, validate(c.sch), c.con);
-            return router.post(route, c.con);
+            return router.post(route, ...handlers);
         case "put":
-            if (c.sch) return router.put(route, validate(c.sch), c.con);
-            return router.put(route, c.con);
+            return router.put(route, ...handlers);
         case "delete":
-            if (c.sch) return router.delete(route, validate(c.sch), c.con);
-            return router.delete(route, c.con);
+            return router.delete(route, ...handlers);
+        default:
+            throw new APIError("Invalid http verb", 500);
     }
-    throw new APIError("Invalid http verb", 500);
 };
 
-export const makeRouterRoute = (router: Router) => (v: VERB, route: string, c: EndpointWSchema) =>
-    makeRoute(router, v, route, c);
+export const makeRouterRoute =
+    (router: Router) =>
+    <T extends Schema>(v: VERB, route: string, c: EndpointWSchema<T>) =>
+        makeRoute(router, v, route, c);

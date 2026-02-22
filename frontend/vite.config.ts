@@ -24,4 +24,8 @@ export default defineConfig({
             targets: [{ src: path.resolve(__dirname, "./CNAME"), dest: path.resolve(__dirname, "./dist") }],
         }),
     ],
+    optimizeDeps: {
+        exclude: ["web-tree-sitter"],
+    },
+    assetsInclude: ["**/*.wasm"],
 });

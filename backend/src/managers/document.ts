@@ -1,24 +1,64 @@
-import { FugueList, StringTotalOrder, FugueStateSerializer, FugueLeaveMessage, FugueMessageSerialzier, Operation } from "@cr_docs_t/dts";
+import { FugueTree, FugueStateSerializer, FugueLeaveMessage, FugueMessageSerialzier, Operation } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import WebSocket from "ws";
 import crypto from "crypto";
 import { logger } from "../logging";
 
-interface ActiveDocument {
-    crdt: FugueList<string>;
+// interface ActiveDocument {
+//     crdt: FugueTree;
+//     sockets: Set<WebSocket>;
+//     users: Set<string>;
+//     lastActivity: number;
+//     cleanupTimeout?: NodeJS.Timeout;
+// }
+
+class ActiveDocument {
+    documentID: string;
+    crdt: FugueTree;
     sockets: Set<WebSocket>;
+    users: Set<string>;
     lastActivity: number;
     cleanupTimeout?: NodeJS.Timeout;
+
+    constructor(documentID: string, crdt: FugueTree) {
+        this.documentID = documentID;
+        this.crdt = crdt;
+        this.sockets = new Set();
+        this.users = new Set();
+        this.lastActivity = Date.now();
+    }
+
+    async addUser(ws: WebSocket, userIdentity: string) {
+        this.sockets.add(ws);
+        this.users.add(userIdentity);
+        this.lastActivity = Date.now();
+        await RedisService.updateCollaboratorsByDocumentId(this.documentID, this.users);
+    }
+
+    async removeUser(ws: WebSocket, userIdentity?: string) {
+        this.users.delete(userIdentity!);
+        this.lastActivity = Date.now();
+        this.sockets.delete(ws);
+        await RedisService.updateCollaboratorsByDocumentId(this.documentID, this.users);
+    }
+
+    async save() {
+        await RedisService.updateCRDTStateByDocumentID(this.documentID, Buffer.from(this.crdt.save()));
+        await RedisService.updateCollaboratorsByDocumentId(this.documentID, this.users);
+        // Possibly mongoDB logic too
+    }
 }
 
 class DocumentManager {
     private static instances: Map<string, ActiveDocument> = new Map();
+    private static loadingTasks: Map<string, Promise<ActiveDocument>> = new Map();
     private static dirtyDocs: Set<string> = new Set();
     static readonly persistenceIntervalMs: number = 3 * 1000; // 3 seconds
 
     static async getOrCreate(documentID: string): Promise<ActiveDocument> {
         // If the document is already active, return it
         let doc = this.instances.get(documentID);
+
         if (doc) {
             logger.info(`Found existing ActiveDocument for ID ${documentID}.`);
             if (doc.cleanupTimeout) {
@@ -30,47 +70,71 @@ class DocumentManager {
             return doc;
         }
 
-        // Otherwise get from DB or create a new one
-        const existingState = await RedisService.getCRDTStateByDocumentID(documentID);
-        logger.info(
-            `Creating new ActiveDocument for ID ${documentID}. Existing state: ${existingState ? "found" : "not found"}`,
-        );
-        // The central CRDT is a netural observer that just holds the definitive state of a document
-        // therefore its document ID can be randomly generated, however it should probably have an identifiable
-        // part to help with debugging
-        const crdt = new FugueList(new StringTotalOrder(crypto.randomBytes(3).toString()), null, documentID);
-        if (existingState) {
-            const deserializedState = FugueStateSerializer.deserialize(existingState);
-            crdt.state = deserializedState;
-        }
+        let loading = this.loadingTasks.get(documentID);
+        if (loading) return loading;
 
-        const newDoc: ActiveDocument = {
-            crdt,
-            sockets: new Set(),
-            lastActivity: Date.now(),
-        };
+        const loadTask = (async () => {
+            try {
+                // Otherwise get from DB or create a new one
+                const existingState = await RedisService.getCRDTStateByDocumentID(documentID);
+                logger.info(
+                    `Creating new ActiveDocument for ID ${documentID}. Existing state: ${existingState ? "found" : "not found"}`,
+                );
+                // The central CRDT is a netural observer that just holds the definitive state of a document
+                // therefore its document ID can be randomly generated, however it should probably have an identifiable
+                // part to help with debugging
+                const crdt = new FugueTree(null, documentID, `doc-${crypto.randomBytes(4).toString("hex")}`);
+                if (existingState) {
+                    crdt.load(existingState);
+                }
 
-        this.instances.set(documentID, newDoc);
-        return newDoc;
+                // const newDoc: ActiveDocument = {
+                //     crdt,
+                //     sockets: new Set(),
+                //     lastActivity: Date.now(),
+                //     users: new Set(),
+                // };
+                const newDoc = new ActiveDocument(documentID, crdt);
+
+                this.instances.set(documentID, newDoc);
+                return newDoc;
+            } finally {
+                this.loadingTasks.delete(documentID);
+            }
+        })();
+
+        this.loadingTasks.set(documentID, loadTask);
+        return loadTask;
+    }
+
+    static async addUser(doc: ActiveDocument, ws: WebSocket, userIdentity: string) {
+        await doc.addUser(ws, userIdentity);
     }
 
     static async removeUser(documentID: string, ws: WebSocket, userIdentity?: string) {
         const doc = this.instances.get(documentID);
         if (!doc) return;
 
-        doc.sockets.delete(ws);
+        await doc.removeUser(ws, userIdentity);
         if (userIdentity) {
+            const collaborators = await RedisService.getCollaboratorsByDocumentId(documentID);
             const leaveMessage: FugueLeaveMessage = {
                 operation: Operation.LEAVE,
-                userIdentity
+                userIdentity,
+                documentID: documentID,
+                replicaId: doc.crdt.replicaId(),
+                collaborators: collaborators,
             };
-            await RedisService.removeCollaboratorsByDocumentId(documentID, userIdentity);
 
             doc.sockets.forEach((sock) => {
                 if (sock.readyState === WebSocket.OPEN) sock.send(FugueMessageSerialzier.serialize([leaveMessage]));
             });
+            logger.info("User left document", { documentID, userIdentity });
+
+            // Persist the document immediately to ensure the leaving user's changes are saved and to update the list of collaborators in storage
+            await this.persist(documentID);
         } else {
-            logger.error(`User without email exiting file with documentId: ${documentID}`);
+            logger.error(`User without userIdentity exiting file with documentId: ${documentID}`);
         }
 
         // If no one is left, start the countdown to offload from memory
@@ -90,19 +154,45 @@ class DocumentManager {
         logger.debug(`Persisting document ${documentID} to storage.`);
         const doc = this.instances.get(documentID);
         if (doc) {
-            const serializedState = FugueStateSerializer.serialize(doc.crdt.state);
-            await RedisService.updateCRDTStateByDocumentID(documentID, Buffer.from(serializedState));
+            await doc.save();
             // Possibly mongoDB logic too
         }
     }
 
-    static startPersistenceInterval() {
-        setInterval(async () => {
-            for (const documentID of this.dirtyDocs) {
-                await this.persist(documentID);
-                this.dirtyDocs.delete(documentID);
+    static async startPersistenceInterval() {
+        const runPersistence = async () => {
+            const now = Date.now();
+
+            // Copy to avoid mutation issues during the loop
+            const docsToProcess = Array.from(this.dirtyDocs);
+
+            for (const documentID of docsToProcess) {
+                const doc = this.instances.get(documentID);
+
+                if (doc) {
+                    const timeSinceLastActivity = now - doc.lastActivity;
+
+                    if (timeSinceLastActivity >= this.persistenceIntervalMs) {
+                        try {
+                            logger.debug(`Persisting ${documentID}`);
+                            await this.persist(documentID);
+                            this.dirtyDocs.delete(documentID);
+                        } catch (err) {
+                            logger.error(`Failed to persist ${documentID}`, { err });
+                            // We leave it in dirtyDocs so it retries next time
+                        }
+                    }
+                } else {
+                    this.dirtyDocs.delete(documentID);
+                }
             }
-        }, this.persistenceIntervalMs);
+
+            // Schedule the next run only after this one finishes
+            setTimeout(runPersistence, this.persistenceIntervalMs);
+        };
+
+        // Start the first run immediately
+        runPersistence();
     }
 
     private static async cleanup(documentID: string) {

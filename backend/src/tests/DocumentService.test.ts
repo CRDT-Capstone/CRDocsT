@@ -37,13 +37,13 @@ describe("Unit testing the document service functions", () => {
         const randomEmail = "random@random.com";
 
         //when
-        const [canAccessDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
+        const { hasAccess, contributorType: accessType } = await DocumentServices.IsDocumentOwnerOrCollaborator(
             document._id.toString(),
             randomEmail,
         );
 
         //then
-        expect(canAccessDocument).toEqual(true);
+        expect(hasAccess).toEqual(true);
         expect(accessType).toEqual(ContributorType.EDITOR);
     });
 
@@ -52,11 +52,11 @@ describe("Unit testing the document service functions", () => {
         const document = await DocumentModel.create(documentWithNoOwner);
         //when
 
-        const [canAccessDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
+        const { hasAccess, contributorType: accessType } = await DocumentServices.IsDocumentOwnerOrCollaborator(
             document._id.toString(),
         );
         //then
-        expect(canAccessDocument).toEqual(true);
+        expect(hasAccess).toEqual(true);
         expect(accessType).toEqual(ContributorType.EDITOR);
     });
 
@@ -65,12 +65,12 @@ describe("Unit testing the document service functions", () => {
         const document = await DocumentModel.create(documentWithAnOwner);
 
         //when
-        const [canAccessDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
+        const { hasAccess, contributorType: accessType } = await DocumentServices.IsDocumentOwnerOrCollaborator(
             document._id.toString(),
         );
 
         //then
-        expect(canAccessDocument).toEqual(false);
+        expect(hasAccess).toEqual(false);
         expect(accessType).toBeUndefined();
     });
 
@@ -79,13 +79,13 @@ describe("Unit testing the document service functions", () => {
         const document = await DocumentModel.create(documentWithAnOwner);
 
         //when
-        const [canAccessDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
+        const { hasAccess, contributorType: accessType } = await DocumentServices.IsDocumentOwnerOrCollaborator(
             document._id.toString(),
             OWNER_EMAIL,
         );
 
         //then
-        expect(canAccessDocument).toEqual(true);
+        expect(hasAccess).toEqual(true);
         expect(accessType).toEqual(ContributorType.EDITOR);
     });
 
@@ -94,13 +94,13 @@ describe("Unit testing the document service functions", () => {
         const document = await DocumentModel.create(documentWithAnOwner);
 
         //when
-        const [canAccessDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
+        const { hasAccess, contributorType: accessType } = await DocumentServices.IsDocumentOwnerOrCollaborator(
             document._id.toString(),
             "okay@okay.com",
         );
 
         //then
-        expect(canAccessDocument).toEqual(false);
+        expect(hasAccess).toEqual(false);
         expect(accessType).toBeUndefined();
     });
 
@@ -116,13 +116,13 @@ describe("Unit testing the document service functions", () => {
         const dbDocument = await DocumentModel.create(newDocument);
         await DocumentServices.removeContributor(dbDocument._id.toString(), "randomEmail1@gmail.com");
 
-        const [canAccessDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
+        const { hasAccess, contributorType: accessType } = await DocumentServices.IsDocumentOwnerOrCollaborator(
             dbDocument._id.toString(),
             "randomEmail1@gmail.com",
         );
 
         //then
-        expect(canAccessDocument).toEqual(false);
+        expect(hasAccess).toEqual(false);
         expect(accessType).toBeUndefined();
 
         const newDbDocument = await DocumentModel.findById(dbDocument._id);
@@ -168,13 +168,13 @@ describe("Unit testing the document service functions", () => {
             const dbDocument = await DocumentModel.create(newDocument);
 
             //when
-            const [canAccessDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
+            const { hasAccess, contributorType: accessType } = await DocumentServices.IsDocumentOwnerOrCollaborator(
                 dbDocument._id.toString(),
                 email,
             );
 
             //then
-            expect(canAccessDocument).toEqual(true);
+            expect(hasAccess).toEqual(true);
             expect(accessType).toEqual(contributionType);
         });
     });
@@ -201,12 +201,12 @@ describe("Unit testing the document service functions", () => {
                 contributorType === ContributorType.EDITOR ? ContributorType.VIEWER : ContributorType.EDITOR,
             );
 
-            const [canAccessDocument, accessType] = await DocumentServices.IsDocumentOwnerOrCollaborator(
+            const { hasAccess, contributorType: accessType } = await DocumentServices.IsDocumentOwnerOrCollaborator(
                 dbDocument._id.toString(),
                 email,
             );
 
-            expect(canAccessDocument).toEqual(true);
+            expect(hasAccess).toEqual(true);
             expect(accessType).toEqual(
                 contributorType === ContributorType.EDITOR ? ContributorType.VIEWER : ContributorType.EDITOR,
             );
@@ -214,17 +214,24 @@ describe("Unit testing the document service functions", () => {
     });
 
     describe("Test that cursor pagination actually works", () => {
-
         beforeEach(async () => {
-            const documents = [documentWithAnOwner, documentWithNoOwner, documentWithAnOwner, documentWithNoOwner,
-                documentWithAnOwner, documentWithNoOwner, documentWithAnOwner, documentWithNoOwner,
-                documentWithAnOwner, documentWithNoOwner
+            const documents = [
+                documentWithAnOwner,
+                documentWithNoOwner,
+                documentWithAnOwner,
+                documentWithNoOwner,
+                documentWithAnOwner,
+                documentWithNoOwner,
+                documentWithAnOwner,
+                documentWithNoOwner,
+                documentWithAnOwner,
+                documentWithNoOwner,
             ];
 
             await DocumentModel.create(documents);
-        })
+        });
 
-        it("tests that getting the first page works", async()=>{
+        it("tests that getting the first page works", async () => {
             const firstPage = await DocumentServices.getDocumentsByUserId("user_1", 2);
 
             expect(firstPage).toBeDefined();
@@ -233,7 +240,7 @@ describe("Unit testing the document service functions", () => {
             expect(firstPage.hasNext).toEqual(true);
         });
 
-        it("tests that getting the next set of pages from the next cursor works", async ()=>{
+        it("tests that getting the next set of pages from the next cursor works", async () => {
             const firstPage = await DocumentServices.getDocumentsByUserId("user_1", 2);
             const secondPage = await DocumentServices.getDocumentsByUserId("user_1", 2, firstPage.nextCursor);
 
@@ -245,16 +252,13 @@ describe("Unit testing the document service functions", () => {
             expect(secondPage.data).not.toEqual(firstPage.data);
         });
 
-        it("tests that the last page can be gotten with the nextCursor being null", async()=>{
+        it("tests that the last page can be gotten with the nextCursor being null", async () => {
             const firstAndLastPage = await DocumentServices.getDocumentsByUserId("user_1", 11);
-
 
             expect(firstAndLastPage).toBeDefined();
             expect(firstAndLastPage.data).toHaveLength(10);
             expect(firstAndLastPage.hasNext).toBe(false);
             expect(firstAndLastPage.nextCursor).toBeUndefined();
-        })
+        });
     });
-
-
 });

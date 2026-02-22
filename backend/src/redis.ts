@@ -15,7 +15,8 @@ export const redis = new Redis({
 });
 
 redis.on("error", (err) => {
-    logger.error("Redis connection error -> ", err);
+    logger.error("Redis connection error", { err });
+    process.exit(1);
 });
 
 redis.on("ready", () => {

@@ -8,6 +8,8 @@ import Collaborators from "../Collaborators";
 import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { toast } from "sonner";
+import { LuCheck } from "react-icons/lu";
+import { ConnectionState } from "../../types";
 
 interface NavBarProps {
     documentID: string;
@@ -19,6 +21,7 @@ export const NavBar = ({ documentID }: NavBarProps) => {
 
     const document = mainStore((state) => state.document);
     const setDocument = mainStore((state) => state.setDocument);
+    const connectionState = mainStore((state) => state.connectionState);
 
     const [isEditing, setIsEditing] = useState(false);
     const [title, setTitle] = useState("New Document");
@@ -41,6 +44,19 @@ export const NavBar = ({ documentID }: NavBarProps) => {
             toast.error("Failed to update document name");
         }
     };
+
+    let connectionBadge = "badge-success";
+    switch (connectionState) {
+        case ConnectionState.CONNECTED:
+            connectionBadge = "badge-success";
+            break;
+        case ConnectionState.RECONNECTING:
+            connectionBadge = "badge-warning";
+            break;
+        case ConnectionState.DISCONNECTED:
+            connectionBadge = "badge-error";
+            break;
+    }
 
     return (
         <div className="shadow-sm navbar bg-base-100">
@@ -89,6 +105,12 @@ export const NavBar = ({ documentID }: NavBarProps) => {
                         </details>
                     </li>
                 </ul>
+            </div>
+            {/* Is connectde notifier */}
+            <div className="flex-none">
+                <div className={`badge badge-outline  ${connectionBadge}`}>
+                    {connectionState.toString().toUpperCase()}
+                </div>
             </div>
             <Collaborators documentId={documentID} />
             <ShareDocForm documentId={documentID} />

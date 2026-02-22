@@ -1,13 +1,6 @@
 import { Request, Response } from "express";
 import { DocumentServices } from "../services/DocumentServices";
-import {
-    APIError,
-    ContributorSchema,
-    ContributorType,
-    FugueList,
-    FugueStateSerializer,
-    StringTotalOrder,
-} from "@cr_docs_t/dts";
+import { APIError, ContributorSchema, ContributorType, FugueTree, FugueStateSerializer } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import { getAuth } from "@clerk/express";
 import { MailService } from "../services/MailService";
@@ -15,19 +8,21 @@ import { logger } from "../logging";
 import { sendOk, sendErr } from "../utils/ApiResponseUtils";
 import { handleErrorAsAPIError } from "../utils";
 import { z } from "zod";
-import { Schema } from "../validaton";
-import { ControllerWSchema } from ".";
+import { Schema, ValidatedRequest } from "../validaton";
+import { ControllerWSchema, defineController } from ".";
+
+const documentIdSchema = () =>
+    z.strictObject({
+        documentId: z.string().min(1, "documentId is required"),
+    });
 
 const createDocument = async (req: Request, res: Response) => {
     try {
         const { userId } = getAuth(req);
         const document = await DocumentServices.createDocument(userId);
-        const CRDT = new FugueList(new StringTotalOrder(document._id.toString()), null, document._id.toString());
+        const CRDT = new FugueTree(null, document._id.toString(), document._id.toString());
 
-        RedisService.updateCRDTStateByDocumentID(
-            document._id.toString(),
-            Buffer.from(FugueStateSerializer.serialize(CRDT.state)),
-        );
+        RedisService.updateCRDTStateByDocumentID(document._id.toString(), Buffer.from(CRDT.save()));
 
         return sendOk(res, {
             message: "Successfully created document",
@@ -40,29 +35,37 @@ const createDocument = async (req: Request, res: Response) => {
     }
 };
 
-const documentIDSchema = () =>
-    z.strictObject({
-        documentId: z.string().min(1, "documentId is required"),
-    });
+const deleteDocumentSchema = {
+    params: documentIdSchema(),
+};
 
-const updateDocumentNameSchema: Schema = {
-    params: documentIDSchema(),
+const deleteDocument = async (req: ValidatedRequest<typeof deleteDocumentSchema>, res: Response) => {
+    try {
+        const { documentId } = req.params;
+        await DocumentServices.removeDocument(documentId);
+        return sendOk(res, {
+            message: "Successfully deleted document",
+            data: undefined,
+        });
+    } catch (err: unknown) {
+        logger.error("There was an error deleting document", { err });
+        const e = handleErrorAsAPIError(err);
+        return sendErr(res, e.msg, e.status);
+    }
+};
+
+const updateDocumentNameSchema = {
+    params: documentIdSchema(),
     body: z.strictObject({
         name: z.string().min(1, "Name cannot be empty"),
     }),
 };
 
-const updateDocumentName = async (req: Request, res: Response) => {
+const updateDocumentName = async (req: ValidatedRequest<typeof updateDocumentNameSchema>, res: Response) => {
     const { name } = req.body;
-    const { documentID } = req.params;
-    if (!name) {
-        res.status(400).send({
-            message: "Title and documentID is required",
-        });
-        return;
-    }
+    const { documentId } = req.params;
     try {
-        await DocumentServices.updateDocumentById(documentID, { name });
+        await DocumentServices.updateDocumentById(documentId as string, { name });
         res.status(200).send({
             message: "Successfully updated the name of the document",
         });
@@ -104,14 +107,14 @@ const getDocumentsByUserId = async (req: Request, res: Response) => {
     }
 };
 
-const getDocumuentByIdSchema: Schema = {
-    params: documentIDSchema(),
+const getDocumuentByIdSchema = {
+    params: documentIdSchema(),
 };
 
-const getDocumentById = async (req: Request, res: Response) => {
+const getDocumentById = async (req: ValidatedRequest<typeof getDocumuentByIdSchema>, res: Response) => {
     const { documentId } = req.params;
     try {
-        const document = await DocumentServices.getDocumentMetadataById(documentId);
+        const document = await DocumentServices.getDocumentMetadataById(documentId as string);
         if (!document) {
             return sendErr(res, { message: "Not found", error: "Document does not exist" }, 404);
         }
@@ -126,14 +129,14 @@ const getDocumentById = async (req: Request, res: Response) => {
     }
 };
 
-const shareDocumentViaEmailSchema: Schema = {
-    body: documentIDSchema().extend({
+const shareDocumentViaEmailSchema = {
+    body: documentIdSchema().extend({
         receiverEmail: z.email(),
         contributorType: z.enum(ContributorType),
     }),
 };
 
-const shareDocumentViaEmail = async (req: Request, res: Response) => {
+const shareDocumentViaEmail = async (req: ValidatedRequest<typeof shareDocumentViaEmailSchema>, res: Response) => {
     try {
         const { receiverEmail, documentId, contributorType } = req.body;
         if (!documentId || !contributorType || !receiverEmail) {
@@ -166,14 +169,13 @@ const shareDocumentViaEmail = async (req: Request, res: Response) => {
     }
 };
 
-const removeContributorSchema: Schema = {
-    params: documentIDSchema(),
-    body: documentIDSchema().extend({
+const removeContributorSchema = {
+    body: documentIdSchema().extend({
         email: z.email(),
     }),
 };
 
-const removeContributor = async (req: Request, res: Response) => {
+const removeContributor = async (req: ValidatedRequest<typeof removeContributorSchema>, res: Response) => {
     try {
         const { documentId, email } = req.body;
         await DocumentServices.removeContributor(documentId, email);
@@ -188,15 +190,14 @@ const removeContributor = async (req: Request, res: Response) => {
     }
 };
 
-const updateContributorTypeSchema: Schema = {
-    params: documentIDSchema(),
-    body: documentIDSchema().extend({
+const updateContributorTypeSchema = {
+    body: documentIdSchema().extend({
         email: z.email(),
         contributorType: z.enum(ContributorType),
     }),
 };
 
-const updateContributorType = async (req: Request, res: Response) => {
+const updateContributorType = async (req: ValidatedRequest<typeof updateContributorTypeSchema>, res: Response) => {
     try {
         const { documentId, email, contributorType } = req.body;
         await DocumentServices.changeContributorType(documentId, email, contributorType);
@@ -211,10 +212,43 @@ const updateContributorType = async (req: Request, res: Response) => {
     }
 };
 
-export const DocumentController: ControllerWSchema = {
+const getUserDocumentAccessSchema = {
+    params: documentIdSchema(),
+    body: z.strictObject({
+        userIdentifier: z.email().or(z.undefined()),
+    }),
+};
+
+const getUserDocumentAccess = async (req: ValidatedRequest<typeof getUserDocumentAccessSchema>, res: Response) => {
+    try {
+        const { documentId } = req.params;
+        const { userIdentifier } = req.body;
+        const { hasAccess, contributorType } = await DocumentServices.IsDocumentOwnerOrCollaborator(
+            documentId,
+            userIdentifier,
+        );
+        return sendOk<{ hasAccess: boolean; contributorType: ContributorType | undefined }>(res, {
+            message: "Successfully checked if user has access to document",
+            data: {
+                hasAccess,
+                contributorType,
+            },
+        });
+    } catch (err: any) {
+        logger.error("Unable to check if user has access to document", { err });
+        const er = handleErrorAsAPIError(err, "Unable to check if user has access to document");
+        return sendErr(res, er.msg, er.status);
+    }
+};
+
+export const DocumentController = defineController({
     CreateDocument: {
         con: createDocument,
         sch: undefined,
+    },
+    DeleteDocument: {
+        con: deleteDocument,
+        sch: deleteDocumentSchema,
     },
     UpdateDocumentName: {
         con: updateDocumentName,
@@ -240,4 +274,8 @@ export const DocumentController: ControllerWSchema = {
         con: updateContributorType,
         sch: updateContributorTypeSchema,
     },
-};
+    GetUserDocumentAccess: {
+        con: getUserDocumentAccess,
+        sch: getUserDocumentAccessSchema,
+    },
+});

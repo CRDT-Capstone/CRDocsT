@@ -28,9 +28,25 @@ export const createDocumentApi = (getToken: TokenFunc) => {
             console.log("The document -> ", document);
             return response;
         } catch (err) {
-            console.log("There was an error creating a document -> ", err);
+            console.error("There was an error creating a document -> ", err);
             throw err;
             //TODO: change this to some daisy UI element
+        }
+    };
+
+    const deleteDocument = async (documentId: string) => {
+        try {
+            const token = await getToken();
+            const response = await f.delete<Msg>(`${ApiBaseUrl}/${path}/delete/${documentId}`, {
+                headers: {
+                    Authorization: `Bearer: ${token}`,
+                },
+            });
+
+            return response;
+        } catch (err) {
+            console.error("There was an error deleting the document -> ", err);
+            throw err;
         }
     };
 
@@ -180,8 +196,34 @@ export const createDocumentApi = (getToken: TokenFunc) => {
         }
     };
 
+    const getUserDocumentAccess = async (documentId: string, userIdentifier: string | undefined) => {
+        try {
+            const token = await getToken();
+            const res = await f.post<
+                Msg<{ hasAccess: boolean; contributorType: ContributorType | undefined }>,
+                { userIdentifier: string | undefined }
+            >(
+                `${ApiBaseUrl}/${path}/${documentId}/check-access`,
+                {
+                    userIdentifier: userIdentifier,
+                },
+                {
+                    headers: {
+                        ...includeToken(token),
+                    },
+                },
+            );
+
+            return res;
+        } catch (err) {
+            console.log("Unable to get user document access -> ", err);
+            throw err;
+        }
+    };
+
     return {
         createDocument,
+        deleteDocument,
         updateDocumentName,
         getDocumentsByUserId,
         getDocumentById,
@@ -189,5 +231,6 @@ export const createDocumentApi = (getToken: TokenFunc) => {
         shareDocument,
         removeCollaborator,
         updateCollaboratorType,
+        getUserDocumentAccess,
     };
 };

@@ -5,24 +5,20 @@ import Loading from "../Loading";
 import { useDocuments } from "../../hooks/queries";
 import mainStore from "../../stores";
 import React from "react";
+import { LuTrash2 } from "react-icons/lu";
 
 export const HomePage = () => {
     const navigate = useNavigate();
-    const clerk = useClerk();
-    const { isSignedIn } = useSession();
-    const setEmail = mainStore((state) => state.setEmail);
+    const { signOut } = useClerk();
+    const { isSignedIn, isLoaded } = useSession();
 
     useEffect(() => {
-        if (clerk.loaded && !isSignedIn) navigate("/sign-in");
-        else if (clerk.loaded && isSignedIn) {
-            const email = clerk.user?.primaryEmailAddress?.emailAddress;
-            if (email) setEmail(email);
-        }
-    }, [navigate, isSignedIn, clerk.loaded]);
+        if (isLoaded && !isSignedIn) navigate("/sign-in");
+    }, [navigate, isSignedIn, isLoaded]);
 
     const { queries, mutations } = useDocuments();
     const { userDocumentsQuery } = queries;
-    const { createDocumentMutation } = mutations;
+    const { createDocumentMutation, deleteDocumentMutation } = mutations;
 
     return (
         //this is just for a proof of concept
@@ -32,7 +28,6 @@ export const HomePage = () => {
                 <Loading fullPage={true} />
             ) : (
                 <>
-                    {/* Header / Actions */}
                     <div className="flex justify-end w-full">
                         <button
                             className="m-4 btn btn-l btn-neutral"
@@ -44,12 +39,11 @@ export const HomePage = () => {
                         >
                             Create a document!
                         </button>
-                        <button className="m-4 btn btn-l btn-neutral" onClick={() => clerk.signOut()}>
+                        <button className="m-4 btn btn-l btn-neutral" onClick={() => signOut()}>
                             Sign Out
                         </button>
                     </div>
 
-                    {/* Main Content Area: Table + Load More Button */}
                     <div className="flex flex-col items-center pb-10 w-full">
                         {userDocumentsQuery.data?.pages[0].data.length === 0 ? (
                             <h1>You have no Documents</h1>
@@ -80,6 +74,22 @@ export const HomePage = () => {
                                                     <td>{doc.name}</td>
                                                     <td>{new Date(doc.createdAt || "").toLocaleString()}</td>
                                                     <td>{new Date(doc.updatedAt || "").toLocaleString()}</td>
+                                                    <td>
+                                                        <button
+                                                            className="btn btn-square btn-md btn-error"
+                                                            disabled={
+                                                                deleteDocumentMutation.isPending ||
+                                                                createDocumentMutation.isPending ||
+                                                                userDocumentsQuery.isFetchingNextPage
+                                                            }
+                                                            onClick={async (e) => {
+                                                                e.stopPropagation();
+                                                                await deleteDocumentMutation.mutateAsync(doc._id!);
+                                                            }}
+                                                        >
+                                                            <LuTrash2 />
+                                                        </button>
+                                                    </td>
                                                 </tr>
                                             ))}
                                         </React.Fragment>
@@ -88,7 +98,6 @@ export const HomePage = () => {
                             </table>
                         )}
 
-                        {/* Load More Button - Centered below table */}
                         <div className="flex justify-center mt-4 w-full">
                             <button
                                 // Disable if fetching or if NO next page exists
