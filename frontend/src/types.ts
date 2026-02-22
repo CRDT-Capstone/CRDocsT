@@ -1,9 +1,18 @@
-export type Position = string;
+import { FugueMessage, Operation } from "@cr_docs_t/dts";
 
-export interface Document {
-    _id: string,
-    name: string,
-    created_at: Date,
-    updated_at: Date
+export type Position = string;
+export type IDBDocumentSchema = {
+    documentId: string; //document Id
+};
+
+export type IDBOperationSchema = {
+    id?: number;
+    documentId: string;
+    fugueMsg: FugueMessage;
+};
+
+export enum ConnectionState {
+    CONNECTED = "CONNECTED",
+    RECONNECTING = "RECONNECTING",
+    DISCONNECTED = "DISCONNECTED",
 }
-//TODO: move to the types library

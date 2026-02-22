@@ -1,5 +1,17 @@
 import { model, Schema } from "mongoose";
-import { Document } from "../types/types";
+import { ContributorType, Contributor, Document } from "@cr_docs_t/dts";
+
+const ContributorSchema = new Schema<Contributor>({
+    contributorType: {
+        required: true,
+        type: String,
+        enum: ContributorType,
+    },
+    email: {
+        type: String,
+        required: false,
+    },
+});
 
 const DocumentSchema = new Schema<Document>(
     {
@@ -16,13 +28,16 @@ const DocumentSchema = new Schema<Document>(
             type: String,
             required: false,
         },
-    },
-    {
-        timestamps: {
-            createdAt: "created_at",
-            updatedAt: "updated_at",
+        contributors: {
+            type: [ContributorSchema],
+            default: [],
         },
     },
+    {
+        timestamps: true,
+    },
 );
+
+DocumentSchema.index({ _id: 1, "contributors.email": 1 }, { unique: true });
 
 export const DocumentModel = model<Document>("document", DocumentSchema);

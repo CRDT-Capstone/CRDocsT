@@ -1,18 +1,29 @@
 import { SignIn } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
-import { useDocumentApi } from "../../api/document";
+import { useDocuments } from "../../hooks/queries";
+import mainStore from "../../stores";
+import { randomString } from "@cr_docs_t/dts";
 
 export const SignInPage = () => {
-    const { createAndNavigateToDocument } = useDocumentApi();
+    const nav = useNavigate();
+    const { mutations } = useDocuments();
+    const { createDocumentMutation } = mutations;
+    const setAnonUserIdentity = mainStore((state) => state.setAnonUserIdentity);
+    const anonUserIdentity = mainStore((state) => state.anonUserIdentity);
     return (
         <div className="flex flex-col justify-center items-center w-full h-screen">
             <SignIn />
             <h1> OR....</h1>
             <button
-                onClick={() => createAndNavigateToDocument()}
-                className="btn btn-l btn-neutral m-4">
+                onClick={async () => {
+                    const res = await createDocumentMutation.mutateAsync();
+                    if (!anonUserIdentity) setAnonUserIdentity(randomString(10));
+                    nav(`/docs/${res.data._id}`);
+                }}
+                className="m-4 btn btn-l btn-neutral"
+            >
                 Work Anonymously
             </button>
         </div>
     );
-}
+};
