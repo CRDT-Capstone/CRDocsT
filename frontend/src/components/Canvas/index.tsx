@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Operation } from "@cr_docs_t/dts";
-import CodeMirror, { ViewUpdate, EditorView } from "@uiw/react-codemirror";
+import CodeMirror, { EditorView } from "@uiw/react-codemirror";
 import { bracketMatching, indentOnInput } from "@codemirror/language";
 import { useNavigate, useParams } from "react-router-dom";
 import { NavBar } from "../NavBar";
@@ -8,14 +7,14 @@ import Loading from "../Loading";
 import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { latexSupport } from "../../treesitter/codemirror";
-import { Parser, Query } from "web-tree-sitter";
+import { Parser, Query, Tree } from "web-tree-sitter";
 import { newParser } from "../../treesitter";
-import { DocumentsIndexedDB } from "../../stores/dexie/documents";
 import { useCollab } from "../../hooks/collab";
 import { createDocumentApi } from "../../api/document";
 import { useAuth } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import ActiveCollaborators from "../ActiveCollaborators";
+import { HandleChange } from "./utils";
 
 const Canvas = () => {
     const { documentID } = useParams();
@@ -25,7 +24,6 @@ const Canvas = () => {
     const [query, setQuery] = useState<Query | null>(null);
 
     const setDocument = mainStore((state) => state.setDocument);
-    const ygg = mainStore((state) => state.ygg);
 
     const { getToken } = useAuth();
     const api = createDocumentApi(getToken);
@@ -83,72 +81,25 @@ const Canvas = () => {
         };
     }, []);
 
-
     useEffect(() => {
         if (documentQuery.data) {
             setDocument(documentQuery.data);
         }
     }, [documentQuery.data]);
 
-    const exts = useMemo(() => {
+    const { exts, Yggdrasil } = useMemo(() => {
         const base = [bracketMatching(), indentOnInput(), EditorView.lineWrapping];
+
         if (parser && query) {
-            return [...base, ...latexSupport(parser, query)];
+            const { extensions, Yggdrasil } = latexSupport(parser, query);
+            return {
+                exts: [...base, ...extensions],
+                Yggdrasil,
+            };
         }
-        return base;
+
+        return { exts: base, Yggdrasil: null };
     }, [parser, query]);
-
-    /**
-     * Handle changes from CodeMirror
-     */
-    const handleChange = async (value: string, viewUpdate: ViewUpdate) => {
-        if (!viewUpdate.docChanged) return;
-
-        // If this transaction has our "RemoteUpdate" annotation, we strictly ignore CRDT logic
-        const isRemote = viewUpdate.transactions.some((tr) => tr.annotation(RemoteUpdate));
-
-        if (isRemote) {
-            console.log("Remote update - skipping CRDT processing");
-            // Just sync the ref so we don't diff against stale text later
-            previousTextRef.current = value;
-            return;
-        }
-
-        // Get the actual changes from viewUpdate
-        const newText = value;
-
-        viewUpdate.changes.iterChanges(async (fromA, toA, fromB, toB, inserted) => {
-            const deleteLen = toA - fromA;
-            const insertedLen = toB - fromB;
-            const insertedTxt = inserted.toString();
-
-            // Handle deletion
-            if (deleteLen > 0) {
-                // console.log({
-                //     operation: Operation.DELETE,
-                //     index: fromA,
-                //     count: deleteLen,
-                //     userIdentity,
-                // });
-                const msgs = fugue.deleteMultiple(fromA, deleteLen);
-            }
-
-            // Handle insertion
-            if (insertedLen > 0) {
-                // console.log({
-                //     operation: Operation.INSERT,
-                //     index: fromA,
-                //     text: insertedTxt,
-                //     userIdentity,
-                //     fugueIdentity: fugue.userIdentity,
-                // });
-
-                const msgs = fugue.insertMultiple(fromA, insertedTxt);
-            }
-        });
-
-        previousTextRef.current = newText;
-    };
 
     if (documentQuery.isLoading) {
         return <Loading fullPage={true} />;
@@ -163,7 +114,7 @@ const Canvas = () => {
                     {isParsing && (
                         <div className="flex absolute top-4 right-4 z-10 gap-2 items-center py-1 px-3 rounded-full border shadow-md animate-pulse bg-base-200 border-base-300">
                             <span className="loading loading-spinner loading-xs text-primary"></span>
-                            <span className="font-mono text-xs font-medium opacity-70">AST SYNCING...</span>
+                            <span className="font-mono text-xs font-medium opacity-70">AST PARSING...</span>
                         </div>
                     )}
 
@@ -188,7 +139,7 @@ const Canvas = () => {
                                 previousTextRef.current = currentContent;
                             }
                         }}
-                        onChange={handleChange}
+                        onChange={HandleChange.bind(null, fugue, previousTextRef, RemoteUpdate)}
                     />
                 </div>
             </main>

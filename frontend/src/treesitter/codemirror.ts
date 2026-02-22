@@ -14,64 +14,72 @@ function getPoint(doc: any, pos: number) {
     return { row: line.number - 1, column: pos - line.from };
 }
 
+export type YggdrasilType = ReturnType<typeof YggdrasilBuilder>;
+export const YggdrasilBuilder = (parser: Parser) =>
+    StateField.define<Tree | null>({
+        create(state) {
+            return parser.parse(state.doc.toString());
+        },
+
+        update(tree, tr) {
+            mainStore.getState().setIsParsing(true);
+            if (!tr.docChanged) return tree;
+
+            let newTree = tree;
+            if (newTree) {
+                tr.changes.iterChanges((fromA, toA, fromB, toB) => {
+                    try {
+                        const edit = new Edit({
+                            startIndex: fromA,
+                            oldEndIndex: toA,
+                            newEndIndex: toB,
+                            startPosition: getPoint(tr.startState.doc, fromA),
+                            oldEndPosition: getPoint(tr.startState.doc, toA),
+                            newEndPosition: getPoint(tr.state.doc, toB),
+                        });
+                        newTree!.edit(edit);
+                    } catch (e) {
+                        console.error("Error applying edit to Tree-sitter tree ->", e);
+                        newTree = null; // Fallback to full parse
+                    }
+                });
+            }
+
+            newTree = parser.parse(tr.state.doc.toString(), newTree || undefined);
+            mainStore.getState().setIsParsing(false);
+            return newTree;
+        },
+
+        provide: (f) => [f],
+    });
+
 /**
  * Codemirror highligher plugin that uses treesitter tree queries to generate decorations.
  */
-export const treeSitterHighlightPlugin = (parser: Parser, query: Query) => {
+export const treeSitterHighlightPlugin = (query: Query, ygg: YggdrasilType) => {
     return ViewPlugin.fromClass(
         class implements PluginValue {
             decorations: DecorationSet;
-            tree: Tree | null = null;
+            lastTree: Tree | null = null;
             debounceTimeout: NodeJS.Timeout | null = null;
 
             constructor(readonly view: EditorView) {
-                this.tree = parser.parse(view.state.doc.toString());
                 this.decorations = this.buildDecorations(view);
-                mainStore.getState().setYgg(this.tree!);
             }
 
             update(update: ViewUpdate) {
-                if (update.docChanged && this.tree) {
-                    mainStore.getState().setIsParsing(true);
-                    update.changes.iterChanges((fromA, toA, fromB, toB) => {
-                        try {
-                            const edit = new Edit({
-                                startIndex: fromA,
-                                oldEndIndex: toA,
-                                newEndIndex: toB,
-                                startPosition: getPoint(update.startState.doc, fromA),
-                                oldEndPosition: getPoint(update.startState.doc, toA),
-                                newEndPosition: getPoint(update.state.doc, toB),
-                            });
-                            this.tree!.edit(edit);
-                        } catch (e) {
-                            console.error("Error applying edit to Tree-sitter tree ->", e);
-                            this.tree = null; // Fallback to full parse
-                        }
-                    });
-
-                    // Perform the incremental parse by passing the old tree
-                    this.tree = parser.parse(update.state.doc.toString(), this.tree);
-
-                    this.scheduleStoreUpdate();
-                }
-
-                if (update.docChanged || update.viewportChanged) {
+                const tree = update.state.field(ygg);
+                mainStore.getState().setIsParsing(true);
+                if (update.docChanged || update.viewportChanged || tree !== this.lastTree) {
+                    this.lastTree = tree;
                     this.decorations = this.buildDecorations(update.view);
                     this.view.requestMeasure(); // Force redraw
                 }
-            }
-
-            private scheduleStoreUpdate() {
-                if (this.debounceTimeout) clearTimeout(this.debounceTimeout);
-                this.debounceTimeout = setTimeout(() => {
-                    if (this.tree) mainStore.getState().setYgg(this.tree);
-                    mainStore.getState().setIsParsing(false);
-                }, 150);
+                mainStore.getState().setIsParsing(false);
             }
 
             buildDecorations(view: EditorView) {
-                if (!this.tree) return Decoration.none;
+                if (!this.lastTree) return Decoration.none;
                 const builder = new RangeSetBuilder<Decoration>();
 
                 const margin = 2000;
@@ -80,7 +88,7 @@ export const treeSitterHighlightPlugin = (parser: Parser, query: Query) => {
                 const viewportTo = view.viewport.to + margin; // HACK: Allow captures that end beyond the document end cause clipping isn't working properly for some reason
                 // console.log(`Building decorations for viewport [${viewportFrom}, ${viewportTo}]`);
 
-                const captures = query.captures(this.tree.rootNode, {
+                const captures = query.captures(this.lastTree.rootNode, {
                     startIndex: viewportFrom,
                     endIndex: viewportTo,
                 });
@@ -137,13 +145,31 @@ export const treeSitterHighlightPlugin = (parser: Parser, query: Query) => {
     );
 };
 
+export const yggdrasilLogger = (ygg: YggdrasilType) =>
+    ViewPlugin.fromClass(
+        class {
+            update(update: ViewUpdate) {
+                if (update.docChanged) {
+                    const tree = update.state.field(ygg);
+                    // console.log({ tree: tree?.rootNode });
+                }
+            }
+        },
+    );
+
 export const latexSupport = (parser: Parser, query: Query) => {
-    return [
-        treeSitterHighlightPlugin(parser, query),
+    const Yggdrasil = YggdrasilBuilder(parser);
+    const extensions = [
+        Yggdrasil,
+        treeSitterHighlightPlugin(query, Yggdrasil),
         EditorState.languageData.of(() => [
             {
                 commentTokens: { line: "%" },
             },
         ]),
     ];
+    if (import.meta.env.DEV) {
+        extensions.push(yggdrasilLogger(Yggdrasil));
+    }
+    return { extensions, Yggdrasil };
 };

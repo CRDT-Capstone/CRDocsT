@@ -174,7 +174,6 @@ export class WSClient {
                     const view = this.viewRef.current;
 
                     // Create a transaction using the state's tr builder
-                    console.debug({ pos: 2, editorState: this.viewRef.current.state.doc.toString() });
                     const tr = view.state.update({
                         changes: [
                             {
@@ -187,7 +186,6 @@ export class WSClient {
                         annotations: [this.remoteUpdate.of(true)],
                     });
                     view.dispatch(tr);
-                    console.debug({ pos: 3, editorState: this.viewRef.current.state.doc.toString() });
                 }
             }
             // Handle updates
