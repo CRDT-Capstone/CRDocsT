@@ -7,10 +7,3 @@ export interface identified {
     createdAt: Date;
     updatedAt: Date;
 }
-
-export interface Project extends Identified {
-    name: string;
-    description?: string;
-    ownerId: string;
-    documentIds: Array<string | Mongoose.Types.ObjectId>;
-}

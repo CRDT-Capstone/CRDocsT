@@ -2,7 +2,6 @@ import { useState, useEffect, useMemo } from "react";
 import CodeMirror, { EditorView } from "@uiw/react-codemirror";
 import { bracketMatching, indentOnInput } from "@codemirror/language";
 import { useNavigate, useParams } from "react-router-dom";
-import { NavBar } from "../NavBar";
 import Loading from "../Loading";
 import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
@@ -14,10 +13,14 @@ import { createDocumentApi } from "../../api/document";
 import { useAuth } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import ActiveCollaborators from "../ActiveCollaborators";
-import { HandleChange } from "./utils";
+import { NavBarType } from "../../types";
+import { HandleChange } from "../../utils/Canvas";
 
-const Canvas = () => {
-    const { documentID } = useParams();
+interface CanvasProps {
+    documentId: string | undefined;
+}
+
+const Canvas = ({ documentId: documentID }: CanvasProps) => {
     const nav = useNavigate();
 
     const [parser, setParser] = useState<Parser | null>(null);
@@ -87,13 +90,18 @@ const Canvas = () => {
         }
     }, [documentQuery.data]);
 
+    const theme = EditorView.theme({
+        "&": { height: "80vh" },
+        ".cm-scroller": { overflow: "auto" },
+    });
+
     const { exts, Yggdrasil } = useMemo(() => {
         const base = [bracketMatching(), indentOnInput(), EditorView.lineWrapping];
 
         if (parser && query) {
             const { extensions, Yggdrasil } = latexSupport(parser, query);
             return {
-                exts: [...base, ...extensions],
+                exts: [...base, ...extensions, theme],
                 Yggdrasil,
             };
         }
@@ -106,11 +114,9 @@ const Canvas = () => {
     }
 
     return (
-        <div className="flex flex-col w-screen h-screen bg-base-100">
-            <NavBar documentID={documentID!} />
-
+        <>
             <main className="flex overflow-hidden relative flex-col flex-1 items-center p-4 w-full h-full">
-                <div className="relative w-full h-full">
+                <div className="overflow-hidden relative w-full">
                     {isParsing && (
                         <div className="flex absolute top-4 right-4 z-10 gap-2 items-center py-1 px-3 rounded-full border shadow-md animate-pulse bg-base-200 border-base-300">
                             <span className="loading loading-spinner loading-xs text-primary"></span>
@@ -121,8 +127,8 @@ const Canvas = () => {
                     <CodeMirror
                         value={previousTextRef.current}
                         extensions={exts}
-                        height="100%"
-                        width="100%"
+                        // height="100%"
+                        // width="100%"
                         className="w-full h-full text-black rounded-lg border-2 shadow-sm"
                         // editable={wsClient ? !wsClient.isOffline() : false}
                         onCreateEditor={(view) => {
@@ -142,10 +148,28 @@ const Canvas = () => {
                         onChange={HandleChange.bind(null, fugue, previousTextRef, RemoteUpdate)}
                     />
                 </div>
+                <StatusBar userIdentity={userIdentity} />
             </main>
+        </>
+    );
+};
 
-            <ActiveCollaborators userIdentity={userIdentity} />
-        </div>
+interface StatusBarProps {
+    userIdentity: string;
+}
+
+const StatusBar = ({ userIdentity }: StatusBarProps) => {
+    return (
+        <footer className="flex flex-row justify-start p-2 m-2 bg-base">
+            {/* Left  */}
+            <div className="flex gap-4">
+                <ActiveCollaborators userIdentity={userIdentity} />
+            </div>
+            {/* Middle */}
+            <div className="flex flex-1 justify-center"></div>
+            {/* Right */}
+            <div className="flex gap-4 justify-end"></div>
+        </footer>
     );
 };
 

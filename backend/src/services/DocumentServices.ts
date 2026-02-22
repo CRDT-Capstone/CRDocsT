@@ -7,8 +7,8 @@ import { RootFilterQuery } from "mongoose";
 import { redis } from "../redis";
 import { RedisService } from "./RedisService";
 
-const createDocument = async (userId: string | null) => {
-    const document = await DocumentModel.create({ ownerId: userId });
+const createDocument = async (userId: string | null, name?: string) => {
+    const document = await DocumentModel.create({ ownerId: userId, name });
     return document;
 };
 
@@ -39,9 +39,45 @@ const getDocumentsByUserId = async (
 ): Promise<CursorPaginatedResponse<Document>> => {
     //current cursor is the id of the last document from a previous pagination...
 
-    const userEmail = (await UserService.getUserEmailById(userId)) || "";
+    // Filter out documents in projects
     const query: RootFilterQuery<Document> = {
-        $or: [{ ownerId: userId }, { "contributors.email": userEmail }],
+        ownerId: userId,
+        $or: [{ projectId: { $exists: false } }, { projectId: null }], // Exclude documents in projects
+    };
+
+    if (currentCursor) {
+        query._id = { $lt: new ObjectId(currentCursor) };
+    }
+
+    const documents = await DocumentModel.find(query)
+        .sort({ _id: -1 })
+        .limit(limit + 1);
+    const hasNext = documents.length > limit;
+    if (hasNext) documents.pop();
+    const nextCursor = documents[limit - 1]?._id.toString() || undefined;
+
+    return {
+        data: documents,
+        nextCursor,
+        hasNext,
+    };
+};
+
+const getSharedDocumentsByUserId = async (
+    userId: string,
+    limit: number = 10,
+    currentCursor?: string,
+): Promise<CursorPaginatedResponse<Document>> => {
+    //current cursor is the id of the last document from a previous pagination...
+
+    const userEmail = (await UserService.getUserEmailById(userId)) || "";
+    // Filter out docments in projects and documents owned by the user
+    const query: RootFilterQuery<Document> = {
+        $and: [
+            { "contributors.email": userEmail },
+            { ownerId: { $ne: userId } }, // Exclude documents owned by the user
+            { $or: [{ projectId: { $exists: false } }, { projectId: null }] }, // Exclude documents in projects
+        ],
     };
 
     if (currentCursor) {
@@ -192,6 +228,7 @@ export const DocumentServices = {
     findDocumentById,
     updateDocumentById,
     getDocumentsByUserId,
+    getSharedDocumentsByUserId,
     getDocumentMetadataById,
     IsDocumentOwnerOrCollaborator,
     addUserAsCollaborator,

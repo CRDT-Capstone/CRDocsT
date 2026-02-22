@@ -16,8 +16,8 @@ export const SignInPage = () => {
             <h1> OR....</h1>
             <button
                 onClick={async () => {
-                    const res = await createDocumentMutation.mutateAsync();
                     if (!anonUserIdentity) setAnonUserIdentity(randomString(10));
+                    const res = await createDocumentMutation.mutateAsync(undefined);
                     nav(`/docs/${res.data._id}`);
                 }}
                 className="m-4 btn btn-l btn-neutral"

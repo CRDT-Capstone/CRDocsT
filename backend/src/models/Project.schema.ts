@@ -1,5 +1,6 @@
 import { model, Schema } from "mongoose";
-import { Project } from "../types/types";
+import { ContributorSchema } from "./Contributor.schema";
+import { Project } from "@cr_docs_t/dts";
 
 const ProjectSchema = new Schema<Project>(
     {
@@ -8,10 +9,6 @@ const ProjectSchema = new Schema<Project>(
             default: "New Project",
             required: true,
         },
-        description: {
-            type: String,
-            required: false,
-        },
         documentIds: {
             type: [String],
             default: [],
@@ -19,6 +16,10 @@ const ProjectSchema = new Schema<Project>(
         ownerId: {
             type: String,
             required: true,
+        },
+        contributors: {
+            type: [ContributorSchema],
+            default: [],
         },
     },
     {

@@ -1,9 +1,9 @@
 import { useAuth } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
-import { ContributorType, Document, f, Msg, CursorPaginatedResponse } from "@cr_docs_t/dts";
+import { ContributorType, Project, f, Msg, CursorPaginatedResponse, ProjectWithDocuments } from "@cr_docs_t/dts";
 
 const ApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
-const path = "docs";
+const path = "projects";
 
 type TokenFunc = () => Promise<string | null>;
 
@@ -11,14 +11,14 @@ const includeToken = (token: string | null) => {
     return { Authorization: `Bearer ${token}` };
 };
 
-export const createDocumentApi = (getToken: TokenFunc) => {
+export const createProjectApi = (getToken: TokenFunc) => {
     const navigate = useNavigate();
 
-    const createDocument = async (name?: string) => {
+    const createProject = async (name?: string) => {
         try {
             const token = await getToken();
 
-            const response = await f.post<Msg<Document>, { name: string | undefined }>(
+            const response = await f.post<Msg<Project>, { name: string | undefined }>(
                 `${ApiBaseUrl}/${path}/create`,
                 { name: name },
                 {
@@ -28,20 +28,20 @@ export const createDocumentApi = (getToken: TokenFunc) => {
                 },
             );
 
-            const document = response.data;
-            console.log("The document -> ", document);
+            const project = response.data;
+            console.log("The project -> ", project);
             return response;
         } catch (err) {
-            console.error("There was an error creating a document -> ", err);
+            console.error("There was an error creating a project -> ", err);
             throw err;
             //TODO: change this to some daisy UI element
         }
     };
 
-    const deleteDocument = async (documentId: string) => {
+    const deleteProject = async (projectId: string) => {
         try {
             const token = await getToken();
-            const response = await f.delete<Msg>(`${ApiBaseUrl}/${path}/delete/${documentId}`, {
+            const response = await f.delete<Msg>(`${ApiBaseUrl}/${path}/delete/${projectId}`, {
                 headers: {
                     Authorization: `Bearer: ${token}`,
                 },
@@ -49,18 +49,18 @@ export const createDocumentApi = (getToken: TokenFunc) => {
 
             return response;
         } catch (err) {
-            console.error("There was an error deleting the document -> ", err);
+            console.error("There was an error deleting the project -> ", err);
             throw err;
         }
     };
 
-    const updateDocumentName = async (newDocName: string, documentID: string) => {
+    const updateProjectName = async (newProjName: string, projectID: string) => {
         try {
             const token = await getToken();
 
             const response = await f.put<Msg, { name: string }>(
-                `${ApiBaseUrl}/${path}/update/${documentID}`,
-                { name: newDocName },
+                `${ApiBaseUrl}/${path}/update/${projectID}`,
+                { name: newProjName },
                 {
                     headers: {
                         ...includeToken(token),
@@ -71,13 +71,13 @@ export const createDocumentApi = (getToken: TokenFunc) => {
 
             return response;
         } catch (err) {
-            console.log("There was an error updating document name -> ", err);
+            console.log("There was an error updating project name -> ", err);
             throw err;
             //TODO: change this to some daisy UI element
         }
     };
 
-    const getDocumentsByUserId = async (limit: number = 10, nextCursor?: string) => {
+    const getProjectsByUserId = async (limit: number = 10, nextCursor?: string) => {
         try {
             const token = await getToken();
             const queryParams = new URLSearchParams({ limit: limit.toString() });
@@ -85,7 +85,7 @@ export const createDocumentApi = (getToken: TokenFunc) => {
                 queryParams.append("nextCursor", nextCursor);
             }
 
-            const response = await f.get<Msg<CursorPaginatedResponse<Document>>>(
+            const response = await f.get<Msg<CursorPaginatedResponse<Project>>>(
                 `${ApiBaseUrl}/${path}/user?${queryParams.toString()}`,
                 {
                     headers: {
@@ -96,22 +96,22 @@ export const createDocumentApi = (getToken: TokenFunc) => {
 
             return response.data;
         } catch (err) {
-            console.log("There was an error retrieving documents-> ", err);
+            console.log("There was an error retrieving projects-> ", err);
             throw err;
             //TODO: change this to some daisy UI element
         }
     };
 
-    const getSharedDocumentsByUserId = async (limit: number = 10, nextCursor?: string) => {
+    const getSharedProjectsByUserId = async (limit: number = 10, nextCursor?: string) => {
         try {
-            console.log("Getting shared documents with limit -> ", limit, " and nextCursor -> ", nextCursor);
+            console.log("Getting shared projects with limit -> ", limit, " and nextCursor -> ", nextCursor);
             const token = await getToken();
             const queryParams = new URLSearchParams({ limit: limit.toString() });
             if (nextCursor) {
                 queryParams.append("nextCursor", nextCursor);
             }
 
-            const response = await f.get<Msg<CursorPaginatedResponse<Document>>>(
+            const response = await f.get<Msg<CursorPaginatedResponse<Project>>>(
                 `${ApiBaseUrl}/${path}/shared-with-me?${queryParams.toString()}`,
                 {
                     headers: {
@@ -122,46 +122,46 @@ export const createDocumentApi = (getToken: TokenFunc) => {
 
             return response.data;
         } catch (err) {
-            console.log("There was an error retrieving documents-> ", err);
+            console.log("There was an error retrieving projects-> ", err);
             throw err;
             //TODO: change this to some daisy UI element
         }
     };
 
-    const getDocumentById = async (documentId: string) => {
+    const getProjectById = async (projectId: string) => {
         const token = await getToken();
 
-        console.log({ documentId });
-        const response = await f.get<Msg<Document>>(`${ApiBaseUrl}/${path}/${documentId}`, {
+        console.log({ projectId });
+        const response = await f.get<Msg<ProjectWithDocuments>>(`${ApiBaseUrl}/${path}/${projectId}`, {
             headers: {
                 ...includeToken(token),
             },
         });
 
-        const document = response.data;
-        console.log("Document -> ", document);
-        return document;
+        const projectWDocs = response.data;
+        console.log("Project -> ", projectWDocs);
+        return projectWDocs;
     };
 
-    const createAndNavigateToDocument = async () => {
-        const docID = await createDocument();
-        if (docID) {
-            navigate(`/docs/${docID}`);
+    const createAndNavigateToProject = async (name?: string) => {
+        const projId = await createProject(name);
+        if (projId) {
+            navigate(`/projects/${projId}`);
         }
     };
 
-    const shareDocument = async (documentId: string, email: string, contributorType: ContributorType) => {
+    const shareProject = async (projectId: string, email: string, contributorType: ContributorType) => {
         try {
             const token = await getToken();
 
             const response = await f.post<
                 Msg,
-                { receiverEmail: string; documentId: string; contributorType: ContributorType }
+                { receiverEmail: string; projectId: string; contributorType: ContributorType }
             >(
                 `${ApiBaseUrl}/${path}/share`,
                 {
                     receiverEmail: email,
-                    documentId,
+                    projectId,
                     contributorType,
                 },
                 {
@@ -172,19 +172,19 @@ export const createDocumentApi = (getToken: TokenFunc) => {
             );
             return response;
         } catch (err) {
-            console.log("Unable to share document -> ", err);
+            console.log("Unable to share project -> ", err);
             throw err;
         }
     };
 
-    const removeCollaborator = async (documentId: string, email: string) => {
+    const removeCollaborator = async (projectId: string, email: string) => {
         try {
             const token = await getToken();
 
-            const res = await f.post<Msg, { documentId: string; email: string }>(
-                `${ApiBaseUrl}/${path}/${documentId}/remove-collaborator`,
+            const res = await f.post<Msg, { projectId: string; email: string }>(
+                `${ApiBaseUrl}/${path}/${projectId}/remove-collaborator`,
                 {
-                    documentId: documentId,
+                    projectId: projectId,
                     email: email,
                 },
                 {
@@ -201,14 +201,14 @@ export const createDocumentApi = (getToken: TokenFunc) => {
         }
     };
 
-    const updateCollaboratorType = async (documentId: string, email: string, collaboratorType: ContributorType) => {
+    const updateCollaboratorType = async (projectId: string, email: string, collaboratorType: ContributorType) => {
         try {
             const token = await getToken();
 
-            const res = await f.post<Msg, { documentId: string; email: string; contributorType: ContributorType }>(
-                `${ApiBaseUrl}/${path}/${documentId}/update-collaborator-type`,
+            const res = await f.post<Msg, { projectId: string; email: string; contributorType: ContributorType }>(
+                `${ApiBaseUrl}/${path}/${projectId}/update-collaborator-type`,
                 {
-                    documentId: documentId,
+                    projectId: projectId,
                     email: email,
                     contributorType: collaboratorType,
                 },
@@ -226,14 +226,14 @@ export const createDocumentApi = (getToken: TokenFunc) => {
         }
     };
 
-    const getUserDocumentAccess = async (documentId: string, userIdentifier: string | undefined) => {
+    const getUserProjectAccess = async (projectId: string, userIdentifier: string | undefined) => {
         try {
             const token = await getToken();
             const res = await f.post<
                 Msg<{ hasAccess: boolean; contributorType: ContributorType | undefined }>,
                 { userIdentifier: string | undefined }
             >(
-                `${ApiBaseUrl}/${path}/${documentId}/check-access`,
+                `${ApiBaseUrl}/${path}/${projectId}/check-access`,
                 {
                     userIdentifier: userIdentifier,
                 },
@@ -246,22 +246,62 @@ export const createDocumentApi = (getToken: TokenFunc) => {
 
             return res;
         } catch (err) {
-            console.log("Unable to get user document access -> ", err);
+            console.log("Unable to get user project access -> ", err);
+            throw err;
+        }
+    };
+
+    const createProjectDocument = async (projectId: string, documentName: string) => {
+        try {
+            const token = await getToken();
+
+            const res = await f.post<Msg<{ documentId: string }>, { name: string }>(
+                `${ApiBaseUrl}/${path}/${projectId}/create-document`,
+                { name: documentName },
+                {
+                    headers: {
+                        ...includeToken(token),
+                    },
+                },
+            );
+
+            return res;
+        } catch (err) {
+            console.log("There was an error creating a project document -> ", err);
+            throw err;
+        }
+    };
+
+    const removeProjectDocument = async (projectId: string, documentId: string) => {
+        try {
+            const token = await getToken();
+
+            const res = await f.delete<Msg>(`${ApiBaseUrl}/${path}/${projectId}/remove-document/${documentId}`, {
+                headers: {
+                    ...includeToken(token),
+                },
+            });
+
+            return res;
+        } catch (err) {
+            console.log("There was an error removing a project document -> ", err);
             throw err;
         }
     };
 
     return {
-        createDocument,
-        deleteDocument,
-        updateDocumentName,
-        getDocumentsByUserId,
-        getSharedDocumentsByUserId,
-        getDocumentById,
-        createAndNavigateToDocument,
-        shareDocument,
+        createProject,
+        deleteProject,
+        createProjectDocument,
+        removeProjectDocument,
+        updateProjectName,
+        getProjectsByUserId,
+        getSharedProjectsByUserId,
+        getProjectById,
+        createAndNavigateToProject,
+        shareProject,
         removeCollaborator,
         updateCollaboratorType,
-        getUserDocumentAccess,
+        getUserProjectAccess,
     };
 };

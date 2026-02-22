@@ -9,6 +9,10 @@ import { SignUpPage } from "../SignUpPage";
 import { Toaster } from "sonner";
 import Canvas from "../Canvas";
 import DevBar from "../DevBar";
+import NavBar from "../NavBar";
+import AnonCanvas from "../AnonCanvas";
+import UserCanvas from "../UserCanvas";
+import ProjectCanvas from "../ProjectCanvas";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -44,38 +48,43 @@ const Main = () => {
 
     return (
         <BrowserRouter>
-            <QueryClientProvider client={queryClient}>
-                <ClerkProvider
-                    publishableKey={PUBLISHABLE_KEY}
-                    signInUrl="/sign-in"
-                    signUpUrl="/sign-up"
-                    signInFallbackRedirectUrl="/"
-                    signUpFallbackRedirectUrl="/"
-                >
-                    <Routes>
-                        <Route path="/sign-in" element={<SignInPage />} />
-                        <Route path="/sign-up" element={<SignUpPage />} />
-                        <Route path="/docs/:documentID" element={<Canvas />} />
-                        <Route path="/" element={<HomePage />} />
-                    </Routes>
-                </ClerkProvider>
-                <Toaster
-                    position="bottom-right"
-                    toastOptions={{
-                        unstyled: true,
-                        classNames: {
-                            toast: "alert shadow-lg border-2",
-                            success: "alert-success",
-                            error: "alert-error",
-                            info: "alert-info",
-                            warning: "alert-warning",
-                        },
-                    }}
-                />
-                <ReactQueryDevtools initialIsOpen={false} />
-                {/* {import.meta.env.MODE !== "production" && <DevBar />} */}
-                <DevBar />
-            </QueryClientProvider>
+            <div className="flex flex-col w-screen h-screen">
+                <QueryClientProvider client={queryClient}>
+                    <ClerkProvider
+                        publishableKey={PUBLISHABLE_KEY}
+                        signInUrl="/sign-in"
+                        signUpUrl="/sign-up"
+                        signInFallbackRedirectUrl="/"
+                        signUpFallbackRedirectUrl="/"
+                    >
+                        <NavBar />
+                        <Routes>
+                            <Route path="/sign-in" element={<SignInPage />} />
+                            <Route path="/sign-up" element={<SignUpPage />} />
+                            <Route path="/docs/:documentID" element={<AnonCanvas />} />
+                            <Route path="/" element={<UserCanvas />} />
+                            <Route path="/projects/:projectId" element={<ProjectCanvas />} />
+                            <Route path="/:userId/docs/:documentID" element={<UserCanvas />} />
+                        </Routes>
+                    </ClerkProvider>
+                    <Toaster
+                        position="bottom-right"
+                        toastOptions={{
+                            unstyled: true,
+                            classNames: {
+                                toast: "alert shadow-lg border-2",
+                                success: "alert-success",
+                                error: "alert-error",
+                                info: "alert-info",
+                                warning: "alert-warning",
+                            },
+                        }}
+                    />
+                    <ReactQueryDevtools initialIsOpen={false} />
+                    {/* {import.meta.env.MODE !== "production" && <DevBar />} */}
+                    <DevBar />
+                </QueryClientProvider>
+            </div>
         </BrowserRouter>
     );
 };

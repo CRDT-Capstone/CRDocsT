@@ -1,9 +1,15 @@
-import { Contributor, Document, FugueMessage } from "@cr_docs_t/dts";
+import { Contributor, Document, FugueMessage, Project } from "@cr_docs_t/dts";
 import { Tree } from "web-tree-sitter";
 import { create } from "zustand";
 import { createJSONStorage, devtools, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import { ConnectionState } from "../types";
+import { ConnectionState, NavBarType } from "../types";
+
+export type ProjectState = {
+    project?: Project;
+
+    setProject: (v: Project | undefined) => void;
+};
 
 export type DocumentState = {
     document?: Document;
@@ -37,13 +43,31 @@ export type UserState = {
     setAnonUserIdentity: (v?: string) => void;
 };
 
-export type State = DocumentState & UserState & DevState;
+export type UIState = {
+    navBarType: NavBarType;
+    activeDocumentId?: string;
+    activeProjectId?: string;
+
+    setNavBarType: (v: NavBarType) => void;
+    setActiveDocumentId: (v: string | undefined) => void;
+    setActiveProjectId: (v: string | undefined) => void;
+};
+
+export type State = DocumentState & UserState & DevState & UIState & ProjectState;
 
 const mainStore = create<State>()(
     immer(
         devtools(
             // persist(
             (set) => ({
+                // Project State
+                project: undefined,
+
+                setProject: (v) =>
+                    set((state) => {
+                        state.project = v;
+                    }),
+
                 anonUserIdentity: undefined,
                 document: undefined,
                 activeCollaborators: [],
@@ -99,6 +123,28 @@ const mainStore = create<State>()(
                 setDevBarPos: (v) =>
                     set((state) => {
                         state.devBarPos = v;
+                    }),
+
+                // NavBar State
+
+                navBarType: NavBarType.UNSPECIFIED,
+
+                activeDocumentId: undefined,
+                activeProjectId: undefined,
+
+                setActiveDocumentId: (v) =>
+                    set((state) => {
+                        state.activeDocumentId = v;
+                    }),
+
+                setActiveProjectId: (v) =>
+                    set((state) => {
+                        state.activeProjectId = v;
+                    }),
+
+                setNavBarType: (v) =>
+                    set((state) => {
+                        state.navBarType = v;
                     }),
             }),
             //     {

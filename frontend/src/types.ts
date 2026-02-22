@@ -16,3 +16,10 @@ export enum ConnectionState {
     RECONNECTING = "RECONNECTING",
     DISCONNECTED = "DISCONNECTED",
 }
+
+export enum NavBarType {
+    UNSPECIFIED = "UNSPECIFIED",
+    HOME = "HOME",
+    CANVAS = "CANVAS",
+    PROJECT = "PROJECT",
+}

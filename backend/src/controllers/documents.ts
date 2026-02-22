@@ -8,18 +8,26 @@ import { logger } from "../logging";
 import { sendOk, sendErr } from "../utils/ApiResponseUtils";
 import { handleErrorAsAPIError } from "../utils";
 import { z } from "zod";
-import { Schema, ValidatedRequest } from "../validaton";
+import { AuthenticatedRequest, Schema, ValidatedRequest } from "../validaton";
 import { ControllerWSchema, defineController } from ".";
+import { create } from "domain";
 
 const documentIdSchema = () =>
     z.strictObject({
         documentId: z.string().min(1, "documentId is required"),
     });
 
-const createDocument = async (req: Request, res: Response) => {
+const createDocumentSchema = {
+    body: z.strictObject({
+        name: z.string().min(1, "Name cannot be empty").optional(),
+    }),
+};
+
+const createDocument = async (req: AuthenticatedRequest<typeof createDocumentSchema>, res: Response) => {
     try {
-        const { userId } = getAuth(req);
-        const document = await DocumentServices.createDocument(userId);
+        const userId = req.auth.userId;
+        const { name } = req.body;
+        const document = await DocumentServices.createDocument(userId, name);
         const CRDT = new FugueTree(null, document._id.toString(), document._id.toString());
 
         RedisService.updateCRDTStateByDocumentID(document._id.toString(), Buffer.from(CRDT.save()));
@@ -76,8 +84,15 @@ const updateDocumentName = async (req: ValidatedRequest<typeof updateDocumentNam
     }
 };
 
-const getDocumentsByUserId = async (req: Request, res: Response) => {
-    const { userId } = await getAuth(req);
+const getDocumentsByUserIdSchema = {
+    query: z.strictObject({
+        nextCursor: z.string().optional(),
+        limit: z.string().optional(),
+    }),
+};
+
+const getDocumentsByUserId = async (req: AuthenticatedRequest<typeof getDocumentsByUserIdSchema>, res: Response) => {
+    const userId = req.auth.userId;
     if (!userId) {
         return sendErr(
             res,
@@ -107,11 +122,52 @@ const getDocumentsByUserId = async (req: Request, res: Response) => {
     }
 };
 
-const getDocumuentByIdSchema = {
+const getSharedDocumentsByUserIdSchema = {
+    query: z.strictObject({
+        nextCursor: z.string().optional(),
+        limit: z.string().optional(),
+    }),
+};
+
+const getSharedDocumentsByUserId = async (
+    req: AuthenticatedRequest<typeof getSharedDocumentsByUserIdSchema>,
+    res: Response,
+) => {
+    const userId = req.auth.userId;
+    if (!userId) {
+        return sendErr(
+            res,
+            {
+                message: "Unauthorized",
+                error: "User not authenticated",
+            },
+            401,
+        );
+    }
+    try {
+        const { nextCursor, limit } = req.query;
+        const data = await DocumentServices.getSharedDocumentsByUserId(
+            userId!,
+            Number(limit) ?? undefined,
+            nextCursor ? nextCursor.toString() : undefined,
+        );
+        logger.debug("data", { data });
+        return sendOk(res, {
+            message: "Successfully retrieved shared documents",
+            data: data,
+        });
+    } catch (err: any) {
+        logger.error(`Unable to get shared documents for userID: ${userId}`, { err });
+        const e = handleErrorAsAPIError(err, "Unable to get shared documents for user");
+        return sendErr(res, e.msg, e.status);
+    }
+};
+
+const getDocumentByIdSchema = {
     params: documentIdSchema(),
 };
 
-const getDocumentById = async (req: ValidatedRequest<typeof getDocumuentByIdSchema>, res: Response) => {
+const getDocumentById = async (req: ValidatedRequest<typeof getDocumentByIdSchema>, res: Response) => {
     const { documentId } = req.params;
     try {
         const document = await DocumentServices.getDocumentMetadataById(documentId as string);
@@ -244,7 +300,7 @@ const getUserDocumentAccess = async (req: ValidatedRequest<typeof getUserDocumen
 export const DocumentController = defineController({
     CreateDocument: {
         con: createDocument,
-        sch: undefined,
+        sch: createDocumentSchema,
     },
     DeleteDocument: {
         con: deleteDocument,
@@ -256,11 +312,15 @@ export const DocumentController = defineController({
     },
     GetDocumentsByUserId: {
         con: getDocumentsByUserId,
+        sch: getDocumentsByUserIdSchema,
+    },
+    GetSharedDocumentsByUserId: {
+        con: getSharedDocumentsByUserId,
         sch: undefined,
     },
     GetDocumentById: {
         con: getDocumentById,
-        sch: getDocumuentByIdSchema,
+        sch: getDocumentByIdSchema,
     },
     ShareDocumentViaEmail: {
         con: shareDocumentViaEmail,
