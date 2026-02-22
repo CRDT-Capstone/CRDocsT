@@ -73,7 +73,8 @@ const Main = () => {
                     }}
                 />
                 <ReactQueryDevtools initialIsOpen={false} />
-                {import.meta.env.MODE !== "production" && <DevBar />}
+                {/* {import.meta.env.MODE !== "production" && <DevBar />} */}
+                <DevBar />
             </QueryClientProvider>
         </BrowserRouter>
     );

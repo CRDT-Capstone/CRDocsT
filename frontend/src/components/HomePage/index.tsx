@@ -28,7 +28,6 @@ export const HomePage = () => {
                 <Loading fullPage={true} />
             ) : (
                 <>
-                    {/* Header / Actions */}
                     <div className="flex justify-end w-full">
                         <button
                             className="m-4 btn btn-l btn-neutral"
@@ -45,7 +44,6 @@ export const HomePage = () => {
                         </button>
                     </div>
 
-                    {/* Main Content Area: Table + Load More Button */}
                     <div className="flex flex-col items-center pb-10 w-full">
                         {userDocumentsQuery.data?.pages[0].data.length === 0 ? (
                             <h1>You have no Documents</h1>
@@ -100,7 +98,6 @@ export const HomePage = () => {
                             </table>
                         )}
 
-                        {/* Load More Button - Centered below table */}
                         <div className="flex justify-center mt-4 w-full">
                             <button
                                 // Disable if fetching or if NO next page exists

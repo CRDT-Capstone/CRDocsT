@@ -15,6 +15,7 @@ import { useCollab } from "../../hooks/collab";
 import { createDocumentApi } from "../../api/document";
 import { useAuth } from "@clerk/clerk-react";
 import { toast } from "sonner";
+import ActiveCollaborators from "../ActiveCollaborators";
 
 const Canvas = () => {
     const { documentID } = useParams();
@@ -30,11 +31,10 @@ const Canvas = () => {
     const api = createDocumentApi(getToken);
 
     const isParsing = mainStore((state) => state.isParsing);
-    const activeCollaborators = mainStore((state) => state.activeCollaborators);
 
     const [editorView, setEditorView] = useState<EditorView | undefined>(undefined);
 
-    const { fugue, wsClient, isAuthError, previousTextRef, RemoteUpdate, socketRef, viewRef, userIdentity } = useCollab(
+    const { fugue, isAnon, isAuthError, previousTextRef, RemoteUpdate, socketRef, viewRef, userIdentity } = useCollab(
         documentID!,
         editorView,
     );
@@ -45,7 +45,8 @@ const Canvas = () => {
 
     useEffect(() => {
         (async () => {
-            // Check if user has access and if not redirect to home
+            // Check if user has access if not anon user
+            if (isAnon) return;
             const res = await api.getUserDocumentAccess(documentID!, userIdentity);
             if (!res.data.hasAccess) {
                 toast.error("You do not have access to this document. Redirecting...");
@@ -78,8 +79,10 @@ const Canvas = () => {
 
         return () => {
             window.removeEventListener("beforeunload", handleBeforeUnload);
+            // Send leave message on unmount
         };
     }, []);
+
 
     useEffect(() => {
         if (documentQuery.data) {
@@ -121,24 +124,24 @@ const Canvas = () => {
 
             // Handle deletion
             if (deleteLen > 0) {
-                console.log({
-                    operation: Operation.DELETE,
-                    index: fromA,
-                    count: deleteLen,
-                    userIdentity,
-                });
+                // console.log({
+                //     operation: Operation.DELETE,
+                //     index: fromA,
+                //     count: deleteLen,
+                //     userIdentity,
+                // });
                 const msgs = fugue.deleteMultiple(fromA, deleteLen);
             }
 
             // Handle insertion
             if (insertedLen > 0) {
-                console.log({
-                    operation: Operation.INSERT,
-                    index: fromA,
-                    text: insertedTxt,
-                    userIdentity,
-                    fugueIdentity: fugue.userIdentity,
-                });
+                // console.log({
+                //     operation: Operation.INSERT,
+                //     index: fromA,
+                //     text: insertedTxt,
+                //     userIdentity,
+                //     fugueIdentity: fugue.userIdentity,
+                // });
 
                 const msgs = fugue.insertMultiple(fromA, insertedTxt);
             }
@@ -190,27 +193,7 @@ const Canvas = () => {
                 </div>
             </main>
 
-            <footer className="flex justify-start p-2 border-t bg-base-200">
-                <div className="dropdown dropdown-top dropdown-start">
-                    <div tabIndex={0} role="button" className="btn btn-sm btn-ghost">
-                        Collaborators ({activeCollaborators.length})
-                    </div>
-                    <ul
-                        tabIndex={0}
-                        className="overflow-y-auto flex-nowrap p-2 border shadow-xl w-fit max-h-100 dropdown-content menu bg-base-100 rounded-box z-100 border-base-300"
-                    >
-                        {activeCollaborators.length > 0 ? (
-                            activeCollaborators.map((ac, index) => (
-                                <li key={index} className="py-1 px-2 text-sm italic">
-                                    {ac}
-                                </li>
-                            ))
-                        ) : (
-                            <li className="p-2 text-xs opacity-50">No other users active</li>
-                        )}
-                    </ul>
-                </div>
-            </footer>
+            <ActiveCollaborators userIdentity={userIdentity} />
         </div>
     );
 };

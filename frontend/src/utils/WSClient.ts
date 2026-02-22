@@ -6,8 +6,10 @@ import {
     FugueMessageSerialzier,
     FugueMutationMessageTypes,
     Operation,
-    StringPosition,
     FugueMessageType,
+    BaseFugueMessage,
+    FugueRejectMessage,
+    FugueUserJoinMessage,
 } from "@cr_docs_t/dts";
 import { AnnotationType, ChangeSet, ChangeSpec, EditorSelection, EditorView } from "@uiw/react-codemirror";
 import { RefObject } from "react";
@@ -19,10 +21,10 @@ export class WSClient {
     private viewRef: RefObject<EditorView | undefined>;
     private previousTextRef: RefObject<string>;
     private documentID: string;
-    private userIdentity?: string = undefined;
+    private userIdentity: string;
     private fugue: FugueTree;
     private remoteUpdate: AnnotationType<boolean>; // Annotation to mark remote updates and prevent rebroadcasting
-    private readonly dispatchBatchSize = 50;
+    private isReconnection: boolean;
 
     constructor(
         ws: WebSocket,
@@ -31,7 +33,8 @@ export class WSClient {
         remoteUpdate: AnnotationType<boolean>,
         viewRef: RefObject<EditorView | undefined>,
         previousTextRef: RefObject<string>,
-        userIdentity: string | undefined = undefined,
+        userIdentity: string,
+        isReconnection: boolean = false,
     ) {
         this.ws = ws;
         this.viewRef = viewRef;
@@ -39,13 +42,15 @@ export class WSClient {
         this.fugue = fugue;
         this.remoteUpdate = remoteUpdate;
         this.previousTextRef = previousTextRef;
+        this.isReconnection = isReconnection;
+        this.userIdentity = userIdentity;
         if (userIdentity) this.userIdentity = userIdentity;
         mainStore.getState().setActiveCollaborators([]);
 
         this.handleOpen = this.handleOpen.bind(this);
         this.handleMessage = this.handleMessage.bind(this);
 
-        if (!this.isOffline()) this.handleJoin();
+        this.handleJoin();
         this.initListeners();
     }
 
@@ -54,43 +59,41 @@ export class WSClient {
         this.ws.onmessage = this.handleMessage;
     }
 
+    private send(msgs: BaseFugueMessage | BaseFugueMessage[]) {
+        const serialized = FugueMessageSerialzier.serialize(Array.isArray(msgs) ? msgs : [msgs]);
+        this.ws.send(serialized);
+    }
+
     async handleJoin() {
-        //send the join message with the local changes
-        const joinMsg: FugueJoinMessage = {
-            operation: Operation.JOIN,
-            documentID: this.documentID,
-            state: null,
-            userIdentity: this.userIdentity,
-            bufferedOperations: undefined,
-            replicaId: this.fugue.replicaId(),
-        };
-        console.log("joinMsg -> ", joinMsg);
+        console.log(`Is reconnect -> ${this.isReconnection}`);
+        if (this.isReconnection) {
+            const userJoinedMsg: FugueUserJoinMessage = {
+                operation: Operation.USER_JOIN,
+                documentID: this.documentID,
+                replicaId: this.fugue.replicaId(),
+                userIdentity: this.userIdentity,
+            };
+            this.send(userJoinedMsg);
+            console.log("Sent user joined msg");
+        } else {
+            //send the initial sync message to request the persisted state
+            const joinMsg: FugueJoinMessage = {
+                operation: Operation.INITIAL_SYNC,
+                documentID: this.documentID,
+                state: null,
+                userIdentity: this.userIdentity,
+                bufferedOperations: undefined,
+                replicaId: this.fugue.replicaId(),
+            };
+            console.log("joinMsg -> ", joinMsg);
 
-        const serializedJoinMessage = FugueMessageSerialzier.serialize([joinMsg]);
-
-        this.ws.send(serializedJoinMessage);
-        console.log("Sent serialized Join message!");
+            this.send(joinMsg);
+            console.log("Sent initial sync  message!");
+        }
     }
 
     async handleOpen() {
         console.log("WebSocket connected");
-        //
-        // let savedDocChanges;
-        // try {
-        //     //get any local changes
-        //     console.log("Fugue Id -> ", this.fugue.documentID);
-        //     savedDocChanges = await DocumentsIndexedDB.getBufferedChanges(this.fugue.documentID);
-        //     console.log("Changes that we are about to send -> ", savedDocChanges);
-        //
-        //     const FugueMessages: FugueMessage[] = savedDocChanges.map((changes) => changes.fugueMsg);
-        //     const serialisedLocalChangeMessage = FugueMessageSerialzier.serialize(FugueMessages);
-        //     this.ws.send(serialisedLocalChangeMessage);
-        //     //send buffered local changes messages
-        //
-        //     //await DocumentsIndexedDB.deleteBufferedChanges(this.fugue.documentID);
-        // } catch (err) {
-        //     console.log("Error processing buffered changes -> ", err);
-        // }
     }
 
     async handleMessage(ev: MessageEvent) {
@@ -107,14 +110,24 @@ export class WSClient {
             console.log("Parsed message -> ", raw);
 
             // Normalize to array
-            const msgs: FugueMessageType[] = Array.isArray(raw) ? raw : [raw];
+            const msgs: BaseFugueMessage[] = Array.isArray(raw) ? raw : [raw];
 
             if (msgs.length === 0) return;
+            const firstMsg = msgs[0];
+
+            // Handle user join msg
+            if (firstMsg.operation === Operation.USER_JOIN) {
+                const userJoinedMsg = firstMsg as FugueUserJoinMessage;
+                console.log({ userJoinedMsg });
+                setActiveCollaborators(userJoinedMsg.collaborators);
+                return;
+            }
 
             // Handle leave message
-            if (msgs[0].operation === Operation.LEAVE) {
-                const leavingUser = (msgs[0] as FugueLeaveMessage).userIdentity;
-                console.log("remove message -> ", msgs[0]);
+            if (firstMsg.operation === Operation.LEAVE) {
+                const leaveMsg = firstMsg as FugueLeaveMessage;
+                const leavingUser = leaveMsg.userIdentity;
+                console.log("remove message -> ", leaveMsg);
                 console.log("active collaborators -> ", activeCollaborators());
                 const newActiveCollaborators = activeCollaborators().filter((c) => c !== leavingUser);
                 console.log("new active collaborators -> ", newActiveCollaborators);
@@ -124,12 +137,13 @@ export class WSClient {
             }
 
             // Handle reject message
-            if (msgs[0].operation === Operation.REJECT) {
+            if (firstMsg.operation === Operation.REJECT) {
+                const rejectMsg = firstMsg as FugueRejectMessage;
                 console.log("reject message");
                 // Show toast and prevent canvas editing
                 // possibly kick them back to home if signed in
                 toast.error("User Rejected", {
-                    description: msgs[0].reason,
+                    description: rejectMsg.reason,
                 });
                 return;
             }
@@ -141,21 +155,11 @@ export class WSClient {
                 return m.replicaId !== myId;
             });
 
-            const firstMsg = remoteMsgs[0];
+            const firstRemoteMsg = remoteMsgs[0];
 
             // Handle Join message (state sync)
-            if (firstMsg.operation === Operation.JOIN && firstMsg.state) {
+            if (firstRemoteMsg.operation === Operation.INITIAL_SYNC && firstRemoteMsg.state) {
                 const msg = remoteMsgs[0] as FugueJoinMessage;
-                if (msg.collaborators) {
-                    const newActiveCollaborators = [
-                        ...new Set(
-                            activeCollaborators().concat(msg.collaborators!),
-                            // .filter((c) => c !== this.userIdentity),
-                            //removing the filter for my sanity
-                        ),
-                    ];
-                    setActiveCollaborators(newActiveCollaborators);
-                }
 
                 this.fugue.load(msg.state!);
 
@@ -185,12 +189,6 @@ export class WSClient {
                     view.dispatch(tr);
                     console.debug({ pos: 3, editorState: this.viewRef.current.state.doc.toString() });
                 }
-            }
-            // Handle other users joining
-            else if (firstMsg.operation === Operation.JOIN && firstMsg.state === null) {
-                const newActiveCollaborators = [...activeCollaborators(), firstMsg.userIdentity ?? "Anon"];
-                console.log("Collaborators -> ", newActiveCollaborators);
-                setActiveCollaborators(newActiveCollaborators);
             }
             // Handle updates
             else {

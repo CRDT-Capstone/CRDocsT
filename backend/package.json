@@ -32,7 +32,7 @@
     "dependencies": {
         "@clerk/backend": "^2.30.0",
         "@clerk/express": "^1.7.68",
-        "@cr_docs_t/dts": "^0.25.0",
+        "@cr_docs_t/dts": "link:/home/mads/projects/Typescript/applied_crdt/CRDocsT-dts",
         "@jest/globals": "^30.2.0",
         "@msgpack/msgpack": "^3.1.3",
         "@sendgrid/mail": "^8.1.6",

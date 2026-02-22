@@ -78,7 +78,7 @@ export const treeSitterHighlightPlugin = (parser: Parser, query: Query) => {
                 const viewportFrom = Math.max(0, view.viewport.from - margin);
                 // const viewportTo = Math.min(view.state.doc.length, view.viewport.to + margin);
                 const viewportTo = view.viewport.to + margin; // HACK: Allow captures that end beyond the document end cause clipping isn't working properly for some reason
-                console.log(`Building decorations for viewport [${viewportFrom}, ${viewportTo}]`);
+                // console.log(`Building decorations for viewport [${viewportFrom}, ${viewportTo}]`);
 
                 const captures = query.captures(this.tree.rootNode, {
                     startIndex: viewportFrom,

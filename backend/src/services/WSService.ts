@@ -13,6 +13,8 @@ import {
     FugueUserJoinMessage,
     FTree,
     FugueStateSerializer,
+    BaseFugueMessage,
+    operationToString,
 } from "@cr_docs_t/dts";
 import { DocumentServices } from "../services/DocumentServices";
 import DocumentManager from "../managers/document";
@@ -22,14 +24,12 @@ import { RedisService } from "./RedisService";
 export class WSService {
     private ws: WebSocket;
     private currentDocId: string | undefined;
-    private email: string | undefined;
     // userIdentity is the users email when the user is non anonymous and a random identifier for anonymous users
     private userIdentity: string | undefined;
 
     constructor(ws: WebSocket) {
         this.ws = ws;
         this.currentDocId = undefined;
-        this.email = undefined;
         this.userIdentity = undefined;
 
         logger.info("New WebSocket connection");
@@ -42,6 +42,11 @@ export class WSService {
         this.ws.on("error", (err) => logger.error("WebSocket error", { err }));
     }
 
+    private send(msg: BaseFugueMessage | BaseFugueMessage[]) {
+        const serializedMsg = FugueMessageSerialzier.serialize(Array.isArray(msg) ? msg : [msg]);
+        this.ws.send(serializedMsg);
+    }
+
     async handleMessage(message: Uint8Array<ArrayBuffer>) {
         //There needs to be multiple message types
         //The first message type to be sent to the server whenever a client connects should be a join message
@@ -51,23 +56,20 @@ export class WSService {
 
         const raw = FugueMessageSerialzier.deserialize(message);
         const isArray = Array.isArray(raw);
-        const msgs: FugueMutationMessageTypes[] = isArray
-            ? (raw as FugueMutationMessageTypes[])
-            : ([raw] as FugueMutationMessageTypes[]);
+        const msgs: BaseFugueMessage[] = isArray ? raw : [raw];
 
         if (msgs.length === 0) return;
 
         const firstMsg = msgs[0];
         logger.debug("First msg info", {
-            OP: firstMsg.operation,
+            OP: operationToString(firstMsg.operation),
             DOC_ID: firstMsg.documentID,
             REP_ID: firstMsg.replicaId,
             USER_ID: firstMsg.userIdentity,
             msg: firstMsg,
         });
         this.currentDocId = firstMsg.documentID;
-        // FIX: Results in duplicate anon users when reloading
-        this.userIdentity = firstMsg.userIdentity || UserService.getIdentifierForAnonymousUser();
+        this.userIdentity = firstMsg.userIdentity;
 
         const { hasAccess, contributorType: accessType } = await DocumentServices.IsDocumentOwnerOrCollaborator(
             this.currentDocId,
@@ -81,68 +83,58 @@ export class WSService {
                 userIdentity: firstMsg.userIdentity,
             });
             const rejectMessage: FugueRejectMessage = {
+                userIdentity: firstMsg.userIdentity,
+                replicaId: firstMsg.replicaId,
                 operation: Operation.REJECT,
+                documentID: firstMsg.documentID,
                 reason: "User does not have access",
             };
-            const serializedRejectMessage = FugueMessageSerialzier.serialize([rejectMessage]);
-            this.ws.send(serializedRejectMessage);
+            this.send(rejectMessage);
             this.ws.close(1000, "User does not have access");
             // 1000 -> normal expected socket connection closure
             return;
         }
 
         const doc = await DocumentManager.getOrCreate(this.currentDocId);
-        doc.sockets.add(this.ws);
+        await DocumentManager.addUser(doc, this.ws, firstMsg.userIdentity);
 
-        if (firstMsg.operation === Operation.JOIN) {
+        const sendUserJoin = async (userIdentity: string, currentDocId: string) => {
+            const collaborators = await RedisService.getCollaboratorsByDocumentId(currentDocId);
+            const userJoinedNotification: FugueUserJoinMessage = {
+                operation: Operation.USER_JOIN,
+                userIdentity: userIdentity,
+                documentID: currentDocId,
+                replicaId: firstMsg.replicaId,
+                collaborators,
+            };
+
+            const serialisedMsg = FugueMessageSerialzier.serialize([userJoinedNotification]);
+            doc.sockets.forEach((sock) => {
+                if (sock.readyState === WebSocket.OPEN) sock.send(serialisedMsg);
+            });
+        };
+
+
+        if (firstMsg.operation === Operation.USER_JOIN) {
+            await sendUserJoin(this.userIdentity!, this.currentDocId!);
+            return;
+        }
+
+        if (firstMsg.operation === Operation.INITIAL_SYNC) {
             logger.info(`Join operation for doc id ${this.currentDocId}`);
             try {
-                await RedisService.AddToCollaboratorsByDocumentId(this.currentDocId, this.userIdentity!);
-                const collaborators = await RedisService.getCollaboratorsByDocumentId(this.currentDocId);
-                // if (firstMsg.localState) {
-                //     const changes = FugueStateSerializer.deserialize(firstMsg.localState);
-                //     changes.
-                //     const offlineChanges: FugueMessage<string>[] = firstMsg.offlineChanges.flat().map((change) => {
-                //         return {
-                //             operation: change.operation! as Operation.INSERT | Operation.DELETE,
-                //             position: change.position,
-                //             data: change.value ?? null,
-                //             replicaId: firstMsg.replicaId!,
-                //             documentID: firstMsg.documentID,
-                //             userIdentity: firstMsg.userIdentity
-                //         }
-                //     });
-                //     doc.crdt.effect(offlineChanges);
-                //     logger.info(`Current state -> ${doc.crdt.observe()}`);
-                //     if(this.currentDocId) DocumentManager.persist(this.currentDocId);
-
-                //     doc.sockets.forEach((sock) => {
-                //         if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(FugueMessageSerialzier.serialize(offlineChanges));
-                //     });
-
-                // }
                 const joinMsg: FugueJoinMessage = {
-                    operation: Operation.JOIN,
+                    userIdentity: this.userIdentity,
+                    replicaId: doc.crdt.replicaId(),
+                    operation: Operation.INITIAL_SYNC,
                     documentID: this.currentDocId,
                     state: doc.crdt.save(),
-                    collaborators,
                     bufferedOperations: undefined,
                 };
 
-                const serializedJoinMessage = FugueMessageSerialzier.serialize([joinMsg]);
-                logger.info("Serialized Join Message size", { size: serializedJoinMessage.byteLength });
-                this.ws.send(serializedJoinMessage); //send the state to the joining user
+                this.send(joinMsg); // send the join message to the joining user
 
-                const userJoinedNotification: FugueUserJoinMessage = {
-                    operation: Operation.JOIN,
-                    userIdentity: this.userIdentity,
-                };
-
-                const serialisedMsg = FugueMessageSerialzier.serialize([userJoinedNotification]);
-
-                doc.sockets.forEach((sock) => {
-                    if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(serialisedMsg);
-                });
+                await sendUserJoin(this.userIdentity!, this.currentDocId!);
             } catch (err: any) {
                 logger.error("Error handling join operation -> ", err);
             }

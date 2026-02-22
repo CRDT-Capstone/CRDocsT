@@ -4,11 +4,49 @@ import WebSocket from "ws";
 import crypto from "crypto";
 import { logger } from "../logging";
 
-interface ActiveDocument {
+// interface ActiveDocument {
+//     crdt: FugueTree;
+//     sockets: Set<WebSocket>;
+//     users: Set<string>;
+//     lastActivity: number;
+//     cleanupTimeout?: NodeJS.Timeout;
+// }
+
+class ActiveDocument {
+    documentID: string;
     crdt: FugueTree;
     sockets: Set<WebSocket>;
+    users: Set<string>;
     lastActivity: number;
     cleanupTimeout?: NodeJS.Timeout;
+
+    constructor(documentID: string, crdt: FugueTree) {
+        this.documentID = documentID;
+        this.crdt = crdt;
+        this.sockets = new Set();
+        this.users = new Set();
+        this.lastActivity = Date.now();
+    }
+
+    async addUser(ws: WebSocket, userIdentity: string) {
+        this.sockets.add(ws);
+        this.users.add(userIdentity);
+        this.lastActivity = Date.now();
+        await RedisService.updateCollaboratorsByDocumentId(this.documentID, this.users);
+    }
+
+    async removeUser(ws: WebSocket, userIdentity?: string) {
+        this.users.delete(userIdentity!);
+        this.lastActivity = Date.now();
+        this.sockets.delete(ws);
+        await RedisService.updateCollaboratorsByDocumentId(this.documentID, this.users);
+    }
+
+    async save() {
+        await RedisService.updateCRDTStateByDocumentID(this.documentID, Buffer.from(this.crdt.save()));
+        await RedisService.updateCollaboratorsByDocumentId(this.documentID, this.users);
+        // Possibly mongoDB logic too
+    }
 }
 
 class DocumentManager {
@@ -45,22 +83,18 @@ class DocumentManager {
                 // The central CRDT is a netural observer that just holds the definitive state of a document
                 // therefore its document ID can be randomly generated, however it should probably have an identifiable
                 // part to help with debugging
-                // const crdt = new FugueTree(
-                //     new StringTotalOrder(`${crypto.randomBytes(3).toString()}-${documentID}`),
-                //     null,
-                //     documentID,
-                // );
-                const crdt = new FugueTree(null, documentID);
+                const crdt = new FugueTree(null, documentID, `doc-${crypto.randomBytes(4).toString("hex")}`);
                 if (existingState) {
-                    const deserializedState = FugueStateSerializer.deserialize(existingState);
                     crdt.load(existingState);
                 }
 
-                const newDoc: ActiveDocument = {
-                    crdt,
-                    sockets: new Set(),
-                    lastActivity: Date.now(),
-                };
+                // const newDoc: ActiveDocument = {
+                //     crdt,
+                //     sockets: new Set(),
+                //     lastActivity: Date.now(),
+                //     users: new Set(),
+                // };
+                const newDoc = new ActiveDocument(documentID, crdt);
 
                 this.instances.set(documentID, newDoc);
                 return newDoc;
@@ -73,21 +107,32 @@ class DocumentManager {
         return loadTask;
     }
 
+    static async addUser(doc: ActiveDocument, ws: WebSocket, userIdentity: string) {
+        await doc.addUser(ws, userIdentity);
+    }
+
     static async removeUser(documentID: string, ws: WebSocket, userIdentity?: string) {
         const doc = this.instances.get(documentID);
         if (!doc) return;
 
-        doc.sockets.delete(ws);
+        await doc.removeUser(ws, userIdentity);
         if (userIdentity) {
+            const collaborators = await RedisService.getCollaboratorsByDocumentId(documentID);
             const leaveMessage: FugueLeaveMessage = {
                 operation: Operation.LEAVE,
                 userIdentity,
+                documentID: documentID,
+                replicaId: doc.crdt.replicaId(),
+                collaborators: collaborators,
             };
-            await RedisService.removeCollaboratorsByDocumentId(documentID, userIdentity);
 
             doc.sockets.forEach((sock) => {
                 if (sock.readyState === WebSocket.OPEN) sock.send(FugueMessageSerialzier.serialize([leaveMessage]));
             });
+            logger.info("User left document", { documentID, userIdentity });
+
+            // Persist the document immediately to ensure the leaving user's changes are saved and to update the list of collaborators in storage
+            await this.persist(documentID);
         } else {
             logger.error(`User without userIdentity exiting file with documentId: ${documentID}`);
         }
@@ -109,8 +154,7 @@ class DocumentManager {
         logger.debug(`Persisting document ${documentID} to storage.`);
         const doc = this.instances.get(documentID);
         if (doc) {
-            // const serializedState = FugueStateSerializer.serialize(doc.crdt.save());
-            await RedisService.updateCRDTStateByDocumentID(documentID, Buffer.from(doc.crdt.save()));
+            await doc.save();
             // Possibly mongoDB logic too
         }
     }

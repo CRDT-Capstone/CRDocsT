@@ -3,12 +3,14 @@ import { Tree } from "web-tree-sitter";
 import { create } from "zustand";
 import { createJSONStorage, devtools, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
+import { ConnectionState } from "../types";
 
 export type DocumentState = {
     document?: Document;
     ygg?: Tree; // Concrete Syntax Tree (Yggdrasil)
     isParsing: boolean;
     activeCollaborators: string[];
+    connectionState: ConnectionState;
 
     isEffecting: boolean;
     unEffectedMsgs: FugueMessage[];
@@ -18,6 +20,7 @@ export type DocumentState = {
     setIsParsing: (v: boolean) => void;
     setActiveCollaborators: (v: string[]) => void;
 
+    setConnectionState: (v: ConnectionState) => void;
     toggleIsEffecting: () => void;
     setUnEffectedMsgs: (v: FugueMessage[]) => void;
 };
@@ -28,7 +31,11 @@ export type DevState = {
     setDevBarPos: (v: { x: number; y: number }) => void;
 };
 
-export type UserState = {};
+export type UserState = {
+    anonUserIdentity: string | undefined;
+
+    setAnonUserIdentity: (v?: string) => void;
+};
 
 export type State = DocumentState & UserState & DevState;
 
@@ -37,11 +44,18 @@ const mainStore = create<State>()(
         devtools(
             // persist(
             (set) => ({
+                anonUserIdentity: undefined,
                 document: undefined,
                 activeCollaborators: [],
                 isParsing: false,
+                connectionState: ConnectionState.DISCONNECTED,
                 isEffecting: true,
                 unEffectedMsgs: [],
+
+                setAnonUserIdentity: (v) =>
+                    set((state) => {
+                        state.anonUserIdentity = v;
+                    }),
 
                 setDocument: (v) =>
                     set((state) => {
@@ -56,6 +70,11 @@ const mainStore = create<State>()(
                 setIsParsing: (v) =>
                     set((state) => {
                         state.isParsing = v;
+                    }),
+
+                setConnectionState: (v) =>
+                    set((state) => {
+                        state.connectionState = v;
                     }),
 
                 setActiveCollaborators: (v) =>
@@ -83,9 +102,9 @@ const mainStore = create<State>()(
                     }),
             }),
             //     {
-            //         name: "devStore",
+            //         name: "mainStore",
             //         storage: createJSONStorage(() => localStorage),
-            //         partialize: (state) => ({ devBarPos: state.devBarPos }),
+            //         partialize: (state) => ({ anonUserIdentity: state.anonUserIdentity }),
             //     },
             // ),
         ),

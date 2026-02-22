@@ -21,6 +21,14 @@ const AddToCollaboratorsByDocumentId = async (documentId: string, user: string) 
     await redis.sadd(key, user);
 };
 
+const updateCollaboratorsByDocumentId = async (documentId: string, users: Set<string>) => {
+    const key = `collab:${documentId}`;
+    await redis.del(key);
+    if (users.size > 0) {
+        await redis.sadd(key, ...Array.from(users));
+    }
+};
+
 const getCollaboratorsByDocumentId = async (documentId: string) => {
     const key = `collab:${documentId}`;
     const collabs = await redis.smembers(key);
@@ -40,4 +48,5 @@ export const RedisService = {
     AddToCollaboratorsByDocumentId,
     removeCollaboratorsByDocumentId,
     getCollaboratorsByDocumentId,
+    updateCollaboratorsByDocumentId,
 };
