@@ -26,11 +26,20 @@ export class WSService {
     private currentDocId: string | undefined;
     // userIdentity is the users email when the user is non anonymous and a random identifier for anonymous users
     private userIdentity: string | undefined;
+    private operationBuffer: FugueMessage[];
+
+    private intervalId;
+
+    MAX_BUFFER_SIZE = 100; //random value
+    BUFFER_TIME = 500;
 
     constructor(ws: WebSocket) {
         this.ws = ws;
         this.currentDocId = undefined;
         this.userIdentity = undefined;
+        this.operationBuffer = [];
+
+        this.intervalId = setInterval(this.flushToRedis, this.BUFFER_TIME);
 
         logger.info("New WebSocket connection");
         this.initializeListeners();
@@ -45,6 +54,33 @@ export class WSService {
     private send(msg: BaseFugueMessage | BaseFugueMessage[]) {
         const serializedMsg = FugueMessageSerialzier.serialize(Array.isArray(msg) ? msg : [msg]);
         this.ws.send(serializedMsg);
+    }
+
+    private async bufferOperations(ops: FugueMessage[]){
+        /*
+        Implementing a write behind cache but with redis
+        */
+        if(!this.currentDocId) return;
+
+        this.operationBuffer.push(...ops);
+        if(this.operationBuffer.length > 100){
+            await RedisService.bufferCRDTOperationsByDocumentID(this.currentDocId, this.operationBuffer);
+            this.operationBuffer = [];
+        }
+    }
+
+    private async flushToRedis(){
+        if(!this.currentDocId || this.operationBuffer.length === 0) return;
+        await RedisService.bufferCRDTOperationsByDocumentID(this.currentDocId, this.operationBuffer);
+        this.operationBuffer = [];
+    }
+
+    private async getOpHistory(){
+        
+    }
+
+    private stopFlush(){
+        clearInterval(this.intervalId);
     }
 
     async handleMessage(message: Uint8Array<ArrayBuffer>) {
@@ -154,6 +190,7 @@ export class WSService {
                 );
                 doc.crdt.effect(ms);
                 DocumentManager.markDirty(this.currentDocId);
+                this.bufferOperations(ms);
                 const broadcastMsg = message; //relay the message as received
                 doc.sockets.forEach((sock) => {
                     if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
@@ -171,7 +208,7 @@ export class WSService {
             await DocumentManager.removeUser(this.currentDocId, this.ws, this.userIdentity);
             this.currentDocId = undefined;
         }
-
+        this.stopFlush();
         logger.info("Connection closed");
     }
 }

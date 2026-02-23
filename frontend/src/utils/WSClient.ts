@@ -72,6 +72,7 @@ export class WSClient {
                 documentID: this.documentID,
                 replicaId: this.fugue.replicaId(),
                 userIdentity: this.userIdentity,
+                collaborators: []
             };
             this.send(userJoinedMsg);
             console.log("Sent user joined msg");
@@ -132,7 +133,6 @@ export class WSClient {
                 const newActiveCollaborators = activeCollaborators().filter((c) => c !== leavingUser);
                 console.log("new active collaborators -> ", newActiveCollaborators);
                 setActiveCollaborators(newActiveCollaborators);
-                //email isn't email for anonynous users
                 return;
             }
 
@@ -162,6 +162,8 @@ export class WSClient {
                 const msg = remoteMsgs[0] as FugueJoinMessage;
 
                 this.fugue.load(msg.state!);
+
+                
 
                 const newText = this.fugue.observe();
                 console.log({ newText });

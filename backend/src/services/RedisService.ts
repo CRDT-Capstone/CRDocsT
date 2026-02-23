@@ -1,3 +1,4 @@
+import { FugueMessage } from "@cr_docs_t/dts";
 import { logger } from "../logging";
 import { redis } from "../redis";
 import crypto from "crypto";
@@ -36,10 +37,36 @@ const getCollaboratorsByDocumentId = async (documentId: string) => {
 };
 
 const removeCollaboratorsByDocumentId = async (documentId: string, user: string) => {
-    logger.info("Did we get here?");
     const key = `collab:${documentId}`;
     await redis.srem(key, user);
 };
+
+const bufferCRDTOperationsByDocumentID = async (documentID: string, op: FugueMessage[])=>{
+    //TODO: chunk the ops so that we don't hit redis limits
+
+    //converting to base 64 because sets only take strings
+
+    //const serializedMessages = op.map((operation)=> Buffer.from(FugueMessageSerialzier.serializeSingleMessage(operation)).toString("base64"));
+    //serializedMessages.forEach((msg)=> pipeline.sadd(`doc:${documentID}:operations`, msg));
+    
+    const CHUNK_SIZE = 1000;
+
+    for(let i = 0; i<op.length; i+=CHUNK_SIZE){
+        const chunkedOps = op.slice(i, i+CHUNK_SIZE);
+        const processedChunkedOps = chunkedOps.map((op)=> JSON.stringify(op));
+        await redis.sadd(`doc:${documentID}:operations`, ...processedChunkedOps);
+    }
+}
+
+const getBufferedCRDTOperationsByDocumentId = async (documentID: string)=>{
+    // const base64CRDTOps = await redis.smembers(`doc:${documentID}:operations`);
+    // if(!base64CRDTOps) return undefined;
+    
+
+    const ops = await redis.smembers(`doc:${documentID}:operations`);
+    return ops;
+    
+}
 
 export const RedisService = {
     getCRDTStateByDocumentID,
@@ -49,4 +76,6 @@ export const RedisService = {
     removeCollaboratorsByDocumentId,
     getCollaboratorsByDocumentId,
     updateCollaboratorsByDocumentId,
+    bufferCRDTOperationsByDocumentID,
+    getBufferedCRDTOperationsByDocumentId
 };

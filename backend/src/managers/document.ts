@@ -1,4 +1,4 @@
-import { FugueTree, FugueStateSerializer, FugueLeaveMessage, FugueMessageSerialzier, Operation } from "@cr_docs_t/dts";
+import { FugueTree, FugueStateSerializer, FugueLeaveMessage, FugueMessageSerialzier, Operation, FugueMessage } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import WebSocket from "ws";
 import crypto from "crypto";
