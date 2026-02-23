@@ -60,7 +60,11 @@ const uiStore = create<State>()(
 
             addTab: (tab) =>
                 set((state) => {
-                    state.activeTabs.set(tab.id, tab);
+                    const exists = state.activeTabs.has(tab.id);
+                    const selected = state.selectedTabId === tab.id;
+                    if (exists && selected) return;
+
+                    if (!exists) state.activeTabs.set(tab.id, tab);
                     state.selectedTabId = tab.id;
                 }),
 

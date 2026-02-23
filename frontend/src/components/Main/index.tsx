@@ -48,7 +48,7 @@ const Main = () => {
 
     return (
         <BrowserRouter>
-            <div className="flex flex-col w-screen">
+            <div className="w-full">
                 <QueryClientProvider client={queryClient}>
                     <ClerkProvider
                         publishableKey={PUBLISHABLE_KEY}

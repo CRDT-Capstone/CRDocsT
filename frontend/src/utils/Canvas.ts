@@ -19,7 +19,6 @@ export const HandleChange = async (
     const isRemote = viewUpdate.transactions.some((tr) => tr.annotation(RemoteUpdate));
 
     if (isRemote) {
-        console.log("Remote update - skipping CRDT processing");
         // Just sync the ref so we don't diff against stale text later
         previousTextRef.current = value;
         return;

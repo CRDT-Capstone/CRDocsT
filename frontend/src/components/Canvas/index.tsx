@@ -1,7 +1,14 @@
 import { useState, useEffect, useMemo, memo } from "react";
-import CodeMirror, { EditorView } from "@uiw/react-codemirror";
+import CodeMirror, {
+    Compartment,
+    EditorState,
+    EditorView,
+    basicSetup,
+    keymap,
+    highlightSpecialChars,
+} from "@uiw/react-codemirror";
 import { bracketMatching, indentOnInput } from "@codemirror/language";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Loading from "../Loading";
 import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
@@ -14,6 +21,11 @@ import { useAuth } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import ActiveCollaborators from "../ActiveCollaborators";
 import { HandleChange } from "../../utils/Canvas";
+import ConnectionIndicator from "../ConnectionIndicator";
+import { ConnectionState } from "../../types";
+import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { autocompletion, completionKeymap } from "@codemirror/autocomplete";
+import { tokyoNight, tokyoNightInit } from "@uiw/codemirror-theme-tokyo-night";
 
 interface CanvasProps {
     documentId: string | undefined;
@@ -35,8 +47,17 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
 
     const [editorView, setEditorView] = useState<EditorView | undefined>(undefined);
 
-    const { fugue, isAnon, isAuthError, previousTextRef, RemoteUpdate, socketRef, viewRef, userIdentity, disconnect } =
-        useCollab(documentID!, editorView);
+    const {
+        fugue,
+        isAnon,
+        isAuthError,
+        previousTextRef,
+        RemoteUpdate,
+        connectionState,
+        viewRef,
+        userIdentity,
+        disconnect,
+    } = useCollab(documentID!, editorView);
 
     if (isAuthError) {
         nav("/sign-in");
@@ -94,18 +115,31 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
         }
     }, [documentQuery.data]);
 
-    const theme = EditorView.theme({
-        "&": { height: "80vh" },
-        ".cm-scroller": { overflow: "auto" },
+    const theme = tokyoNightInit({
+        settings: {},
     });
 
+    const tabSize = new Compartment();
+
     const { exts, Yggdrasil, CST } = useMemo(() => {
-        const base = [bracketMatching(), indentOnInput(), EditorView.lineWrapping];
+        const base = [
+            highlightSpecialChars(),
+            basicSetup(),
+            highlightSelectionMatches(),
+            bracketMatching(),
+            indentOnInput(),
+            autocompletion({ activateOnTyping: true }),
+
+            EditorView.lineWrapping,
+            tabSize.of(EditorState.tabSize.of(4)),
+
+            keymap.of([...searchKeymap, ...completionKeymap]),
+        ];
 
         if (parser && query) {
             const { extensions, CST, Yggdrasil } = latexSupport(parser, query);
             return {
-                exts: [...base, ...extensions, theme],
+                exts: [...base, ...extensions],
                 Yggdrasil,
                 CST,
             };
@@ -119,63 +153,64 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
     }
 
     return (
-        <>
-            <main className="flex overflow-hidden relative flex-col flex-1 items-center w-full h-full">
-                <div className="overflow-hidden relative w-full">
-                    {isParsing && (
-                        <div className="flex absolute top-4 right-4 z-10 gap-2 items-center py-1 px-3 rounded-full border shadow-md animate-pulse bg-base-200 border-base-300">
-                            <span className="loading loading-spinner loading-xs text-primary"></span>
-                            <span className="font-mono text-xs font-medium opacity-70">AST PARSING...</span>
-                        </div>
-                    )}
+        <div className="flex overflow-hidden relative flex-col flex-1 items-center w-full h-full">
+            <div className="overflow-hidden relative w-full">
+                {isParsing && (
+                    <div className="flex absolute top-4 right-4 z-10 gap-2 items-center py-1 px-3 rounded-full border shadow-md animate-pulse bg-base-200 border-base-300">
+                        <span className="loading loading-spinner loading-xs text-primary"></span>
+                        <span className="font-mono text-xs font-medium opacity-70">AST PARSING...</span>
+                    </div>
+                )}
 
-                    <CodeMirror
-                        value={previousTextRef.current}
-                        extensions={exts}
-                        // height="100%"
-                        // width="100%"
-                        className="w-full h-full text-black rounded-lg border-2 shadow-sm"
-                        // editable={wsClient ? !wsClient.isOffline() : false}
-                        onCreateEditor={(view) => {
-                            viewRef.current = view;
-                            setEditorView(view);
+                <CodeMirror
+                    value={previousTextRef.current}
+                    extensions={exts}
+                    height="80vh"
+                    width="100%"
+                    theme={theme}
+                    // editable={wsClient ? !wsClient.isOffline() : false}
+                    onCreateEditor={(view) => {
+                        viewRef.current = view;
+                        setEditorView(view);
 
-                            // Sync initial content if fugue already has data
-                            const currentContent = fugue.observe();
-                            if (currentContent.length > 0) {
-                                view.dispatch({
-                                    changes: { from: 0, to: view.state.doc.length, insert: currentContent },
-                                    annotations: [RemoteUpdate.of(true)],
-                                });
-                                previousTextRef.current = currentContent;
-                            }
-                        }}
-                        onChange={HandleChange.bind(null, fugue, previousTextRef, RemoteUpdate)}
-                    />
-                </div>
-                <StatusBar userIdentity={userIdentity} />
-            </main>
-        </>
+                        // Sync initial content if fugue already has data
+                        const currentContent = fugue.observe();
+                        if (currentContent.length > 0) {
+                            view.dispatch({
+                                changes: { from: 0, to: view.state.doc.length, insert: currentContent },
+                                annotations: [RemoteUpdate.of(true)],
+                            });
+                            previousTextRef.current = currentContent;
+                        }
+                    }}
+                    onChange={HandleChange.bind(null, fugue, previousTextRef, RemoteUpdate)}
+                />
+            </div>
+            <StatusBar connectionState={connectionState} userIdentity={userIdentity} />
+        </div>
     );
 };
 
 interface StatusBarProps {
     userIdentity: string;
+    connectionState: ConnectionState;
 }
 
-const StatusBar = ({ userIdentity }: StatusBarProps) => {
+const StatusBar = memo(({ userIdentity, connectionState }: StatusBarProps) => {
     return (
-        <footer className="flex flex-row justify-start p-2 m-2 h-10 bg-base">
+        <footer className="flex flex-row p-5 w-full bg-base">
             {/* Left  */}
-            <div className="flex gap-4">
+            <div className="flex flex-1 self-start">
                 <ActiveCollaborators userIdentity={userIdentity} />
             </div>
             {/* Middle */}
-            <div className="flex flex-1 justify-center"></div>
+            <div className="flex flex-1 justify-center self-center">
+                <ConnectionIndicator connectionState={connectionState} />
+            </div>
             {/* Right */}
-            <div className="flex gap-4 justify-end"></div>
+            <div className="flex flex-1 self-end"></div>
         </footer>
     );
-};
+});
 
 export default memo(Canvas);

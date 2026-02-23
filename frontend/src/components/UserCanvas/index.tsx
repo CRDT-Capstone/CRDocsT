@@ -71,7 +71,7 @@ const UserCanvas = () => {
     );
 
     return (
-        <div className="w-screen drawer lg:drawer-open">
+        <div className="w-full drawer drawer-open">
             <input id="user-canvas-drawer" type="checkbox" className="drawer-toggle" />
 
             <div className="flex overflow-hidden flex-col drawer-content">

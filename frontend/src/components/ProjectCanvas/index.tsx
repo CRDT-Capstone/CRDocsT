@@ -1,5 +1,5 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, memo } from "react";
 import { useAuth, useClerk, useSession } from "@clerk/clerk-react";
 import mainStore from "../../stores";
 import { LuFileText } from "react-icons/lu";
@@ -21,6 +21,8 @@ const ProjectCanvas = () => {
     const setNavBarType = uiStore((state) => state.setNavBarType);
     const project = mainStore((state) => state.project);
     const setProject = mainStore((state) => state.setProject);
+    const selectedTabId = uiStore((state) => state.selectedTabId);
+    const activeTabs = uiStore((state) => state.activeTabs);
     const setActiveProjectId = uiStore((state) => state.setActiveProjectId);
     const addTab = uiStore((state) => state.addTab);
     const removeTab = uiStore((state) => state.removeTab);
@@ -67,9 +69,10 @@ const ProjectCanvas = () => {
 
     const handleItemClick = useCallback(
         (item: Document | Project, type: FileTreeItemType) => {
+            if (!item._id) return;
             addTab({
-                id: item._id!,
-                docId: item._id!,
+                id: item._id,
+                docId: item._id,
                 title: item.name,
             });
             setActiveTab(item._id!);
@@ -93,7 +96,7 @@ const ProjectCanvas = () => {
     );
 
     return (
-        <div className="w-screen drawer lg:drawer-open">
+        <div className="w-screen drawer drawer-open">
             <input id="user-canvas-drawer" type="checkbox" className="drawer-toggle" />
 
             <div className="flex overflow-hidden flex-col drawer-content">
@@ -113,4 +116,4 @@ const ProjectCanvas = () => {
     );
 };
 
-export default ProjectCanvas;
+export default memo(ProjectCanvas);

@@ -18,7 +18,6 @@ interface CanvasNavBarProps {
 const CanvasNavBar = ({ documentId }: CanvasNavBarProps) => {
     const document = mainStore((state) => state.document);
     const setDocument = mainStore((state) => state.setDocument);
-    const connectionState = mainStore((state) => state.connectionState);
 
     const [isEditing, setIsEditing] = useState(false);
     const [title, setTitle] = useState("New Document");
@@ -41,19 +40,6 @@ const CanvasNavBar = ({ documentId }: CanvasNavBarProps) => {
             toast.error("Failed to update document name");
         }
     };
-
-    let connectionBadge = "badge-success";
-    switch (connectionState) {
-        case ConnectionState.CONNECTED:
-            connectionBadge = "badge-success";
-            break;
-        case ConnectionState.RECONNECTING:
-            connectionBadge = "badge-warning";
-            break;
-        case ConnectionState.DISCONNECTED:
-            connectionBadge = "badge-error";
-            break;
-    }
 
     return (
         <>
@@ -80,29 +66,7 @@ const CanvasNavBar = ({ documentId }: CanvasNavBarProps) => {
                             </h1>
                         )}
                     </li>
-                    <li>
-                        <a>Link</a>
-                    </li>
-                    <li>
-                        <details>
-                            <summary>Parent</summary>
-                            <ul className="p-2 rounded-t-none bg-base-100">
-                                <li>
-                                    <a>Link 1</a>
-                                </li>
-                                <li>
-                                    <a>Link 2</a>
-                                </li>
-                            </ul>
-                        </details>
-                    </li>
                 </ul>
-            </div>
-            {/* Is connectde notifier */}
-            <div className="flex-none">
-                <div className={`badge badge-outline  ${connectionBadge}`}>
-                    {connectionState.toString().toUpperCase()}
-                </div>
             </div>
             <DocumentCollaborators documentId={documentId} />
             <ShareDocForm documentId={documentId} />

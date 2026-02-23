@@ -6,6 +6,7 @@ import mainStore from "../stores";
 import TagMap from "./mappings";
 import { parseCST, BragiAST } from "@cr_docs_t/dts/treesitter";
 import { highlightingFor } from "@codemirror/language";
+import { buildNestedAst } from "../utils";
 
 /**
  * Helper to convert a linear index to a Tree-sitter Point (row/column)
@@ -102,7 +103,7 @@ export const treeSitterHighlightPlugin = (query: Query, ygg: CSTType) => {
                 if (!this.lastTree) return Decoration.none;
                 const builder = new RangeSetBuilder<Decoration>();
 
-                const margin = 2000;
+                const margin = 999999999;
                 const viewportFrom = Math.max(0, view.viewport.from - margin);
                 // const viewportTo = Math.min(view.state.doc.length, view.viewport.to + margin);
                 const viewportTo = view.viewport.to + margin; // HACK: Allow captures that end beyond the document end cause clipping isn't working properly for some reason
@@ -171,8 +172,9 @@ export const yggdrasilLogger = (ygg: YggdrasilType) =>
             update(update: ViewUpdate) {
                 if (update.docChanged) {
                     const ast = update.state.field(ygg);
+                    if (!ast) return;
                     // console.log({ tree: tree?.rootNode });
-                    console.log({ ast });
+                    // console.dir(buildNestedAst(ast), { depth: null });
                 }
             }
         },

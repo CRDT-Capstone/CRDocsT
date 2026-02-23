@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, memo, useCallback } from "react";
 import { LuFileText, LuTrash2 } from "react-icons/lu";
 import Canvas from "../Canvas";
 import { Tab, TabMap } from "../../types";
@@ -8,11 +8,17 @@ interface TabbedEditorProps {}
 
 const TabbedEditor = ({}: TabbedEditorProps) => {
     const activeTabs = uiStore((state) => state.activeTabs);
-    const setActiveTabs = uiStore((state) => state.setActiveTabs);
-    const addTab = uiStore((state) => state.addTab);
     const removeTab = uiStore((state) => state.removeTab);
     const selectedTabId = uiStore((state) => state.selectedTabId);
     const setSelectedTab = uiStore((state) => state.setSelectedTab);
+
+    const handleClick = useCallback(
+        (tab: Tab) => {
+            setSelectedTab(tab.id);
+        },
+        [setSelectedTab],
+    );
+
     return (
         <main className="flex overflow-hidden flex-col flex-1 bg-base-300/30">
             <div className="flex flex-col flex-1 h-full">
@@ -45,7 +51,7 @@ const TabbedEditor = ({}: TabbedEditorProps) => {
                                         aria-controls={`panel-${tab.id}`}
                                         id={`tab-${tab.id}`}
                                         tabIndex={isActive ? 0 : -1}
-                                        onClick={() => setSelectedTab(tab.id)}
+                                        onClick={(e) => handleClick(tab)}
                                         className={`
                                             tab h-12 transition-colors flex items-center gap-2 group cursor-pointer
                                             ${
@@ -93,4 +99,4 @@ const TabbedEditor = ({}: TabbedEditorProps) => {
     );
 };
 
-export default TabbedEditor;
+export default memo(TabbedEditor);

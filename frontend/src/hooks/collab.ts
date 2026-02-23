@@ -26,7 +26,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
     const [wsClient, setWsClient] = useState<WSClient | undefined>(undefined);
     const previousTextRef = useRef(""); // Track changes with ref
     const [fugue] = useState(() => new FugueTree(socketRef.current, documentID!, userIdentity));
-    const setIsConnected = mainStore((state) => state.setConnectionState);
+    const [connectionState, setIsConnected] = useState(ConnectionState.DISCONNECTED);
     const isEffecting = mainStore((state) => state.isEffecting);
     const unEffectedMsgs = mainStore((state) => state.unEffectedMsgs);
     const setUnEffectedMsgs = mainStore((state) => state.setUnEffectedMsgs);
@@ -163,5 +163,6 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
         userIdentity,
         isAnon,
         disconnect,
+        connectionState,
     };
 };
