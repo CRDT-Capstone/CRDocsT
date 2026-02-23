@@ -53,7 +53,7 @@ class DocumentManager {
     private static instances: Map<string, ActiveDocument> = new Map();
     private static loadingTasks: Map<string, Promise<ActiveDocument>> = new Map();
     private static dirtyDocs: Set<string> = new Set();
-    static readonly persistenceIntervalMs: number = 3 * 1000; // 3 seconds
+    static readonly persistenceIntervalMs: number = 0.5 * 1000; // 0.5 seconds
 
     static async getOrCreate(documentID: string): Promise<ActiveDocument> {
         // If the document is already active, return it

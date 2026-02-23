@@ -10,6 +10,7 @@ import {
     BaseFugueMessage,
     FugueRejectMessage,
     FugueUserJoinMessage,
+    FugueStateSerializer,
 } from "@cr_docs_t/dts";
 import { AnnotationType, ChangeSet, ChangeSpec, EditorSelection, EditorView } from "@uiw/react-codemirror";
 import { RefObject } from "react";
@@ -67,12 +68,16 @@ export class WSClient {
     async handleJoin() {
         console.log(`Is reconnect -> ${this.isReconnection}`);
         if (this.isReconnection) {
+
+            console.log("Current fugue text -> ", this.fugue.observe())
+
             const userJoinedMsg: FugueUserJoinMessage = {
                 operation: Operation.USER_JOIN,
                 documentID: this.documentID,
                 replicaId: this.fugue.replicaId(),
                 userIdentity: this.userIdentity,
-                collaborators: []
+                collaborators: [],
+                offlineState: FugueStateSerializer.serialize(this.fugue.getState())
             };
             this.send(userJoinedMsg);
             console.log("Sent user joined msg");
@@ -83,7 +88,6 @@ export class WSClient {
                 documentID: this.documentID,
                 state: null,
                 userIdentity: this.userIdentity,
-                bufferedOperations: undefined,
                 replicaId: this.fugue.replicaId(),
             };
             console.log("joinMsg -> ", joinMsg);
