@@ -4,10 +4,20 @@ import { UserService } from "./UserService";
 import { logger } from "../logging";
 import { ObjectId } from "mongodb";
 import { RootFilterQuery } from "mongoose";
+import { redis } from "../redis";
+import { RedisService } from "./RedisService";
 
 const createDocument = async (userId: string | null) => {
     const document = await DocumentModel.create({ ownerId: userId });
     return document;
+};
+
+const removeDocument = async (documentId: string) => {
+    const res = await DocumentModel.findOneAndDelete({ _id: documentId });
+    if (!res) {
+        throw new APIError("Document not found", 404);
+    }
+    await RedisService.deleteCRDTStateByDocumentID(documentId);
 };
 
 const findDocumentById = async (documentId: string) => {
@@ -16,34 +26,39 @@ const findDocumentById = async (documentId: string) => {
 };
 
 const updateDocumentById = async (documentId: string, updateObj: Partial<Document>) => {
-    await DocumentModel.findOneAndUpdate({ _id: documentId }, updateObj);
+    const res = await DocumentModel.findOneAndUpdate({ _id: documentId }, updateObj);
+    if (!res) {
+        throw new APIError("Document not found", 404);
+    }
 };
 
-const getDocumentsByUserId = async (userId: string, limit: number = 10, currentCursor?: string) : Promise<CursorPaginatedResponse<Document>> => {
+const getDocumentsByUserId = async (
+    userId: string,
+    limit: number = 10,
+    currentCursor?: string,
+): Promise<CursorPaginatedResponse<Document>> => {
     //current cursor is the id of the last document from a previous pagination...
 
     const userEmail = (await UserService.getUserEmailById(userId)) || "";
     const query: RootFilterQuery<Document> = {
-        $or: [
-            { ownerId: userId },
-            { "contributors.email": userEmail }
-        ]
+        $or: [{ ownerId: userId }, { "contributors.email": userEmail }],
     };
 
     if (currentCursor) {
-        query._id = { $lt: new ObjectId(currentCursor) }
+        query._id = { $lt: new ObjectId(currentCursor) };
     }
 
-
-    const documents = await DocumentModel.find(query).sort({ _id: -1 }).limit(limit + 1);
+    const documents = await DocumentModel.find(query)
+        .sort({ _id: -1 })
+        .limit(limit + 1);
     const hasNext = documents.length > limit;
     if (hasNext) documents.pop();
-    const nextCursor = documents[limit- 1]?._id.toString() || undefined;
+    const nextCursor = documents[limit - 1]?._id.toString() || undefined;
 
     return {
         data: documents,
         nextCursor,
-        hasNext
+        hasNext,
     };
 };
 
@@ -96,33 +111,39 @@ const addUserAsCollaborator = async (
 };
 
 //TODO: write a unit test for this
-const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string) => {
+type IsDocumentOwnerOrCollaboratorReturn = { hasAccess: boolean; contributorType: ContributorType | undefined };
+const IsDocumentOwnerOrCollaborator = async (
+    documentId: string,
+    email?: string,
+): Promise<IsDocumentOwnerOrCollaboratorReturn> => {
     logger.debug("Checking if user is owner or collaborator", { documentId, email });
     const document = await DocumentModel.findById(documentId);
+    logger.debug("Document", { document });
     if (!document) throw Error("Document does not exist!");
-    if (!document.ownerId) return [true, ContributorType.EDITOR];
+    if (!document.ownerId) return { hasAccess: true, contributorType: ContributorType.EDITOR };
     //if it was created by an anonymous user then anyone can have access to it...?
     //I don't think this is the most secure but I'm not quite sure what the solution is
     //We don't let anonymous users share?
 
     if (!email) {
-        /* 
-        If there's no email then it is possibly because the user is an anonymous owner 
-        But that is covered by an earlier if statement where we handle all anonymous documents
-        So we should probably return false here 
-        */
-        return [false, undefined];
+        /*
+         * If there's no email then it is possibly because the user is an anonymous owner
+         * But that is covered by an earlier if statement where we handle all anonymous documents
+         * So we should probably return false here
+         */
+        return { hasAccess: false, contributorType: undefined };
     }
 
     const user = await UserService.getUserByEmail(email);
-    logger.info("User info", { user });
 
     const isDocumentOwnerOrCollaborator =
         (user !== undefined && document.ownerId === user.id) ||
         (document.contributors.length > 0 &&
             document.contributors.find((contributor) => contributor.email === email) !== undefined);
+    logger.debug("Is Document Owner or Collaborator", { isDocumentOwnerOrCollaborator });
 
-    if (!isDocumentOwnerOrCollaborator) return [false, undefined];
+    if (!isDocumentOwnerOrCollaborator) return { hasAccess: false, contributorType: undefined };
+
     let contributorType;
     if (document.ownerId === user!.id) {
         contributorType = ContributorType.EDITOR;
@@ -132,7 +153,7 @@ const IsDocumentOwnerOrCollaborator = async (documentId: string, email?: string)
     }
 
     logger.info({ isDocumentOwnerOrCollaborator, contributorType });
-    return [isDocumentOwnerOrCollaborator, contributorType];
+    return { hasAccess: isDocumentOwnerOrCollaborator, contributorType: contributorType };
 };
 
 const removeContributor = async (documentId: string, email: string) => {
@@ -167,6 +188,7 @@ const isDocumentOwner = async (documentId: string, userId: string) => {
 
 export const DocumentServices = {
     createDocument,
+    removeDocument,
     findDocumentById,
     updateDocumentById,
     getDocumentsByUserId,

@@ -1,54 +1,84 @@
-import { useState, useRef, useEffect } from "react";
-import {
-    FugueList,
-    FugueMessage,
-    Operation,
-    StringPosition,
-    StringTotalOrder,
-    FugueJoinMessage,
-    FugueMessageType,
-    FugueMessageSerialzier,
-    FugueRejectMessage,
-    Document,
-    FugueLeaveMessage,
-} from "@cr_docs_t/dts";
-import { randomString } from "../../utils";
-import CodeMirror, { ViewUpdate, Annotation, EditorView } from "@uiw/react-codemirror";
-import { useLocation, useParams } from "react-router-dom";
+import { useState, useEffect, useMemo } from "react";
+import CodeMirror, { EditorView } from "@uiw/react-codemirror";
+import { bracketMatching, indentOnInput } from "@codemirror/language";
+import { useNavigate, useParams } from "react-router-dom";
 import { NavBar } from "../NavBar";
-import { useClerk, useUser } from "@clerk/clerk-react";
 import Loading from "../Loading";
 import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
-import { WSClient } from "../../utils/WSClient";
-
-// Ref to ignore next change (to prevent rebroadcasting remote changes)
-const RemoteUpdate = Annotation.define<boolean>();
+import { latexSupport } from "../../treesitter/codemirror";
+import { Parser, Query, Tree } from "web-tree-sitter";
+import { newParser } from "../../treesitter";
+import { useCollab } from "../../hooks/collab";
+import { createDocumentApi } from "../../api/document";
+import { useAuth } from "@clerk/clerk-react";
+import { toast } from "sonner";
+import ActiveCollaborators from "../ActiveCollaborators";
+import { HandleChange } from "./utils";
 
 const Canvas = () => {
     const { documentID } = useParams();
-    const location = useLocation();
-    const wsClient = useRef<WSClient | undefined>(undefined);
+    const nav = useNavigate();
 
-    const [activeCollaborators, setActiveCollaborators] = useState<string[]>([]);
-    const [fugue] = useState(() => new FugueList(new StringTotalOrder(randomString(3)), null, documentID!));
-    const email = mainStore((state) => state.email);
+    const [parser, setParser] = useState<Parser | null>(null);
+    const [query, setQuery] = useState<Query | null>(null);
+
     const setDocument = mainStore((state) => state.setDocument);
 
-    const viewRef = useRef<EditorView | undefined>(undefined);
-    const socketRef = useRef<WebSocket>(null);
+    const { getToken } = useAuth();
+    const api = createDocumentApi(getToken);
 
-    const previousTextRef = useRef(""); // Track changes with ref
+    const isParsing = mainStore((state) => state.isParsing);
 
-    const webSocketUrl = import.meta.env.VITE_WSS_URL as string;
-    const { user } = useUser();
-    const clerk = useClerk();
+    const [editorView, setEditorView] = useState<EditorView | undefined>(undefined);
+
+    const { fugue, isAnon, isAuthError, previousTextRef, RemoteUpdate, socketRef, viewRef, userIdentity } = useCollab(
+        documentID!,
+        editorView,
+    );
+
+    if (isAuthError) {
+        nav("/sign-in");
+    }
+
+    useEffect(() => {
+        (async () => {
+            // Check if user has access if not anon user
+            if (isAnon) return;
+            const res = await api.getUserDocumentAccess(documentID!, userIdentity);
+            if (!res.data.hasAccess) {
+                toast.error("You do not have access to this document. Redirecting...");
+                nav("/");
+            }
+        })();
+    }, [userIdentity]);
 
     const { queries } = useDocument(documentID!);
     const { documentQuery } = queries;
 
     useEffect(() => {
         documentQuery.refetch();
+
+        (async () => {
+            if (!parser || !query) {
+                const { parser, query } = await newParser();
+                setParser(parser);
+                setQuery(query);
+            }
+        })();
+    }, []);
+
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            sessionStorage.clear();
+        };
+
+        window.addEventListener("beforeunload", handleBeforeUnload);
+
+        return () => {
+            window.removeEventListener("beforeunload", handleBeforeUnload);
+            // Send leave message on unmount
+        };
     }, []);
 
     useEffect(() => {
@@ -57,147 +87,64 @@ const Canvas = () => {
         }
     }, [documentQuery.data]);
 
-    useEffect(() => {
-        if (email && wsClient.current) {
-            console.log({ email: email });
-            fugue.userIdentity = email;
-            wsClient.current.setUserIdentity(email);
-        }
-    }, [email, wsClient.current]);
+    const { exts, Yggdrasil } = useMemo(() => {
+        const base = [bracketMatching(), indentOnInput(), EditorView.lineWrapping];
 
-    // Garbage Collection of deleted elements every 30 seconds
-    useEffect(() => {
-        const gcInterval = setInterval(() => {
-            console.log("Performing garbage collection");
-            fugue.garbageCollect();
-        }, 30000);
-
-        return () => clearInterval(gcInterval);
-    }, [fugue]);
-
-    // WebSocket setup
-    useEffect(() => {
-        if (!clerk.loaded) return;
-        socketRef.current = new WebSocket(webSocketUrl);
-        if (!socketRef.current || !documentID) return;
-        fugue.ws = socketRef.current;
-
-        if (!wsClient.current || (wsClient.current && wsClient.current.getUserIdenity() !== email))
-            wsClient.current = new WSClient(
-                socketRef.current,
-                fugue,
-                documentID,
-                RemoteUpdate,
-                viewRef,
-                previousTextRef,
-                email,
-            );
-
-        return () => {
-            fugue.ws = null;
-            socketRef.current?.close();
-        };
-    }, [fugue, clerk.loaded]);
-
-    /**
-     * Handle changes from CodeMirror
-     */
-    const handleChange = (value: string, viewUpdate: ViewUpdate) => {
-        if (!viewUpdate.docChanged) return;
-
-        // If this transaction has our "RemoteUpdate" stamp, we strictly ignore CRDT logic
-        const isRemote = viewUpdate.transactions.some((tr) => tr.annotation(RemoteUpdate));
-
-        if (isRemote) {
-            // Just sync the ref so we don't diff against stale text later
-            previousTextRef.current = value;
-            return;
+        if (parser && query) {
+            const { extensions, Yggdrasil } = latexSupport(parser, query);
+            return {
+                exts: [...base, ...extensions],
+                Yggdrasil,
+            };
         }
 
-        // Get the actual changes from viewUpdate
-        const oldText = previousTextRef.current;
-        const newText = value;
-
-        console.log({
-            oldText,
-            newText,
-            docChanged: viewUpdate.docChanged,
-        });
-
-        // TODO: This might be sending duplicate operations per multi operation
-        viewUpdate.changes.iterChanges((fromA, toA, fromB, toB, inserted) => {
-            const deleteLen = toA - fromA;
-            const insertedLen = toB - fromB;
-            const insertedTxt = inserted.toString();
-
-            // Handle deletion
-            if (deleteLen > 0) {
-                console.log({
-                    operation: Operation.DELETE,
-                    index: fromA,
-                    count: deleteLen,
-                });
-                fugue.deleteMultiple(fromA, deleteLen);
-            }
-
-            // Handle insertion
-            if (insertedLen > 0) {
-                console.log({
-                    operation: Operation.INSERT,
-                    index: fromA,
-                    text: insertedTxt,
-                });
-
-                fugue.insertMultiple(fromA, insertedTxt);
-            }
-        });
-        previousTextRef.current = newText;
-    };
+        return { exts: base, Yggdrasil: null };
+    }, [parser, query]);
 
     if (documentQuery.isLoading) {
         return <Loading fullPage={true} />;
     }
 
     return (
-        <div className="w-screen">
+        <div className="flex flex-col w-screen h-screen bg-base-100">
             <NavBar documentID={documentID!} />
-            <div className="flex flex-col items-center p-4 w-full h-full">
-                <div className="w-full h-screen max-w-[100vw]">
+
+            <main className="flex overflow-hidden relative flex-col flex-1 items-center p-4 w-full h-full">
+                <div className="relative w-full h-full">
+                    {isParsing && (
+                        <div className="flex absolute top-4 right-4 z-10 gap-2 items-center py-1 px-3 rounded-full border shadow-md animate-pulse bg-base-200 border-base-300">
+                            <span className="loading loading-spinner loading-xs text-primary"></span>
+                            <span className="font-mono text-xs font-medium opacity-70">AST PARSING...</span>
+                        </div>
+                    )}
+
                     <CodeMirror
+                        value={previousTextRef.current}
+                        extensions={exts}
+                        height="100%"
+                        width="100%"
+                        className="w-full h-full text-black rounded-lg border-2 shadow-sm"
+                        // editable={wsClient ? !wsClient.isOffline() : false}
                         onCreateEditor={(view) => {
                             viewRef.current = view;
+                            setEditorView(view);
 
-                            // Check if we already have data in fugue from a message
-                            // that arrived while we were waiting
+                            // Sync initial content if fugue already has data
                             const currentContent = fugue.observe();
                             if (currentContent.length > 0) {
                                 view.dispatch({
-                                    changes: { from: 0, insert: currentContent },
+                                    changes: { from: 0, to: view.state.doc.length, insert: currentContent },
                                     annotations: [RemoteUpdate.of(true)],
                                 });
                                 previousTextRef.current = currentContent;
                             }
                         }}
-                        onChange={handleChange}
-                        className="text-black rounded-lg border-2 shadow-sm"
+                        onChange={HandleChange.bind(null, fugue, previousTextRef, RemoteUpdate)}
                     />
                 </div>
-                <div className="flex justify-end w-full">
-                    <div className="dropdown dropdown-top dropdown-center">
-                        <div tabIndex={0} role="button" className="m-4 btn">
-                            Active Collaborators {`(${activeCollaborators.length})`}
-                        </div>
-                        <ul
-                            tabIndex={-1}
-                            className="p-2 w-52 shadow-sm dropdown-content menu bg-base-100 rounded-box z-1"
-                        >
-                            {activeCollaborators.map((ac, index) => (
-                                <li key={index}>{ac}</li>
-                            ))}
-                        </ul>
-                    </div>
-                </div>
-            </div>
+            </main>
+
+            <ActiveCollaborators userIdentity={userIdentity} />
         </div>
     );
 };

@@ -1,3 +1,4 @@
+import { logger } from "../logging";
 import { redis } from "../redis";
 import crypto from "crypto";
 
@@ -13,24 +14,32 @@ const updateCRDTStateByDocumentID = async (documentID: string, CRDTStateUpdate: 
 
 const deleteCRDTStateByDocumentID = async (documentID: string) => {
     await redis.del(`doc:${documentID}`);
-}
+};
 
 const AddToCollaboratorsByDocumentId = async (documentId: string, user: string) => {
-
     const key = `collab:${documentId}`;
     await redis.sadd(key, user);
-}
+};
+
+const updateCollaboratorsByDocumentId = async (documentId: string, users: Set<string>) => {
+    const key = `collab:${documentId}`;
+    await redis.del(key);
+    if (users.size > 0) {
+        await redis.sadd(key, ...Array.from(users));
+    }
+};
 
 const getCollaboratorsByDocumentId = async (documentId: string) => {
     const key = `collab:${documentId}`;
     const collabs = await redis.smembers(key);
     return collabs;
-}
+};
 
 const removeCollaboratorsByDocumentId = async (documentId: string, user: string) => {
+    logger.info("Did we get here?");
     const key = `collab:${documentId}`;
     await redis.srem(key, user);
-}
+};
 
 export const RedisService = {
     getCRDTStateByDocumentID,
@@ -38,5 +47,6 @@ export const RedisService = {
     deleteCRDTStateByDocumentID,
     AddToCollaboratorsByDocumentId,
     removeCollaboratorsByDocumentId,
-    getCollaboratorsByDocumentId
+    getCollaboratorsByDocumentId,
+    updateCollaboratorsByDocumentId,
 };

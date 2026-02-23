@@ -8,6 +8,7 @@ import { SignInPage } from "../SignInPage";
 import { SignUpPage } from "../SignUpPage";
 import { Toaster } from "sonner";
 import Canvas from "../Canvas";
+import DevBar from "../DevBar";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -72,6 +73,8 @@ const Main = () => {
                     }}
                 />
                 <ReactQueryDevtools initialIsOpen={false} />
+                {/* {import.meta.env.MODE !== "production" && <DevBar />} */}
+                <DevBar />
             </QueryClientProvider>
         </BrowserRouter>
     );
