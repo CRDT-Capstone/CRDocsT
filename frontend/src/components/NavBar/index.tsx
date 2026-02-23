@@ -4,14 +4,15 @@ import { NavBarType } from "../../types";
 import UserHomeNavBar from "./UserHomeNavBar";
 import CanvasNavBar from "./CanvasNavBar";
 import ProjectNavBar from "./ProjectNavBar";
+import uiStore from "../../stores/uiStore";
 
 interface NavBarProps {}
 
 const NavBar = ({}: NavBarProps) => {
     const navigate = useNavigate();
-    const navBarType = mainStore((state) => state.navBarType);
-    const activeDocumentId = mainStore((state) => state.activeDocumentId);
-    const activeProjectId = mainStore((state) => state.activeProjectId);
+    const navBarType = uiStore((state) => state.navBarType);
+    const activeDocumentId = uiStore((state) => state.activeDocumentId);
+    const activeProjectId = uiStore((state) => state.activeProjectId);
 
     const handleTitleClick = () => {
         if (navBarType === NavBarType.UNSPECIFIED) return;

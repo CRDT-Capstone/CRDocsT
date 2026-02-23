@@ -72,6 +72,7 @@ export class WSClient {
                 documentID: this.documentID,
                 replicaId: this.fugue.replicaId(),
                 userIdentity: this.userIdentity,
+                collaborators: [],
             };
             this.send(userJoinedMsg);
             console.log("Sent user joined msg");

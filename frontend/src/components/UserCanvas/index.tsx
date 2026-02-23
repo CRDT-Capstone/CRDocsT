@@ -1,19 +1,21 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSession } from "@clerk/clerk-react";
-import mainStore from "../../stores";
 import { NavBarType } from "../../types";
 import UserFileTree from "../UserFileTree";
 import { Project, Document } from "@cr_docs_t/dts";
 import { FileTreeItemType } from "../BaseFileTree";
-import useTabbedEditor from "../TabbedEditor";
+import TabbedEditor from "../TabbedEditor";
 import { useDocuments, useProjects } from "../../hooks/queries";
+import uiStore from "../../stores/uiStore";
 
 const UserCanvas = () => {
     const nav = useNavigate();
     const { isSignedIn, isLoaded } = useSession();
-    const setNavBarType = mainStore((state) => state.setNavBarType);
-    const { TabbedEditor, addTab, removeTab, setActiveTab } = useTabbedEditor();
+    const setNavBarType = uiStore((state) => state.setNavBarType);
+    const addTab = uiStore((state) => state.addTab);
+    const removeTab = uiStore((state) => state.removeTab);
+    const setActiveTab = uiStore((state) => state.setSelectedTab);
 
     const { mutations: docM } = useDocuments();
     const { mutations: projM } = useProjects();
@@ -29,40 +31,47 @@ const UserCanvas = () => {
         };
     }, [setNavBarType]);
 
-    const handleItemClick = (item: Document | Project, type: FileTreeItemType) => {
-        if (type === FileTreeItemType.PROJECT) {
-            nav(`/projects/${item._id}`);
-        } else {
-            // Add tab ig
-            console.log({ item });
-            addTab({
-                id: item._id!,
-                docId: item._id!,
-                title: item.name,
-            });
-            setActiveTab(item._id!);
-        }
-    };
+    const handleItemClick = useCallback(
+        (item: Document | Project, type: FileTreeItemType) => {
+            if (type === FileTreeItemType.PROJECT) {
+                nav(`/projects/${item._id}`);
+            } else {
+                addTab({
+                    id: item._id!,
+                    docId: item._id!,
+                    title: item.name,
+                });
+                setActiveTab(item._id!);
+            }
+        },
+        [nav, addTab, setActiveTab],
+    );
 
-    const handleItemCreate = async (name: string, type: FileTreeItemType) => {
-        if (type === FileTreeItemType.DOCUMENT) {
-            await docM.createDocumentMutation.mutateAsync(name);
-        } else {
-            await projM.createProjectMutation.mutateAsync(name);
-        }
-    };
+    const handleItemCreate = useCallback(
+        async (name: string, type: FileTreeItemType) => {
+            if (type === FileTreeItemType.DOCUMENT) {
+                await docM.createDocumentMutation.mutateAsync(name);
+            } else {
+                await projM.createProjectMutation.mutateAsync(name);
+            }
+        },
+        [docM, projM],
+    );
 
-    const handleItemDelete = async (item: Document | Project, type: FileTreeItemType) => {
-        if (type === FileTreeItemType.DOCUMENT) {
-            removeTab(item._id!);
-            await docM.deleteDocumentMutation.mutateAsync(item._id!);
-        } else {
-            await projM.deleteProjectMutation.mutateAsync(item._id!);
-        }
-    };
+    const handleItemDelete = useCallback(
+        async (item: Document | Project, type: FileTreeItemType) => {
+            if (type === FileTreeItemType.DOCUMENT) {
+                removeTab(item._id!);
+                await docM.deleteDocumentMutation.mutateAsync(item._id!);
+            } else {
+                await projM.deleteProjectMutation.mutateAsync(item._id!);
+            }
+        },
+        [docM, projM, removeTab],
+    );
 
     return (
-        <div className="w-screen h-screen drawer lg:drawer-open">
+        <div className="w-screen drawer lg:drawer-open">
             <input id="user-canvas-drawer" type="checkbox" className="drawer-toggle" />
 
             <div className="flex overflow-hidden flex-col drawer-content">

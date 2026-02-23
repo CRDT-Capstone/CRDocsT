@@ -21,7 +21,7 @@ export type DocumentState = {
     isEffecting: boolean;
     unEffectedMsgs: FugueMessage[];
 
-    setDocument: (v: Document) => void;
+    setDocument: (v: Document | undefined) => void;
     setYgg: (v: Tree) => void;
     setIsParsing: (v: boolean) => void;
     setActiveCollaborators: (v: string[]) => void;
@@ -43,17 +43,7 @@ export type UserState = {
     setAnonUserIdentity: (v?: string) => void;
 };
 
-export type UIState = {
-    navBarType: NavBarType;
-    activeDocumentId?: string;
-    activeProjectId?: string;
-
-    setNavBarType: (v: NavBarType) => void;
-    setActiveDocumentId: (v: string | undefined) => void;
-    setActiveProjectId: (v: string | undefined) => void;
-};
-
-export type State = DocumentState & UserState & DevState & UIState & ProjectState;
+export type State = DocumentState & UserState & DevState & ProjectState;
 
 const mainStore = create<State>()(
     immer(
@@ -123,28 +113,6 @@ const mainStore = create<State>()(
                 setDevBarPos: (v) =>
                     set((state) => {
                         state.devBarPos = v;
-                    }),
-
-                // NavBar State
-
-                navBarType: NavBarType.UNSPECIFIED,
-
-                activeDocumentId: undefined,
-                activeProjectId: undefined,
-
-                setActiveDocumentId: (v) =>
-                    set((state) => {
-                        state.activeDocumentId = v;
-                    }),
-
-                setActiveProjectId: (v) =>
-                    set((state) => {
-                        state.activeProjectId = v;
-                    }),
-
-                setNavBarType: (v) =>
-                    set((state) => {
-                        state.navBarType = v;
                     }),
             }),
             //     {

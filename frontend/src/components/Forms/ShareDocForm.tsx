@@ -15,12 +15,12 @@ interface BaseFormProps {
 
 export const BaseForm = ({
     triggerText,
-    triggerClassName = "m-4 btn btn-l btn-neutral",
+    triggerClassName = "m-4 btn btn-l btn-primary",
     title,
     submitText = "Submit",
     children,
 }: BaseFormProps) => {
-    const { Modal, showModal, closeModal } = useModal();
+    const { Modal, showModal } = useModal();
 
     return (
         <>
@@ -123,7 +123,7 @@ export const ShareDocForm = ({ documentId }: ShareDocFormProps) => {
                                     id={f.name}
                                     name={f.name}
                                     value={f.state.value}
-                                    onChange={(e) => f.handleChange(e.target.value)}
+                                    onChange={(e) => f.handleChange(e.target.value as ContributorType)}
                                     className="w-full select"
                                 >
                                     <option value={ContributorType.EDITOR}>Editor</option>
@@ -240,7 +240,7 @@ export const ShareProjForm = ({ projectId }: ShareProjFormProps) => {
                                     id={f.name}
                                     name={f.name}
                                     value={f.state.value}
-                                    onChange={(e) => f.handleChange(e.target.value)}
+                                    onChange={(e) => f.handleChange(e.target.value as ContributorType)}
                                     className="w-full select"
                                 >
                                     <option value={ContributorType.EDITOR}>Editor</option>

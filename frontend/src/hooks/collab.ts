@@ -109,6 +109,19 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
         };
     };
 
+    const disconnect = () => {
+        if (socketRef.current) {
+            setIsConnected(ConnectionState.DISCONNECTED);
+            // Disconnect
+            socketRef.current.close();
+            if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+            // End reconnect attempts
+            socketRef.current.onclose = null;
+            socketRef.current = null;
+            setWsClient(undefined);
+        }
+    };
+
     // WebSocket setup
     useEffect(() => {
         if (isAuthError) {
@@ -149,5 +162,6 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
         viewRef,
         userIdentity,
         isAnon,
+        disconnect,
     };
 };

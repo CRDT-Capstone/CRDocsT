@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { useDocuments } from "../../hooks/queries";
 import { useClerk } from "@clerk/clerk-react";
+import User from "../User";
 
 const UserHomeNavBar = () => {
     const navigate = useNavigate();
@@ -11,9 +12,7 @@ const UserHomeNavBar = () => {
 
     return (
         <div className="flex flex-1 justify-end">
-            <button className="m-4 btn btn-l btn-neutral" onClick={() => signOut()}>
-                Sign Out
-            </button>
+            <User />
         </div>
     );
 };

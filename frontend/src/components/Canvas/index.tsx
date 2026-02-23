@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, memo } from "react";
 import CodeMirror, { EditorView } from "@uiw/react-codemirror";
 import { bracketMatching, indentOnInput } from "@codemirror/language";
 import { useNavigate, useParams } from "react-router-dom";
@@ -13,14 +13,14 @@ import { createDocumentApi } from "../../api/document";
 import { useAuth } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import ActiveCollaborators from "../ActiveCollaborators";
-import { NavBarType } from "../../types";
 import { HandleChange } from "../../utils/Canvas";
 
 interface CanvasProps {
     documentId: string | undefined;
+    singleSession?: boolean;
 }
 
-const Canvas = ({ documentId: documentID }: CanvasProps) => {
+const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
     const nav = useNavigate();
 
     const [parser, setParser] = useState<Parser | null>(null);
@@ -35,10 +35,8 @@ const Canvas = ({ documentId: documentID }: CanvasProps) => {
 
     const [editorView, setEditorView] = useState<EditorView | undefined>(undefined);
 
-    const { fugue, isAnon, isAuthError, previousTextRef, RemoteUpdate, socketRef, viewRef, userIdentity } = useCollab(
-        documentID!,
-        editorView,
-    );
+    const { fugue, isAnon, isAuthError, previousTextRef, RemoteUpdate, socketRef, viewRef, userIdentity, disconnect } =
+        useCollab(documentID!, editorView);
 
     if (isAuthError) {
         nav("/sign-in");
@@ -69,6 +67,12 @@ const Canvas = ({ documentId: documentID }: CanvasProps) => {
                 setQuery(query);
             }
         })();
+
+        return () => {
+            // Clean up on unmount
+            disconnect();
+            setDocument(undefined);
+        };
     }, []);
 
     useEffect(() => {
@@ -110,12 +114,12 @@ const Canvas = ({ documentId: documentID }: CanvasProps) => {
     }, [parser, query]);
 
     if (documentQuery.isLoading) {
-        return <Loading fullPage={true} />;
+        return <Loading fullPage={singleSession} />;
     }
 
     return (
         <>
-            <main className="flex overflow-hidden relative flex-col flex-1 items-center p-4 w-full h-full">
+            <main className="flex overflow-hidden relative flex-col flex-1 items-center w-full h-full">
                 <div className="overflow-hidden relative w-full">
                     {isParsing && (
                         <div className="flex absolute top-4 right-4 z-10 gap-2 items-center py-1 px-3 rounded-full border shadow-md animate-pulse bg-base-200 border-base-300">
@@ -160,7 +164,7 @@ interface StatusBarProps {
 
 const StatusBar = ({ userIdentity }: StatusBarProps) => {
     return (
-        <footer className="flex flex-row justify-start p-2 m-2 bg-base">
+        <footer className="flex flex-row justify-start p-2 m-2 h-10 bg-base">
             {/* Left  */}
             <div className="flex gap-4">
                 <ActiveCollaborators userIdentity={userIdentity} />
@@ -173,4 +177,4 @@ const StatusBar = ({ userIdentity }: StatusBarProps) => {
     );
 };
 
-export default Canvas;
+export default memo(Canvas);

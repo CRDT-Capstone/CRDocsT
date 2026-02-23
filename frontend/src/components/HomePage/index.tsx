@@ -7,11 +7,12 @@ import mainStore from "../../stores";
 import React from "react";
 import { LuTrash2 } from "react-icons/lu";
 import { NavBarType } from "../../types";
+import uiStore from "../../stores/uiStore";
 
 export const HomePage = () => {
     const navigate = useNavigate();
     const { isSignedIn, isLoaded } = useSession();
-    const setNavBarType = mainStore((state) => state.setNavBarType);
+    const setNavBarType = uiStore((state) => state.setNavBarType);
 
     useEffect(() => {
         if (isLoaded && !isSignedIn) navigate("/sign-in");
@@ -31,7 +32,7 @@ export const HomePage = () => {
     return (
         //this is just for a proof of concept
         //Will make this better in a bit
-        <div className="flex flex-col justify-start items-center w-full h-screen">
+        <div className="flex flex-col justify-start items-center w-full >
             {userDocumentsQuery.isLoading ? (
                 <Loading fullPage={true} />
             ) : (

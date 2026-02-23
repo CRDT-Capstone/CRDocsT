@@ -22,20 +22,24 @@ interface ProjectFileTreeProps {
     projectId: string;
     projectQueriesAndMutations: ReturnType<typeof useProject>;
     handleItemClick: (item: Document | Project, type: FileTreeItemType) => void;
+    handleItemDelete: (item: Document | Project, type: FileTreeItemType) => Promise<void>;
+    handleItemCreate: (name: string, type: FileTreeItemType) => Promise<void>;
+    isSharedProject?: boolean;
 }
 
-export const ProjectFileTree = ({ projectId, projectQueriesAndMutations, handleItemClick }: ProjectFileTreeProps) => {
+export const ProjectFileTree = ({
+    projectId,
+    projectQueriesAndMutations,
+    handleItemClick,
+    handleItemDelete,
+    handleItemCreate,
+}: ProjectFileTreeProps) => {
     const nav = useNavigate();
     const setProject = mainStore((state) => state.setProject);
     const { Modal, showModal, closeModal } = useModal();
 
-    const { queries, mutations } = projectQueriesAndMutations;
+    const { queries } = projectQueriesAndMutations;
     const { projectQuery } = queries;
-    const { createProjectDocumentMutation, removeProjectDocumentMutation } = mutations;
-
-    const handleCreateItem = async (name: string, type: FileTreeItemType) => {
-        await createProjectDocumentMutation.mutateAsync(name);
-    };
 
     useEffect(() => {
         if (projectId && projectQuery.data) setProject(projectQuery.data.project);
@@ -48,7 +52,7 @@ export const ProjectFileTree = ({ projectId, projectQueriesAndMutations, handleI
             modalTitle="Add Document to Project"
             closeModal={closeModal}
             ModalComponent={Modal}
-            onSubmitItem={handleCreateItem}
+            onSubmitItem={handleItemCreate}
             hideProjectOption={true} // Only allow adding documents inside a project
             sections={[
                 {
@@ -59,7 +63,7 @@ export const ProjectFileTree = ({ projectId, projectQueriesAndMutations, handleI
                     modifiable: true,
                     onAddClick: showModal,
                     onItemClick: handleItemClick,
-                    onItemDelete: (item) => removeProjectDocumentMutation.mutate(item._id!),
+                    onItemDelete: handleItemDelete,
                 },
             ]}
         />

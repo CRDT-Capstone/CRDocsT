@@ -18,21 +18,21 @@ const BaseCollaborators = ({ collaborators, removeCollaborator, updateCollaborat
     return (
         <>
             <div
-                className="-space-x-6 transition-opacity cursor-pointer hover:opacity-80 avatar-group rtl:space-x-reverse"
+                className="flex items-center -space-x-6 transition-opacity cursor-pointer hover:opacity-80 avatar-group rtl:space-x-reverse"
                 onClick={showModal}
                 role="button"
                 tabIndex={0}
                 aria-label="Manage collaborators"
             >
                 {collaborators.slice(0, 5).map((collaborator) => (
-                    <div key={collaborator.email} className="avatar placeholder border-base-100">
+                    <div key={collaborator.email} className="avatar avatar-placeholder">
                         <div className="w-10 bg-neutral text-neutral-content">
-                            <span className="text-sm font-semibold">{collaborator.email[0].toUpperCase()}</span>
+                            <span className="text-xl font-medium">{collaborator.email[0].toUpperCase()}</span>
                         </div>
                     </div>
                 ))}
                 {collaborators.length > 5 && (
-                    <div className="avatar placeholder border-base-100">
+                    <div className="avatar avatar-placeholder border-base-100">
                         <div className="w-10 bg-neutral text-neutral-content">
                             <span className="text-xs">+{collaborators.length - 5}</span>
                         </div>
@@ -48,7 +48,7 @@ const BaseCollaborators = ({ collaborators, removeCollaborator, updateCollaborat
                             className="flex flex-col gap-3 justify-between p-3 rounded-lg sm:flex-row sm:items-center bg-base-200/50"
                         >
                             <div className="flex gap-3 items-center">
-                                <div className="avatar placeholder">
+                                <div className="avatar avatar-placeholder">
                                     <div className="w-10 rounded-full bg-neutral text-neutral-content">
                                         <span>{collaborator.email[0].toUpperCase()}</span>
                                     </div>

@@ -155,7 +155,8 @@ const IsDocumentOwnerOrCollaborator = async (
     logger.debug("Checking if user is owner or collaborator", { documentId, email });
     const document = await DocumentModel.findById(documentId);
     logger.debug("Document", { document });
-    if (!document) throw Error("Document does not exist!");
+
+    if (!document) throw new APIError("Document does not exist", 404);
     if (!document.ownerId) return { hasAccess: true, contributorType: ContributorType.EDITOR };
     //if it was created by an anonymous user then anyone can have access to it...?
     //I don't think this is the most secure but I'm not quite sure what the solution is
@@ -172,19 +173,30 @@ const IsDocumentOwnerOrCollaborator = async (
 
     const user = await UserService.getUserByEmail(email);
 
-    const isDocumentOwnerOrCollaborator =
-        (user !== undefined && document.ownerId === user.id) ||
-        (document.contributors.length > 0 &&
-            document.contributors.find((contributor) => contributor.email === email) !== undefined);
+    // If the user doesn't exist then they don't have access to the document.
+    if (!user) {
+        return { hasAccess: false, contributorType: undefined };
+    }
+
+    logger.debug("Collaborators", { collaborators: document.contributors, email });
+    // If user is the document owner or they exist in the list of contributors then they have access to the document
+    const foundCollaborator = document.contributors.find((contributor) => contributor.email === email);
+    logger.debug("Found Collaborator", { foundCollaborator });
+    let isDocumentOwnerOrCollaborator = false;
+    if (document.ownerId === user.id || (document.contributors.length > 0 && foundCollaborator)) {
+        isDocumentOwnerOrCollaborator = true;
+    }
     logger.debug("Is Document Owner or Collaborator", { isDocumentOwnerOrCollaborator });
 
+    // If the user is not the document owner or a collaborator then they don't have access to the document
     if (!isDocumentOwnerOrCollaborator) return { hasAccess: false, contributorType: undefined };
 
+    // Determine contributer type
     let contributorType;
-    if (document.ownerId === user!.id) {
+    if (document.ownerId === user.id) {
         contributorType = ContributorType.EDITOR;
     } else {
-        const contributor = document.contributors!.find((c) => c.email === email);
+        const contributor = foundCollaborator;
         contributorType = contributor!.contributorType;
     }
 

@@ -17,7 +17,7 @@ const ActiveCollaborators = ({ userIdentity }: ActiveCollaboratorsProps) => {
 
     return (
         <div className="dropdown dropdown-top dropdown-start">
-            <div tabIndex={0} role="button" className="btn btn-sm btn-ghost">
+            <div tabIndex={0} role="button" className="h-fit btn btn-sm btn-ghost">
                 Collaborators ({displayCollaborators.length})
             </div>
             <ul

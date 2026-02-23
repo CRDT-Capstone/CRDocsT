@@ -4,6 +4,7 @@ import { useLayoutEffect, useState } from "react";
 import { toast } from "sonner";
 import { ProjectCollaborators } from "../Collaborators";
 import { ShareProjForm } from "../Forms/ShareDocForm";
+import User from "../User";
 
 interface ProjectNavBarProps {
     projectId: string;
@@ -62,8 +63,11 @@ const ProjectNavBar = ({ projectId }: ProjectNavBarProps) => {
                     </li>
                 </ul>
             </div>
-            <ProjectCollaborators projectId={projectId} />
-            <ShareProjForm projectId={projectId} />
+            <div className="flex justify-end">
+                <ProjectCollaborators projectId={projectId} />
+                <ShareProjForm projectId={projectId} />
+                <User />
+            </div>
         </>
     );
 };

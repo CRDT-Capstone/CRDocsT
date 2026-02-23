@@ -306,6 +306,9 @@ const isProjectOwnerOrCollaborator = async (
 
     const user = await UserService.getUserByEmail(userId);
 
+    // If the user doesn't exist then they don't have acceess
+    if (!user) return { hasAccess: false, contributorType: undefined };
+
     let isProjectOwnerOrCollaborator = false;
     const foundContributor = project.contributors.find((contributor) => contributor.email === userId);
     if ((user && project.ownerId === user.id) || (project.contributors.length > 0 && foundContributor)) {

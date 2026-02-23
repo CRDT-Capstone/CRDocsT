@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { ClerkProvider, SignedIn } from "@clerk/clerk-react";
+import { ClerkProvider, SignedIn, SignedOut } from "@clerk/clerk-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { HomePage } from "../HomePage";
 import { SignInPage } from "../SignInPage";
 import { SignUpPage } from "../SignUpPage";
@@ -48,7 +48,7 @@ const Main = () => {
 
     return (
         <BrowserRouter>
-            <div className="flex flex-col w-screen h-screen">
+            <div className="flex flex-col w-screen">
                 <QueryClientProvider client={queryClient}>
                     <ClerkProvider
                         publishableKey={PUBLISHABLE_KEY}
@@ -62,7 +62,19 @@ const Main = () => {
                             <Route path="/sign-in" element={<SignInPage />} />
                             <Route path="/sign-up" element={<SignUpPage />} />
                             <Route path="/docs/:documentID" element={<AnonCanvas />} />
-                            <Route path="/" element={<UserCanvas />} />
+                            <Route
+                                path="/"
+                                element={
+                                    <>
+                                        <SignedIn>
+                                            <UserCanvas />
+                                        </SignedIn>
+                                        <SignedOut>
+                                            <Navigate to="/sign-in" replace />
+                                        </SignedOut>
+                                    </>
+                                }
+                            />
                             <Route path="/projects/:projectId" element={<ProjectCanvas />} />
                             <Route path="/:userId/docs/:documentID" element={<UserCanvas />} />
                         </Routes>

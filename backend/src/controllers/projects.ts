@@ -312,6 +312,7 @@ const removeContributor = async (req: ValidatedRequest<typeof removeContributorS
 };
 
 const updateContributorTypeSchema = {
+    params: projectIdSchema(),
     body: projectIdSchema().extend({
         email: z.email(),
         contributorType: z.enum(ContributorType),
@@ -321,7 +322,7 @@ const updateContributorTypeSchema = {
 const updateContributorType = async (req: ValidatedRequest<typeof updateContributorTypeSchema>, res: Response) => {
     try {
         const { projectId, email, contributorType } = req.body;
-        await DocumentServices.changeContributorType(projectId, email, contributorType);
+        await ProjectServices.changeContributorType(projectId, email, contributorType);
         return sendOk(res, {
             message: "Successfully changed contributor type",
             data: undefined,

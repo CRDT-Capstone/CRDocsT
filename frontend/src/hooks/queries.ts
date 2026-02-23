@@ -260,7 +260,7 @@ export const useProject = (projectId: string) => {
     });
 
     const createProjectDocumentMutation = useMutation({
-        mutationFn: (documentName: string) => api.createProjectDocument(projectId, documentName),
+        mutationFn: (documentName: string | undefined) => api.createProjectDocument(projectId, documentName),
         onSuccess: () => {
             // Invalidate project details and all project lists
             queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });

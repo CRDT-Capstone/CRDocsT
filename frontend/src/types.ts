@@ -23,3 +23,11 @@ export enum NavBarType {
     CANVAS = "CANVAS",
     PROJECT = "PROJECT",
 }
+
+export interface Tab {
+    id: string;
+    docId: string;
+    title: string;
+}
+
+export type TabMap = Map<string, Tab>;

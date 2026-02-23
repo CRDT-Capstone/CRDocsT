@@ -1,6 +1,6 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { useSession } from "@clerk/clerk-react";
+import { useCallback, useEffect, useState } from "react";
+import { useAuth, useClerk, useSession } from "@clerk/clerk-react";
 import mainStore from "../../stores";
 import { LuFileText } from "react-icons/lu";
 import { NavBarType } from "../../types";
@@ -9,18 +9,26 @@ import UserFileTree from "../UserFileTree";
 import { useProject } from "../../hooks/queries";
 import { Project, Document } from "@cr_docs_t/dts";
 import { FileTreeItemType } from "../BaseFileTree";
-import useTabbedEditor from "../TabbedEditor";
+import TabbedEditor from "../TabbedEditor";
+import uiStore from "../../stores/uiStore";
+import { createProjectApi } from "../../api/project";
+import { toast } from "sonner";
 
 const ProjectCanvas = () => {
     const nav = useNavigate();
     const { projectId } = useParams();
     const { isSignedIn, isLoaded } = useSession();
-    const setNavBarType = mainStore((state) => state.setNavBarType);
+    const setNavBarType = uiStore((state) => state.setNavBarType);
     const project = mainStore((state) => state.project);
     const setProject = mainStore((state) => state.setProject);
-    const setActiveProjectId = mainStore((state) => state.setActiveProjectId);
-
-    const { TabbedEditor, addTab } = useTabbedEditor();
+    const setActiveProjectId = uiStore((state) => state.setActiveProjectId);
+    const addTab = uiStore((state) => state.addTab);
+    const removeTab = uiStore((state) => state.removeTab);
+    const setActiveTab = uiStore((state) => state.setSelectedTab);
+    const { user } = useClerk();
+    const userIdentity = user?.primaryEmailAddress?.emailAddress;
+    const { getToken } = useAuth();
+    const api = createProjectApi(getToken);
 
     useEffect(() => {
         if (projectId) {
@@ -30,6 +38,18 @@ const ProjectCanvas = () => {
             setActiveProjectId(undefined);
         };
     }, []);
+
+    useEffect(() => {
+        if (!(projectId && userIdentity)) return;
+        (async () => {
+            const res = await api.getUserProjectAccess(projectId, userIdentity);
+            console.log({ access: res });
+            if (!res.data.hasAccess) {
+                toast.error("You do not have access to this project. Redirecting...");
+                nav("/");
+            }
+        })();
+    }, [projectId, userIdentity]);
 
     useEffect(() => {
         if (isLoaded && !isSignedIn) nav("/sign-in");
@@ -43,18 +63,37 @@ const ProjectCanvas = () => {
     }, [setNavBarType]);
 
     const { queries, mutations } = useProject(projectId!);
+    const { createProjectDocumentMutation, removeProjectDocumentMutation } = mutations;
 
-    const handleItemClick = (item: Document | Project, type: FileTreeItemType) => {
-        // Add tab ig
-        addTab({
-            id: item._id!,
-            docId: item._id!,
-            title: item.name,
-        });
-    };
+    const handleItemClick = useCallback(
+        (item: Document | Project, type: FileTreeItemType) => {
+            addTab({
+                id: item._id!,
+                docId: item._id!,
+                title: item.name,
+            });
+            setActiveTab(item._id!);
+        },
+        [addTab, setActiveTab],
+    );
+
+    const handleItemCreate = useCallback(
+        async (name: string | undefined, type: FileTreeItemType) => {
+            await createProjectDocumentMutation.mutateAsync(name);
+        },
+        [createProjectDocumentMutation],
+    );
+
+    const handleItemDelete = useCallback(
+        async (item: Document | Project, type: FileTreeItemType) => {
+            removeTab(item._id!);
+            await removeProjectDocumentMutation.mutateAsync(item._id!);
+        },
+        [removeProjectDocumentMutation, removeTab],
+    );
 
     return (
-        <div className="w-screen h-screen drawer lg:drawer-open">
+        <div className="w-screen drawer lg:drawer-open">
             <input id="user-canvas-drawer" type="checkbox" className="drawer-toggle" />
 
             <div className="flex overflow-hidden flex-col drawer-content">
@@ -67,6 +106,8 @@ const ProjectCanvas = () => {
                 projectId={projectId!}
                 projectQueriesAndMutations={{ queries, mutations }}
                 handleItemClick={handleItemClick}
+                handleItemCreate={handleItemCreate}
+                handleItemDelete={handleItemDelete}
             />
         </div>
     );

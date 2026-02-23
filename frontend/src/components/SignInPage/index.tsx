@@ -11,7 +11,7 @@ export const SignInPage = () => {
     const setAnonUserIdentity = mainStore((state) => state.setAnonUserIdentity);
     const anonUserIdentity = mainStore((state) => state.anonUserIdentity);
     return (
-        <div className="flex flex-col justify-center items-center w-full h-screen">
+        <div className="flex flex-col justify-center items-center w-full">
             <SignIn />
             <h1> OR....</h1>
             <button

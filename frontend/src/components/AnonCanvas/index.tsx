@@ -15,11 +15,12 @@ import { toast } from "sonner";
 import ActiveCollaborators from "../ActiveCollaborators";
 import { NavBarType } from "../../types";
 import Canvas from "../Canvas";
+import uiStore from "../../stores/uiStore";
 
 const AnonCanvas = () => {
     const { documentID } = useParams();
-    const setNavBarType = mainStore((state) => state.setNavBarType);
-    const setActiveDocumentId = mainStore((state) => state.setActiveDocumentId);
+    const setNavBarType = uiStore((state) => state.setNavBarType);
+    const setActiveDocumentId = uiStore((state) => state.setActiveDocumentId);
 
     useEffect(() => {
         // Set navbar
@@ -32,8 +33,8 @@ const AnonCanvas = () => {
     }, []);
 
     return (
-        <div className="flex flex-col h-screen">
-            <Canvas documentId={documentID} />
+        <div className="flex flex-col">
+            <Canvas singleSession={true} documentId={documentID} />
         </div>
     );
 };

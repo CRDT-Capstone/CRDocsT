@@ -251,11 +251,11 @@ export const createProjectApi = (getToken: TokenFunc) => {
         }
     };
 
-    const createProjectDocument = async (projectId: string, documentName: string) => {
+    const createProjectDocument = async (projectId: string, documentName: string | undefined) => {
         try {
             const token = await getToken();
 
-            const res = await f.post<Msg<{ documentId: string }>, { name: string }>(
+            const res = await f.post<Msg<{ documentId: string }>, { name: string | undefined }>(
                 `${ApiBaseUrl}/${path}/${projectId}/create-document`,
                 { name: documentName },
                 {
