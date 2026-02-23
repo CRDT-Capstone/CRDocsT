@@ -97,9 +97,20 @@ const addDocumentToProject = async (projectId: string, documentId: string) => {
     try {
         await sess.withTransaction(async () => {
             // Add the document ID to the project's documentIds array
-            await ProjectModel.findByIdAndUpdate(projectId, { $push: { documentIds: documentId } }, { session: sess });
+            const proj = await ProjectModel.findByIdAndUpdate(
+                projectId,
+                { $push: { documentIds: documentId } },
+                { session: sess },
+            );
+            if (!proj) {
+                throw new APIError("Project not found", 404);
+            }
             // Update the document's projectId field to reference the project
-            await DocumentModel.findByIdAndUpdate(documentId, { projectId }, { session: sess });
+            await DocumentModel.findByIdAndUpdate(
+                documentId,
+                { projectId, contributors: proj.contributors },
+                { session: sess },
+            );
         });
     } finally {
         await sess.endSession();

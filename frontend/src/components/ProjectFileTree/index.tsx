@@ -45,6 +45,10 @@ export const ProjectFileTree = ({
         if (projectId && projectQuery.data) setProject(projectQuery.data.project);
     }, [projectId, projectQuery.data]);
 
+    useEffect(() => {
+        projectQuery.refetch();
+    }, []);
+
     const projectDocs = queries.projectQuery.data?.documents || [];
 
     return (

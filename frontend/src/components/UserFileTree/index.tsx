@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "@tanstack/react-form";
 import { Document, Project } from "@cr_docs_t/dts";
@@ -40,6 +40,13 @@ const UserFileTree = ({ handleItemClick, handleItemCreate, handleItemDelete }: U
 
     const isUserLoading = docQ.userDocumentsQuery.isLoading || projQ.userProjectsQuery.isLoading;
     const isSharedLoading = docQ.sharedDocumentsQuery.isLoading || projQ.sharedProjectsQuery.isLoading;
+
+    useEffect(() => {
+        docQ.userDocumentsQuery.refetch();
+        docQ.sharedDocumentsQuery.refetch();
+        projQ.userProjectsQuery.refetch();
+        projQ.userProjectsQuery.refetch();
+    }, []);
 
     return (
         <BaseFileTree
