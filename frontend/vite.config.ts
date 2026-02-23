@@ -25,7 +25,7 @@ export default defineConfig({
         }),
     ],
     optimizeDeps: {
-        exclude: ["web-tree-sitter"],
+        exclude: ["web-tree-sitter", "@cr_docs_t/dts"],
     },
     assetsInclude: ["**/*.wasm"],
 });

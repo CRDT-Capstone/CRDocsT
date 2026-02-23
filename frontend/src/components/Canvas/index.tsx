@@ -7,7 +7,7 @@ import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { latexSupport } from "../../treesitter/codemirror";
 import { Parser, Query, Tree } from "web-tree-sitter";
-import { newParser } from "../../treesitter";
+import { newParser } from "@cr_docs_t/dts/treesitter";
 import { useCollab } from "../../hooks/collab";
 import { createDocumentApi } from "../../api/document";
 import { useAuth } from "@clerk/clerk-react";
@@ -62,7 +62,7 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
 
         (async () => {
             if (!parser || !query) {
-                const { parser, query } = await newParser();
+                const { parser, query } = await newParser("/tree-sitter-latex.wasm", "/highlights.scm");
                 setParser(parser);
                 setQuery(query);
             }
@@ -99,18 +99,19 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
         ".cm-scroller": { overflow: "auto" },
     });
 
-    const { exts, Yggdrasil } = useMemo(() => {
+    const { exts, Yggdrasil, CST } = useMemo(() => {
         const base = [bracketMatching(), indentOnInput(), EditorView.lineWrapping];
 
         if (parser && query) {
-            const { extensions, Yggdrasil } = latexSupport(parser, query);
+            const { extensions, CST, Yggdrasil } = latexSupport(parser, query);
             return {
                 exts: [...base, ...extensions, theme],
                 Yggdrasil,
+                CST,
             };
         }
 
-        return { exts: base, Yggdrasil: null };
+        return { exts: base, Yggdrasil: null, CST: null };
     }, [parser, query]);
 
     if (documentQuery.isLoading) {

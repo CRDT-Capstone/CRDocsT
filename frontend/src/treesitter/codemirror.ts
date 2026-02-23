@@ -1,9 +1,10 @@
 import { Parser, Tree, Query } from "web-tree-sitter";
 import { Decoration, DecorationSet, ViewPlugin, PluginValue, EditorView, ViewUpdate } from "@codemirror/view";
-import { EditorState, Range, RangeSetBuilder, StateField } from "@codemirror/state";
-import { Edit } from "web-tree-sitter";
+import { EditorState, Range, RangeSetBuilder, StateField, Transaction } from "@codemirror/state";
+import { Edit, Node } from "web-tree-sitter";
 import mainStore from "../stores";
 import TagMap from "./mappings";
+import { parseCST, BragiAST } from "@cr_docs_t/dts/treesitter";
 import { highlightingFor } from "@codemirror/language";
 
 /**
@@ -14,8 +15,8 @@ function getPoint(doc: any, pos: number) {
     return { row: line.number - 1, column: pos - line.from };
 }
 
-export type YggdrasilType = ReturnType<typeof YggdrasilBuilder>;
-export const YggdrasilBuilder = (parser: Parser) =>
+export type CSTType = ReturnType<typeof CSTBuilder>;
+export const CSTBuilder = (parser: Parser) =>
     StateField.define<Tree | null>({
         create(state) {
             return parser.parse(state.doc.toString());
@@ -53,10 +54,29 @@ export const YggdrasilBuilder = (parser: Parser) =>
         provide: (f) => [f],
     });
 
+export type YggdrasilType = ReturnType<typeof YggdrasilBuilder>;
+export const YggdrasilBuilder = (cst: CSTType) =>
+    StateField.define<BragiAST | null>({
+        create(state) {
+            const tree = state.field(cst);
+            if (!tree) return null;
+            const root = tree.rootNode;
+            return parseCST(root);
+        },
+
+        update(oldAst, tr) {
+            if (!tr.docChanged) return oldAst;
+            const tree = tr.state.field(cst);
+            if (!tree) return oldAst;
+            const root = tree.rootNode;
+            return parseCST(root);
+        },
+    });
+
 /**
  * Codemirror highligher plugin that uses treesitter tree queries to generate decorations.
  */
-export const treeSitterHighlightPlugin = (query: Query, ygg: YggdrasilType) => {
+export const treeSitterHighlightPlugin = (query: Query, ygg: CSTType) => {
     return ViewPlugin.fromClass(
         class implements PluginValue {
             decorations: DecorationSet;
@@ -150,18 +170,21 @@ export const yggdrasilLogger = (ygg: YggdrasilType) =>
         class {
             update(update: ViewUpdate) {
                 if (update.docChanged) {
-                    const tree = update.state.field(ygg);
+                    const ast = update.state.field(ygg);
                     // console.log({ tree: tree?.rootNode });
+                    console.log({ ast });
                 }
             }
         },
     );
 
 export const latexSupport = (parser: Parser, query: Query) => {
-    const Yggdrasil = YggdrasilBuilder(parser);
+    const CST = CSTBuilder(parser);
+    const Yggdrasil = YggdrasilBuilder(CST);
     const extensions = [
+        CST,
         Yggdrasil,
-        treeSitterHighlightPlugin(query, Yggdrasil),
+        treeSitterHighlightPlugin(query, CST),
         EditorState.languageData.of(() => [
             {
                 commentTokens: { line: "%" },
@@ -171,5 +194,5 @@ export const latexSupport = (parser: Parser, query: Query) => {
     if (import.meta.env.DEV) {
         extensions.push(yggdrasilLogger(Yggdrasil));
     }
-    return { extensions, Yggdrasil };
+    return { extensions, CST, Yggdrasil };
 };
