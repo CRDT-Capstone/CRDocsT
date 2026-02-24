@@ -17,7 +17,7 @@ export type UIState = {
     setActiveDocumentId: (v: string | undefined) => void;
     setActiveProjectId: (v: string | undefined) => void;
 
-    setActiveTabs: (tabs: TabMap) => void;
+    setActiveTabs: (tabs: TabMap | undefined) => void;
     addTab: (tab: Tab) => void;
     removeTab: (tabId: string, e?: React.MouseEvent) => void;
     setSelectedTab: (tabId?: string) => void;
@@ -55,6 +55,10 @@ const uiStore = create<State>()(
 
             setActiveTabs: (tabs) =>
                 set((state) => {
+                    if (!tabs) {
+                        state.activeTabs.clear();
+                        return;
+                    }
                     state.activeTabs = tabs;
                 }),
 

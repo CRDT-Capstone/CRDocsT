@@ -28,6 +28,7 @@ export interface Tab {
     id: string;
     docId: string;
     title: string;
+    projectId?: string;
 }
 
 export type TabMap = Map<string, Tab>;

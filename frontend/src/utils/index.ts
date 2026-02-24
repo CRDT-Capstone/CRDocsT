@@ -1,4 +1,5 @@
 import { BragiAST, NodeId } from "@cr_docs_t/dts/treesitter";
+import { Parser } from "web-tree-sitter";
 
 export function randomString(length: number = 10): string {
     let res = new Array<string>(length);
@@ -38,4 +39,8 @@ export function buildNestedAst(ast: BragiAST, nodeId: NodeId = ast.rootId): any 
     }
 
     return result;
+}
+
+export function makeAnonUserIdentity(): string {
+    return `anon-${crypto.randomUUID()}`;
 }

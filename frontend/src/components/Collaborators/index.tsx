@@ -4,7 +4,7 @@ import { LuTrash2 } from "react-icons/lu";
 import { useDocument, useProject } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { toast } from "sonner";
-import useModal from "../../hooks/modal";
+import useModal, { Modal } from "../../hooks/modal";
 
 interface BaseCollaboratorsProps {
     collaborators: Contributor[];
@@ -13,7 +13,7 @@ interface BaseCollaboratorsProps {
 }
 
 const BaseCollaborators = ({ collaborators, removeCollaborator, updateCollaboratorType }: BaseCollaboratorsProps) => {
-    const { Modal, showModal, closeModal } = useModal();
+    const { modalRef, showModal, closeModal } = useModal();
 
     return (
         <>
@@ -40,7 +40,7 @@ const BaseCollaborators = ({ collaborators, removeCollaborator, updateCollaborat
                 )}
             </div>
 
-            <Modal title="Manage Collaborators">
+            <Modal ref={modalRef} title="Manage Collaborators">
                 <div className="flex flex-col gap-4">
                     {collaborators.map((collaborator) => (
                         <div

@@ -14,7 +14,7 @@ import {
 } from "react-icons/lu";
 
 import { useDocuments, useProjects, useProject } from "../../hooks/queries";
-import useModal from "../../hooks/modal";
+import useModal, {Modal} from "../../hooks/modal";
 import BaseFileTree, { FileTreeItemType } from "../BaseFileTree";
 import { useClerk, useSession } from "@clerk/clerk-react";
 
@@ -27,7 +27,7 @@ interface UserFileTreeProps {
 const UserFileTree = ({ handleItemClick, handleItemCreate, handleItemDelete }: UserFileTreeProps) => {
     const nav = useNavigate();
     const { user } = useClerk();
-    const { Modal, showModal, closeModal } = useModal();
+    const { modalRef, showModal, closeModal } = useModal();
 
     // Fetch global user queries and mutations
     const { queries: docQ, mutations: docM } = useDocuments();
@@ -53,6 +53,7 @@ const UserFileTree = ({ handleItemClick, handleItemCreate, handleItemDelete }: U
             modalTitle="Add New Workspace Item"
             closeModal={closeModal}
             ModalComponent={Modal}
+            modalRef={modalRef}
             onSubmitItem={handleItemCreate}
             sections={[
                 {

@@ -35,9 +35,10 @@ export const useDocuments = () => {
     const handleError = useApiErrorHandler();
 
     const api = createDocumentApi(getToken);
-    queryClient.setMutationDefaults([documentKeys.lists()], {
+    const mutationOptions = {
         onError: handleError,
-    });
+        mutationKey: documentKeys.lists(),
+    };
 
     const userDocumentsQuery = useInfiniteQuery({
         queryKey: documentKeys.lists(),
@@ -60,6 +61,7 @@ export const useDocuments = () => {
     });
 
     const createDocumentMutation = useMutation({
+        ...mutationOptions,
         mutationFn: api.createDocument,
         onSuccess: () => {
             // Invalidate the list so the new document appears immediately
@@ -68,6 +70,7 @@ export const useDocuments = () => {
     });
 
     const deleteDocumentMutation = useMutation({
+        ...mutationOptions,
         mutationFn: (documentId: string) => api.deleteDocument(documentId),
         onSuccess: () => {
             // Invalidate the list so the deleted document disappears immediately
@@ -92,17 +95,21 @@ export const useDocument = (documentId: string) => {
     const { getToken } = useAuth();
     const handleError = useApiErrorHandler();
     const api = createDocumentApi(getToken);
-    queryClient.setMutationDefaults([documentKeys.lists()], {
+    const mutationOptions = {
         onError: handleError,
-    });
+        mutationKey: documentKeys.detail(documentId),
+    };
 
     const documentQuery = useQuery({
         queryKey: documentKeys.detail(documentId),
         queryFn: () => api.getDocumentById(documentId),
         enabled: !!documentId,
+        staleTime: 5 * 1000, // 5 seconds
+        refetchInterval: 10 * 1000, // 10 seconds
     });
 
     const updateDocumentNameMutation = useMutation({
+        ...mutationOptions,
         mutationFn: (newName: string) => api.updateDocumentName(newName, documentId),
         onSuccess: () => {
             // Invalidate specific document AND the list (since list shows names)
@@ -112,6 +119,7 @@ export const useDocument = (documentId: string) => {
     });
 
     const shareDocumentMutation = useMutation({
+        ...mutationOptions,
         mutationFn: ({ email, contributorType }: { email: string; contributorType: ContributorType }) =>
             api.shareDocument(documentId, email, contributorType),
         onSuccess: () => {
@@ -120,6 +128,7 @@ export const useDocument = (documentId: string) => {
     });
 
     const removeCollaboratorMutation = useMutation({
+        ...mutationOptions,
         mutationFn: (email: string) => api.removeCollaborator(documentId, email),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
@@ -127,6 +136,7 @@ export const useDocument = (documentId: string) => {
     });
 
     const updateCollaboratorTypeMutation = useMutation({
+        ...mutationOptions,
         mutationFn: ({ email, contributorType }: { email: string; contributorType: ContributorType }) =>
             api.updateCollaboratorType(documentId, email, contributorType),
         onSuccess: () => {
@@ -160,9 +170,10 @@ export const useProjects = () => {
     const handleError = useApiErrorHandler();
 
     const api = createProjectApi(getToken);
-    queryClient.setMutationDefaults([documentKeys.lists()], {
+    const mutationOptions = {
         onError: handleError,
-    });
+        mutationKey: projectKeys.lists(),
+    };
 
     const userProjectsQuery = useInfiniteQuery({
         queryKey: projectKeys.lists(),
@@ -185,6 +196,7 @@ export const useProjects = () => {
     });
 
     const createProjectMutation = useMutation({
+        ...mutationOptions,
         mutationFn: api.createProject,
         onSuccess: () => {
             // Invalidate the list so the new project appears immediately
@@ -193,6 +205,7 @@ export const useProjects = () => {
     });
 
     const deleteProjectMutation = useMutation({
+        ...mutationOptions,
         mutationFn: (projectId: string) => api.deleteProject(projectId),
         onSuccess: () => {
             // Invalidate the list so the deleted project disappears immediately
@@ -217,17 +230,21 @@ export const useProject = (projectId: string) => {
     const { getToken } = useAuth();
     const handleError = useApiErrorHandler();
     const api = createProjectApi(getToken);
-    queryClient.setMutationDefaults([projectKeys.lists()], {
+    const mutationOptions = {
         onError: handleError,
-    });
+        mutationKey: projectKeys.detail(projectId),
+    };
 
     const projectQuery = useQuery({
         queryKey: projectKeys.detail(projectId),
         queryFn: () => api.getProjectById(projectId),
         enabled: !!projectId,
+        staleTime: 5 * 1000, // 5 seconds
+        refetchInterval: 10 * 1000, // 10 seconds
     });
 
     const updateProjectNameMutation = useMutation({
+        ...mutationOptions,
         mutationFn: (newName: string) => api.updateProjectName(newName, projectId),
         onSuccess: () => {
             // Invalidate specific project AND the list (since list shows names)
@@ -237,6 +254,7 @@ export const useProject = (projectId: string) => {
     });
 
     const shareProjectMutation = useMutation({
+        ...mutationOptions,
         mutationFn: ({ email, contributorType }: { email: string; contributorType: ContributorType }) =>
             api.shareProject(projectId, email, contributorType),
         onSuccess: () => {
@@ -245,6 +263,7 @@ export const useProject = (projectId: string) => {
     });
 
     const removeCollaboratorMutation = useMutation({
+        ...mutationOptions,
         mutationFn: (email: string) => api.removeCollaborator(projectId, email),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
@@ -252,6 +271,7 @@ export const useProject = (projectId: string) => {
     });
 
     const updateCollaboratorTypeMutation = useMutation({
+        ...mutationOptions,
         mutationFn: ({ email, contributorType }: { email: string; contributorType: ContributorType }) =>
             api.updateCollaboratorType(projectId, email, contributorType),
         onSuccess: () => {
@@ -260,6 +280,7 @@ export const useProject = (projectId: string) => {
     });
 
     const createProjectDocumentMutation = useMutation({
+        ...mutationOptions,
         mutationFn: (documentName: string | undefined) => api.createProjectDocument(projectId, documentName),
         onSuccess: () => {
             // Invalidate project details and all project lists
@@ -269,6 +290,7 @@ export const useProject = (projectId: string) => {
     });
 
     const removeProjectDocumentMutation = useMutation({
+        ...mutationOptions,
         mutationFn: (documentId: string) => api.removeProjectDocument(projectId, documentId),
         onSuccess: () => {
             // Invalidate project details and all project lists

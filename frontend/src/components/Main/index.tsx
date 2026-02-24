@@ -84,11 +84,12 @@ const Main = () => {
                         toastOptions={{
                             unstyled: true,
                             classNames: {
-                                toast: "alert shadow-lg border-2",
+                                toast: "alert alert-soft shadow-lg border-2",
                                 success: "alert-success",
                                 error: "alert-error",
                                 info: "alert-info",
                                 warning: "alert-warning",
+                                loader: "loading loading-spinner",
                             },
                         }}
                     />

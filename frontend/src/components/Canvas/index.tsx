@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, memo } from "react";
+import { useState, useEffect, useMemo, memo, useCallback } from "react";
 import CodeMirror, {
     Compartment,
     EditorState,
@@ -57,6 +57,7 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
         viewRef,
         userIdentity,
         disconnect,
+        delay,
     } = useCollab(documentID!, editorView);
 
     if (isAuthError) {
@@ -115,9 +116,13 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
         }
     }, [documentQuery.data]);
 
-    const theme = tokyoNightInit({
-        settings: {},
-    });
+    const theme = useMemo(
+        () =>
+            tokyoNightInit({
+                settings: {},
+            }),
+        [tokyoNightInit, tokyoNight],
+    );
 
     const tabSize = new Compartment();
 
@@ -148,6 +153,29 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
         return { exts: base, Yggdrasil: null, CST: null };
     }, [parser, query]);
 
+    const handleOnCreateEditor = useCallback(
+        (view: EditorView) => {
+            viewRef.current = view;
+            setEditorView(view);
+
+            // Sync initial content if fugue already has data
+            const currentContent = fugue.observe();
+            if (currentContent.length > 0) {
+                view.dispatch({
+                    changes: { from: 0, to: view.state.doc.length, insert: currentContent },
+                    annotations: [RemoteUpdate.of(true)],
+                });
+                previousTextRef.current = currentContent;
+            }
+        },
+        [fugue, RemoteUpdate],
+    );
+
+    const handleOnChange = useCallback(
+        () => HandleChange.bind(null, fugue, previousTextRef, RemoteUpdate),
+        [fugue, RemoteUpdate],
+    );
+
     if (documentQuery.isLoading) {
         return <Loading fullPage={singleSession} />;
     }
@@ -169,24 +197,11 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
                     width="100%"
                     theme={theme}
                     // editable={wsClient ? !wsClient.isOffline() : false}
-                    onCreateEditor={(view) => {
-                        viewRef.current = view;
-                        setEditorView(view);
-
-                        // Sync initial content if fugue already has data
-                        const currentContent = fugue.observe();
-                        if (currentContent.length > 0) {
-                            view.dispatch({
-                                changes: { from: 0, to: view.state.doc.length, insert: currentContent },
-                                annotations: [RemoteUpdate.of(true)],
-                            });
-                            previousTextRef.current = currentContent;
-                        }
-                    }}
-                    onChange={HandleChange.bind(null, fugue, previousTextRef, RemoteUpdate)}
+                    onCreateEditor={(view) => handleOnCreateEditor(view)}
+                    onChange={handleOnChange()}
                 />
             </div>
-            <StatusBar connectionState={connectionState} userIdentity={userIdentity} />
+            <StatusBar delay={delay} connectionState={connectionState} userIdentity={userIdentity} />
         </div>
     );
 };
@@ -194,9 +209,10 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
 interface StatusBarProps {
     userIdentity: string;
     connectionState: ConnectionState;
+    delay?: number;
 }
 
-const StatusBar = memo(({ userIdentity, connectionState }: StatusBarProps) => {
+const StatusBar = memo(({ userIdentity, connectionState, delay }: StatusBarProps) => {
     return (
         <footer className="flex flex-row p-5 w-full bg-base">
             {/* Left  */}
@@ -205,7 +221,7 @@ const StatusBar = memo(({ userIdentity, connectionState }: StatusBarProps) => {
             </div>
             {/* Middle */}
             <div className="flex flex-1 justify-center self-center">
-                <ConnectionIndicator connectionState={connectionState} />
+                <ConnectionIndicator delay={delay} connectionState={connectionState} />
             </div>
             {/* Right */}
             <div className="flex flex-1 self-end"></div>

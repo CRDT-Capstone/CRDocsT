@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useDocuments } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { randomString } from "@cr_docs_t/dts";
+import { makeAnonUserIdentity } from "../../utils";
 
 export const SignInPage = () => {
     const nav = useNavigate();
@@ -16,7 +17,7 @@ export const SignInPage = () => {
             <h1> OR....</h1>
             <button
                 onClick={async () => {
-                    if (!anonUserIdentity) setAnonUserIdentity(randomString(10));
+                    if (!anonUserIdentity) setAnonUserIdentity(makeAnonUserIdentity());
                     const res = await createDocumentMutation.mutateAsync(undefined);
                     nav(`/docs/${res.data._id}`);
                 }}

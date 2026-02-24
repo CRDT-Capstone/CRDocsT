@@ -23,6 +23,8 @@ const ProjectCanvas = () => {
     const setProject = mainStore((state) => state.setProject);
     const selectedTabId = uiStore((state) => state.selectedTabId);
     const activeTabs = uiStore((state) => state.activeTabs);
+    const setActiveTabs = uiStore((state) => state.setActiveTabs);
+    const setSelectedTabId = uiStore((state) => state.setSelectedTab);
     const setActiveProjectId = uiStore((state) => state.setActiveProjectId);
     const addTab = uiStore((state) => state.addTab);
     const removeTab = uiStore((state) => state.removeTab);
@@ -38,6 +40,9 @@ const ProjectCanvas = () => {
         }
         return () => {
             setActiveProjectId(undefined);
+            // // Filter out any tabs that belong to this project
+            // setActiveTabs(new Map(Array.from(activeTabs.entries()).filter(([id, tab]) => tab.projectId !== projectId)));
+            // setSelectedTabId(activeTabs.size > 0 ? Array.from(activeTabs.keys())[0] : undefined);
         };
     }, []);
 

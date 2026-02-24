@@ -16,6 +16,7 @@ const UserCanvas = () => {
     const addTab = uiStore((state) => state.addTab);
     const removeTab = uiStore((state) => state.removeTab);
     const setActiveTab = uiStore((state) => state.setSelectedTab);
+    const setActiveDocumentId = uiStore((state) => state.setActiveDocumentId);
 
     const { mutations: docM } = useDocuments();
     const { mutations: projM } = useProjects();
@@ -31,6 +32,12 @@ const UserCanvas = () => {
         };
     }, [setNavBarType]);
 
+    useEffect(() => {
+        return () => {
+            setActiveDocumentId(undefined);
+        };
+    }, []);
+
     const handleItemClick = useCallback(
         (item: Document | Project, type: FileTreeItemType) => {
             if (type === FileTreeItemType.PROJECT) {
@@ -42,6 +49,7 @@ const UserCanvas = () => {
                     title: item.name,
                 });
                 setActiveTab(item._id!);
+                setActiveDocumentId(item._id!);
             }
         },
         [nav, addTab, setActiveTab],
