@@ -177,10 +177,6 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
         [fugue, RemoteUpdate],
     );
 
-    if (documentQuery.isLoading) {
-        return <Loading fullPage={singleSession} />;
-    }
-
     const handleConnectionIndicatorClick = useCallback(() => {
         if (connectionState === ConnectionState.CONNECTED) {
             toast.info("Disconnecting from collaborative session...");
@@ -190,6 +186,10 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
             connect();
         }
     }, [connectionState]);
+
+    if (documentQuery.isLoading) {
+        return <Loading fullPage={singleSession} />;
+    }
 
     return (
         <div className="flex overflow-hidden relative flex-col flex-1 items-center w-full h-full">
