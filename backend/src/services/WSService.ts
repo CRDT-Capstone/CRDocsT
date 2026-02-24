@@ -127,7 +127,6 @@ export class WSService {
                     operation: Operation.INITIAL_SYNC,
                     documentID: this.currentDocId,
                     state: doc.crdt.save(),
-                    bufferedOperations: undefined,
                 };
 
                 this.send(joinMsg); // send the join message to the joining user
