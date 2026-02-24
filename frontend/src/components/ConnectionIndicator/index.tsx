@@ -2,9 +2,10 @@ import { ConnectionState } from "../../types";
 
 interface ConnectionIndicatorProps {
     connectionState: ConnectionState;
+    delay?: number;
 }
 
-const ConnectionIndicator = ({ connectionState }: ConnectionIndicatorProps) => {
+const ConnectionIndicator = ({ connectionState, delay }: ConnectionIndicatorProps) => {
     let connectionBadge = "badge-success";
     switch (connectionState) {
         case ConnectionState.CONNECTED:
@@ -19,8 +20,11 @@ const ConnectionIndicator = ({ connectionState }: ConnectionIndicatorProps) => {
     }
 
     return (
-        <div className="flex-none">
+        <div className="flex flex-col items-center">
             <div className={`badge badge-outline  ${connectionBadge}`}>{connectionState.toString().toUpperCase()}</div>
+            {delay !== undefined && (
+                <div className="text-xs text-base-content/70">Next retry in: {Math.ceil(delay / 1000)}s</div>
+            )}
         </div>
     );
 };

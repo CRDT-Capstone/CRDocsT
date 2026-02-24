@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { ReactNode, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Document, Project } from "@cr_docs_t/dts";
 import { LuFileText, LuFolder, LuPlus, LuTrash2, LuChevronDown, LuChevronRight } from "react-icons/lu";
@@ -63,7 +63,11 @@ interface BaseFileTreeProps {
     sections: SectionData[];
     modalTitle: string;
     closeModal: () => void;
-    ModalComponent: React.FC<{ title: string; children: React.ReactNode }>;
+    // ModalComponent: React.FC<{ title: string; children: React.ReactNode }>;
+    modalRef?: React.RefObject<HTMLDialogElement | null>;
+    ModalComponent: React.ForwardRefExoticComponent<
+        { title: string; children: ReactNode } & React.RefAttributes<HTMLDialogElement>
+    >;
     onSubmitItem: (name: string, type: FileTreeItemType) => Promise<void>;
     hideProjectOption?: boolean; // For ProjectFileTree where we only add documents
 }
@@ -74,6 +78,7 @@ const BaseFileTree = ({
     closeModal,
     ModalComponent,
     onSubmitItem,
+    modalRef,
     hideProjectOption = false,
 }: BaseFileTreeProps) => {
     const form = useForm({
@@ -99,7 +104,7 @@ const BaseFileTree = ({
                 </div>
             </div>
 
-            <ModalComponent title={modalTitle}>
+            <ModalComponent ref={modalRef} title={modalTitle}>
                 <div className="flex flex-col gap-4 items-center w-full">
                     <form
                         className="p-2 w-full"

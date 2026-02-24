@@ -7,6 +7,7 @@ import mainStore from "../stores";
 import { WSClient } from "../utils/WSClient";
 import { toast } from "sonner";
 import { ConnectionState } from "../types";
+import { makeAnonUserIdentity } from "../utils";
 
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
@@ -30,6 +31,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
     const isEffecting = mainStore((state) => state.isEffecting);
     const unEffectedMsgs = mainStore((state) => state.unEffectedMsgs);
     const setUnEffectedMsgs = mainStore((state) => state.setUnEffectedMsgs);
+    const [delay, setDelay] = useState<number | undefined>(undefined);
 
     const retriesRef = useRef(0);
 
@@ -46,7 +48,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
             if (anonUserIdentity) setAnonUserIdentity(undefined);
         } else if (!anonUserIdentity) {
             // If guest and no ID exists, create one
-            const newId = `anon-${crypto.randomUUID()}`;
+            const newId = makeAnonUserIdentity();
             setAnonUserIdentity(newId);
         }
     }, [isLoaded, isSignedIn, anonUserIdentity]);
@@ -70,6 +72,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
             const wasReconncting = retriesRef.current > 0;
             fugue.ws = sock;
             fugue.userIdentity = userIdentity;
+            setDelay(undefined);
 
             console.log("Creating new WSClient");
             const newWsClient = new WSClient(
@@ -91,15 +94,16 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
             setIsConnected(ConnectionState.DISCONNECTED);
             socketRef.current = null;
             setWsClient(undefined);
-            const delay = Math.min(1000 * 2 ** retriesRef.current, 30000);
+            const nextDelay = 1000 * Math.min(2 ** retriesRef.current, 30); // Exponential backoff with cap at 30s
+            setDelay(nextDelay);
             console.log(
-                `Socket closed. Attempting to reconnect #${retriesRef.current} in ${Math.round(delay / 1000)}s ...`,
+                `Socket closed. Attempting to reconnect #${retriesRef.current} in ${Math.round(nextDelay / 1000)}s ...`,
             );
             const reconnectTimeout = setTimeout(() => {
                 setIsConnected(ConnectionState.RECONNECTING);
                 retriesRef.current += 1;
                 connect();
-            }, delay);
+            }, nextDelay);
             reconnectTimeoutRef.current = reconnectTimeout;
         };
 
@@ -110,16 +114,25 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
     };
 
     const disconnect = () => {
-        if (socketRef.current) {
-            setIsConnected(ConnectionState.DISCONNECTED);
-            // Disconnect
-            socketRef.current.close();
-            if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
-            // End reconnect attempts
-            socketRef.current.onclose = null;
-            socketRef.current = null;
-            setWsClient(undefined);
+        if (reconnectTimeoutRef.current) {
+            clearTimeout(reconnectTimeoutRef.current);
+            reconnectTimeoutRef.current = null;
         }
+
+        retriesRef.current = 0;
+        setDelay(undefined);
+
+        if (socketRef.current) {
+            socketRef.current.onclose = null;
+            socketRef.current.onerror = null;
+            socketRef.current.onmessage = null;
+
+            socketRef.current.close();
+            socketRef.current = null;
+        }
+
+        setWsClient(undefined);
+        setIsConnected(ConnectionState.DISCONNECTED);
     };
 
     // WebSocket setup
@@ -135,8 +148,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
 
         connect();
         return () => {
-            socketRef.current?.close();
-            if (reconnectTimeoutRef.current) clearTimeout(reconnectTimeoutRef.current);
+            disconnect();
         };
     }, [documentID, isLoaded, userIdentity, !!editorView]);
 
@@ -164,5 +176,6 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
         isAnon,
         disconnect,
         connectionState,
+        delay,
     };
 };

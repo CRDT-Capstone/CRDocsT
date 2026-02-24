@@ -14,9 +14,10 @@ import {
 } from "react-icons/lu";
 
 import { useDocuments, useProjects, useProject } from "../../hooks/queries";
-import useModal from "../../hooks/modal";
+import useModal, { Modal } from "../../hooks/modal";
 import BaseFileTree, { FileTreeItemType } from "../BaseFileTree";
 import mainStore from "../../stores";
+import uiStore from "../../stores/uiStore";
 
 interface ProjectFileTreeProps {
     projectId: string;
@@ -36,7 +37,7 @@ export const ProjectFileTree = ({
 }: ProjectFileTreeProps) => {
     const nav = useNavigate();
     const setProject = mainStore((state) => state.setProject);
-    const { Modal, showModal, closeModal } = useModal();
+    const { modalRef, showModal, closeModal } = useModal();
 
     const { queries } = projectQueriesAndMutations;
     const { projectQuery } = queries;
@@ -55,6 +56,7 @@ export const ProjectFileTree = ({
         <BaseFileTree
             modalTitle="Add Document to Project"
             closeModal={closeModal}
+            modalRef={modalRef}
             ModalComponent={Modal}
             onSubmitItem={handleItemCreate}
             hideProjectOption={true} // Only allow adding documents inside a project

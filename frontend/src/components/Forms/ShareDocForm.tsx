@@ -3,13 +3,14 @@ import { Dispatch, ReactNode, SetStateAction, useState } from "react";
 import { useDocument, useDocuments, useProject } from "../../hooks/queries";
 import { toast } from "sonner";
 import { useForm, type FormApi } from "@tanstack/react-form";
-import useModal from "../../hooks/modal";
+import useModal, { Modal } from "../../hooks/modal";
 
 interface BaseFormProps {
     triggerText: ReactNode;
     triggerClassName?: string;
     title?: string;
-    submitText?: string;
+    showModal: () => void;
+    modalRef?: React.RefObject<HTMLDialogElement | null>;
     children: ReactNode;
 }
 
@@ -17,18 +18,17 @@ export const BaseForm = ({
     triggerText,
     triggerClassName = "m-4 btn btn-l btn-primary",
     title,
-    submitText = "Submit",
+    modalRef,
+    showModal,
     children,
 }: BaseFormProps) => {
-    const { Modal, showModal } = useModal();
-
     return (
         <>
             <button type="button" className={triggerClassName} onClick={showModal}>
                 {triggerText}
             </button>
 
-            <Modal title={title} className="flex flex-col justify-center items-center p-4 modal-box">
+            <Modal ref={modalRef} title={title} className="flex flex-col justify-center items-center p-4 modal-box">
                 {children}
             </Modal>
         </>
@@ -47,6 +47,7 @@ interface ShareValues {
 export const ShareDocForm = ({ documentId }: ShareDocFormProps) => {
     const { mutations } = useDocument(documentId);
     const { shareDocumentMutation } = mutations;
+    const { modalRef, closeModal, showModal } = useModal();
 
     const shareDoc = async (values: ShareValues): Promise<boolean> => {
         if (!values.email || !values.contributionType) {
@@ -68,7 +69,7 @@ export const ShareDocForm = ({ documentId }: ShareDocFormProps) => {
             const res = await p;
             toast.success(res.message || "Document shared successfully");
 
-            return true; // Tells BaseForm to close the modal
+            return true;
         } catch (error) {
             return false;
         }
@@ -83,12 +84,13 @@ export const ShareDocForm = ({ documentId }: ShareDocFormProps) => {
             const success = await shareDoc(value);
             if (success) {
                 form.reset();
+                closeModal();
             }
         },
     });
 
     return (
-        <BaseForm triggerText="Share" title="Share your document" submitText="Share">
+        <BaseForm showModal={showModal} modalRef={modalRef} triggerText="Share" title="Share your document">
             <form
                 className="p-2 w-full"
                 onSubmit={(e) => {
@@ -145,6 +147,7 @@ export const ShareDocForm = ({ documentId }: ShareDocFormProps) => {
                                 type="button"
                                 onClick={() => {
                                     form.reset();
+                                    closeModal();
                                 }}
                             >
                                 Cancel
@@ -164,6 +167,7 @@ interface ShareProjFormProps {
 export const ShareProjForm = ({ projectId }: ShareProjFormProps) => {
     const { mutations } = useProject(projectId);
     const { shareProjectMutation } = mutations;
+    const { modalRef, closeModal, showModal } = useModal();
 
     const shareProj = async (values: ShareValues): Promise<boolean> => {
         if (!values.email || !values.contributionType) {
@@ -200,12 +204,13 @@ export const ShareProjForm = ({ projectId }: ShareProjFormProps) => {
             const success = await shareProj(value);
             if (success) {
                 form.reset();
+                closeModal();
             }
         },
     });
 
     return (
-        <BaseForm triggerText="Share" title="Share your document" submitText="Share">
+        <BaseForm showModal={showModal} modalRef={modalRef} triggerText="Share" title="Share your document">
             <form
                 className="p-2 w-full"
                 onSubmit={(e) => {
@@ -262,6 +267,7 @@ export const ShareProjForm = ({ projectId }: ShareProjFormProps) => {
                                 type="button"
                                 onClick={() => {
                                     form.reset();
+                                    closeModal();
                                 }}
                             >
                                 Cancel

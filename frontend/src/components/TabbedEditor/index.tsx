@@ -19,6 +19,16 @@ const TabbedEditor = ({}: TabbedEditorProps) => {
         [setSelectedTab],
     );
 
+    const handleRemoveTab = useCallback(
+        (tabId: string, e: React.MouseEvent) => {
+            e.stopPropagation();
+            removeTab(tabId);
+        },
+        [removeTab],
+    );
+
+    const MemoizedTrash = memo(LuTrash2);
+
     return (
         <main className="flex overflow-hidden flex-col flex-1 bg-base-300/30">
             <div className="flex flex-col flex-1 h-full">
@@ -70,9 +80,9 @@ const TabbedEditor = ({}: TabbedEditorProps) => {
                                                 hover:bg-base-200 hover:text-error focus:outline-none focus:ring-2 focus:ring-error/50
                                                 ${isActive ? "opacity-100" : "opacity-0 group-hover:opacity-100"}
                                             `}
-                                            onClick={(e) => removeTab(tab.id, e)}
+                                            onClick={(e) => handleRemoveTab(tab.id, e)}
                                         >
-                                            <LuTrash2 size={16} />
+                                            <MemoizedTrash size={16} />
                                         </button>
                                     </div>
                                 );
