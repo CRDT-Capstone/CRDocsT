@@ -30,8 +30,8 @@ importers:
         specifier: ^6.39.13
         version: 6.39.14
       '@cr_docs_t/dts':
-        specifier: ^0.27.0
-        version: 0.27.0
+        specifier: ^0.28.1
+        version: 0.28.1
       '@esbuild-plugins/node-globals-polyfill':
         specifier: ^0.2.3
         version: 0.2.3(esbuild@0.25.12)
@@ -289,8 +289,8 @@ packages:
   '@codemirror/view@6.39.14':
     resolution: {integrity: sha512-WJcvgHm/6Q7dvGT0YFv/6PSkoc36QlR0VCESS6x9tGsnF1lWLmmYxOgX3HH6v8fo6AvSLgpcs+H0Olre6MKXlg==}
 
-  '@cr_docs_t/dts@0.27.0':
-    resolution: {integrity: sha512-w1OzzmJtz3fF0vyrnQn4/RynQ+WZNC3UnL7SUhEHbaHY/45mwropiFfc1tuCWk+9rfr9SRjpefGR8TZEgAcg/A==}
+  '@cr_docs_t/dts@0.28.1':
+    resolution: {integrity: sha512-7bvafVxiWqmadk2kZE+N4wojhRgg7uM7R49b/0CoW7uJUYbLpWofI2TZomsIT3h0r1jcpMZCZsbvAAqPsHbuVQ==}
 
   '@esbuild-plugins/node-globals-polyfill@0.2.3':
     resolution: {integrity: sha512-r3MIryXDeXDOZh7ih1l/yE9ZLORCd5e8vWg02azWRGj5SPTuoh69A2AIyn0Z31V/kHBfZ4HgWJ+OK3GTTwLmnw==}
@@ -2463,7 +2463,7 @@ snapshots:
       style-mod: 4.1.3
       w3c-keyname: 2.2.8
 
-  '@cr_docs_t/dts@0.27.0':
+  '@cr_docs_t/dts@0.28.1':
     dependencies:
       '@msgpack/msgpack': 3.1.3
       lz4js: 0.2.0
