@@ -15,7 +15,6 @@ export type DocumentState = {
     isEffecting: boolean;
     unEffectedMsgs: FugueMessage[];
 
-    lastOnlineCount: number;
 
     setDocument: (v: Document) => void;
     setYgg: (v: Tree) => void;
@@ -26,7 +25,6 @@ export type DocumentState = {
     toggleIsEffecting: () => void;
     setUnEffectedMsgs: (v: FugueMessage[]) => void;
     
-    setLastOnlineCount: (count: number) => void;
 };
 
 export type DevState = {
@@ -107,11 +105,6 @@ const mainStore = create<State>()(
                         state.devBarPos = v;
                     }),
 
-                setLastOnlineCount(count) {
-                    set((state)=>{
-                        state.lastOnlineCount = count;
-                    })
-                },
             }),
 
 
