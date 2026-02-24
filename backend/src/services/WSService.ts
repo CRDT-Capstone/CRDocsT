@@ -66,7 +66,6 @@ export class WSService {
             DOC_ID: firstMsg.documentID,
             REP_ID: firstMsg.replicaId,
             USER_ID: firstMsg.userIdentity,
-            msg: firstMsg,
         });
         this.currentDocId = firstMsg.documentID;
         this.userIdentity = firstMsg.userIdentity;
@@ -113,7 +112,6 @@ export class WSService {
                 if (sock.readyState === WebSocket.OPEN) sock.send(serialisedMsg);
             });
         };
-
 
         if (firstMsg.operation === Operation.USER_JOIN) {
             await sendUserJoin(this.userIdentity!, this.currentDocId!);
