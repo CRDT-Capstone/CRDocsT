@@ -8,8 +8,8 @@
         "build": "NODE_ENV='production'; tsc -b && vite build",
         "lint": "eslint .",
         "preview": "vite preview",
-        "deploy": "NODE_ENV='production'; npm run build && cd ./dist && surge",
-        "deploy:staging": "NODE_ENV='staging'; npm run build && cd ./dist && surge",
+        "deploy": "NODE_ENV='production'; npm run build && cd ./dist && surge .  crdocst.surge.sh",
+        "deploy:staging": "NODE_ENV='staging'; tsc -b && vite build && cd ./dist && surge . crdocst.surge.sh",
         "postinstall": "cp node_modules/web-tree-sitter/web-tree-sitter.wasm public/tree-sitter.wasm"
     },
     "dependencies": {
