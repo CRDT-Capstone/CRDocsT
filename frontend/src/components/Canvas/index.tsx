@@ -183,7 +183,7 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
             disconnect();
         } else if (connectionState === ConnectionState.DISCONNECTED) {
             toast.info("Connecting to collaborative session...");
-            connect(true);
+            connect();
         }
     }, [connectionState]);
 
