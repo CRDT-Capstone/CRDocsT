@@ -62,7 +62,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
         else if (socketRef.current.readyState === WebSocket.OPEN) setIsConnected(ConnectionState.CONNECTED);
     }, [wsClient, fugue]);
 
-    const connect = (testing: boolean = false) => {
+    const connect = () => {
         const sock = new WebSocket(webSocketUrl);
         socketRef.current = sock;
 
@@ -83,7 +83,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
                 viewRef,
                 previousTextRef,
                 userIdentity,
-                (!testing) ? wasReconncting: true,
+                wasReconncting,
             );
             setWsClient(newWsClient);
             retriesRef.current = 0;
@@ -119,7 +119,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
             reconnectTimeoutRef.current = null;
         }
 
-        retriesRef.current = 0;
+        //retriesRef.current = 0;
         setDelay(undefined);
 
         if (socketRef.current) {
