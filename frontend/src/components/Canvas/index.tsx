@@ -56,6 +56,7 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
         connectionState,
         viewRef,
         userIdentity,
+        connect,
         disconnect,
         delay,
     } = useCollab(documentID!, editorView);
@@ -180,6 +181,16 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
         return <Loading fullPage={singleSession} />;
     }
 
+    const handleConnectionIndicatorClick = useCallback(() => {
+        if (connectionState === ConnectionState.CONNECTED) {
+            toast.info("Disconnecting from collaborative session...");
+            disconnect();
+        } else if (connectionState === ConnectionState.DISCONNECTED) {
+            toast.info("Connecting to collaborative session...");
+            connect();
+        }
+    }, [connectionState]);
+
     return (
         <div className="flex overflow-hidden relative flex-col flex-1 items-center w-full h-full">
             <div className="overflow-hidden relative w-full">
@@ -201,7 +212,12 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
                     onChange={handleOnChange()}
                 />
             </div>
-            <StatusBar delay={delay} connectionState={connectionState} userIdentity={userIdentity} />
+            <StatusBar
+                onConnectionIndicatorClick={handleConnectionIndicatorClick}
+                delay={delay}
+                connectionState={connectionState}
+                userIdentity={userIdentity}
+            />
         </div>
     );
 };
@@ -210,9 +226,10 @@ interface StatusBarProps {
     userIdentity: string;
     connectionState: ConnectionState;
     delay?: number;
+    onConnectionIndicatorClick?: () => void;
 }
 
-const StatusBar = memo(({ userIdentity, connectionState, delay }: StatusBarProps) => {
+const StatusBar = memo(({ userIdentity, connectionState, delay, onConnectionIndicatorClick }: StatusBarProps) => {
     return (
         <footer className="flex flex-row p-5 w-full bg-base">
             {/* Left  */}
@@ -221,7 +238,11 @@ const StatusBar = memo(({ userIdentity, connectionState, delay }: StatusBarProps
             </div>
             {/* Middle */}
             <div className="flex flex-1 justify-center self-center">
-                <ConnectionIndicator delay={delay} connectionState={connectionState} />
+                <ConnectionIndicator
+                    onClick={onConnectionIndicatorClick}
+                    delay={delay}
+                    connectionState={connectionState}
+                />
             </div>
             {/* Right */}
             <div className="flex flex-1 self-end"></div>
