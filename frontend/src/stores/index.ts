@@ -21,6 +21,8 @@ export type DocumentState = {
     isEffecting: boolean;
     unEffectedMsgs: FugueMessage[];
 
+    lastOnlineCount: number;
+
     setDocument: (v: Document | undefined) => void;
     setYgg: (v: Tree) => void;
     setIsParsing: (v: boolean) => void;
@@ -29,6 +31,8 @@ export type DocumentState = {
     setConnectionState: (v: ConnectionState) => void;
     toggleIsEffecting: () => void;
     setUnEffectedMsgs: (v: FugueMessage[]) => void;
+    
+    setLastOnlineCount: (count: number) => void;
 };
 
 export type DevState = {
@@ -65,6 +69,14 @@ const mainStore = create<State>()(
                 connectionState: ConnectionState.DISCONNECTED,
                 isEffecting: true,
                 unEffectedMsgs: [],
+
+                lastOnlineCount: -1,
+
+                setLastOnlineCount(count) {
+                    set((state)=>{
+                        state.lastOnlineCount = count;
+                    })
+                },
 
                 setAnonUserIdentity: (v) =>
                     set((state) => {
@@ -114,7 +126,10 @@ const mainStore = create<State>()(
                     set((state) => {
                         state.devBarPos = v;
                     }),
+
             }),
+
+
             //     {
             //         name: "mainStore",
             //         storage: createJSONStorage(() => localStorage),

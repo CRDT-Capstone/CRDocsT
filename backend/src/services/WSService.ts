@@ -15,6 +15,7 @@ import {
     FugueStateSerializer,
     BaseFugueMessage,
     operationToString,
+    diff,
 } from "@cr_docs_t/dts";
 import { DocumentServices } from "../services/DocumentServices";
 import DocumentManager from "../managers/document";
@@ -26,11 +27,16 @@ export class WSService {
     private currentDocId: string | undefined;
     // userIdentity is the users email when the user is non anonymous and a random identifier for anonymous users
     private userIdentity: string | undefined;
+    private operationBuffer: FugueMessage[];
+
+    MAX_BUFFER_SIZE = 100; //random value
+    BUFFER_TIME = 500;
 
     constructor(ws: WebSocket) {
         this.ws = ws;
         this.currentDocId = undefined;
         this.userIdentity = undefined;
+        this.operationBuffer = [];
 
         logger.info("New WebSocket connection");
         this.initializeListeners();
@@ -66,7 +72,6 @@ export class WSService {
             DOC_ID: firstMsg.documentID,
             REP_ID: firstMsg.replicaId,
             USER_ID: firstMsg.userIdentity,
-            msg: firstMsg,
         });
         this.currentDocId = firstMsg.documentID;
         this.userIdentity = firstMsg.userIdentity;
@@ -99,6 +104,70 @@ export class WSService {
         await DocumentManager.addUser(doc, this.ws, firstMsg.userIdentity);
 
         const sendUserJoin = async (userIdentity: string, currentDocId: string) => {
+            //logger.debug(`Current crdt text -> ${doc.crdt.observe()}`);
+            const msg = firstMsg as FugueUserJoinMessage;
+            if (msg.offlineState) {
+                const userOffineState = FugueStateSerializer.deserialize(msg.offlineState);
+
+                /*
+                Here, we reconcile the offline changes with the central crdt document, 
+                and send that to all other replicas
+                */
+                const updateNodesForOtherReplicas = diff(userOffineState, doc.crdt.getState());
+
+                // logger.debug('Update nodes for other replicas');
+                // logger.debug(updateNodesForOtherReplicas);
+
+                if (updateNodesForOtherReplicas.length > 0) {
+                    const updateMsgsForOtherReplicas: FugueMessage[] = updateNodesForOtherReplicas.map((node) => ({
+                        operation: !node.value ? Operation.DELETE : Operation.INSERT,
+                        documentID: msg.documentID,
+                        replicaId: msg.replicaId,
+                        userIdentity: msg.userIdentity,
+                        id: node.id,
+                        data: node.value,
+                        side: node.side,
+                        parent: node.parent ? node.parent.id : undefined,
+                    }));
+
+                    const applied = doc.crdt.effect(updateMsgsForOtherReplicas);
+                    // logger.debug(`Messages applied -> ${applied.length}`);
+                    // logger.debug(`Post effect text -> ${doc.crdt.observe()}`);
+
+                    const serialisedUpdateMsgForOtherReplicas =
+                        FugueMessageSerialzier.serialize(updateMsgsForOtherReplicas);
+                    doc.sockets.forEach((sock) => {
+                        if (sock.readyState === WebSocket.OPEN && sock !== this.ws)
+                            sock.send(serialisedUpdateMsgForOtherReplicas);
+                    });
+                }
+
+                /*
+                Here, we send the user the parts of the document that they might have missed when they were offline
+                */
+
+                const updateNodesForReconnectingUser = diff(doc.crdt.getState(), userOffineState);
+                // logger.debug('Update nodes for the reconnecting user');
+                // logger.debug(updateNodesForReconnectingUser);
+
+                if (updateNodesForReconnectingUser.length > 0) {
+                    const updateMsgsForRecconnectingUser: FugueMessage[] = updateNodesForReconnectingUser.map(
+                        (node) => ({
+                            operation: !node.value ? Operation.DELETE : Operation.INSERT,
+                            documentID: this.currentDocId!,
+                            replicaId: doc.crdt.replicaId(),
+                            userIdentity: this.userIdentity!,
+                            id: node.id,
+                            data: node.value,
+                            side: node.side,
+                            parent: node.parent ? node.parent.id : undefined,
+                        }),
+                    );
+
+                    this.send(updateMsgsForRecconnectingUser);
+                }
+            }
+
             const collaborators = await RedisService.getCollaboratorsByDocumentId(currentDocId);
             const userJoinedNotification: FugueUserJoinMessage = {
                 operation: Operation.USER_JOIN,
@@ -114,7 +183,6 @@ export class WSService {
             });
         };
 
-
         if (firstMsg.operation === Operation.USER_JOIN) {
             await sendUserJoin(this.userIdentity!, this.currentDocId!);
             return;
@@ -129,7 +197,6 @@ export class WSService {
                     operation: Operation.INITIAL_SYNC,
                     documentID: this.currentDocId,
                     state: doc.crdt.save(),
-                    bufferedOperations: undefined,
                 };
 
                 this.send(joinMsg); // send the join message to the joining user
@@ -171,7 +238,6 @@ export class WSService {
             await DocumentManager.removeUser(this.currentDocId, this.ws, this.userIdentity);
             this.currentDocId = undefined;
         }
-
         logger.info("Connection closed");
     }
 }

@@ -40,7 +40,7 @@ export const HandleChange = async (
             //     count: deleteLen,
             //     userIdentity,
             // });
-            const msgs = fugue.deleteMultiple(fromA, deleteLen);
+            fugue.deleteMultiple(fromA, deleteLen);
         }
 
         // Handle insertion
@@ -53,7 +53,7 @@ export const HandleChange = async (
             //     fugueIdentity: fugue.userIdentity,
             // });
 
-            const msgs = fugue.insertMultiple(fromA, insertedTxt);
+            fugue.insertMultiple(fromA, insertedTxt);
         }
     });
 
