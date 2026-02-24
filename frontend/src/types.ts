@@ -16,3 +16,19 @@ export enum ConnectionState {
     RECONNECTING = "RECONNECTING",
     DISCONNECTED = "DISCONNECTED",
 }
+
+export enum NavBarType {
+    UNSPECIFIED = "UNSPECIFIED",
+    HOME = "HOME",
+    CANVAS = "CANVAS",
+    PROJECT = "PROJECT",
+}
+
+export interface Tab {
+    id: string;
+    docId: string;
+    title: string;
+    projectId?: string;
+}
+
+export type TabMap = Map<string, Tab>;

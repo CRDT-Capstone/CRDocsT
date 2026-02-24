@@ -1,17 +1,6 @@
 import { model, Schema } from "mongoose";
 import { ContributorType, Contributor, Document } from "@cr_docs_t/dts";
-
-const ContributorSchema = new Schema<Contributor>({
-    contributorType: {
-        required: true,
-        type: String,
-        enum: ContributorType,
-    },
-    email: {
-        type: String,
-        required: false,
-    },
-});
+import { ContributorSchema } from "./Contributor.schema";
 
 const DocumentSchema = new Schema<Document>(
     {
@@ -31,6 +20,10 @@ const DocumentSchema = new Schema<Document>(
         contributors: {
             type: [ContributorSchema],
             default: [],
+        },
+        projectId: {
+            type: String,
+            required: false,
         },
     },
     {

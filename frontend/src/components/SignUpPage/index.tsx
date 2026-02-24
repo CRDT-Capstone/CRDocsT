@@ -8,12 +8,12 @@ export const SignUpPage = () => {
     const { mutations } = useDocuments();
     const { createDocumentMutation } = mutations;
     return (
-        <div className="flex flex-col justify-center items-center w-full h-screen">
+        <div className="flex flex-col justify-center items-center w-full">
             <SignUp />
             <h1> OR....</h1>
             <button
                 onClick={async () => {
-                    const res = await createDocumentMutation.mutateAsync();
+                    const res = await createDocumentMutation.mutateAsync(undefined);
                     toast.success("Document created anonymously");
                     nav(`/docs/${res.data}`);
                 }}

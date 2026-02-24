@@ -66,7 +66,6 @@ export class WSService {
             DOC_ID: firstMsg.documentID,
             REP_ID: firstMsg.replicaId,
             USER_ID: firstMsg.userIdentity,
-            msg: firstMsg,
         });
         this.currentDocId = firstMsg.documentID;
         this.userIdentity = firstMsg.userIdentity;
@@ -114,7 +113,6 @@ export class WSService {
             });
         };
 
-
         if (firstMsg.operation === Operation.USER_JOIN) {
             await sendUserJoin(this.userIdentity!, this.currentDocId!);
             return;
@@ -129,7 +127,6 @@ export class WSService {
                     operation: Operation.INITIAL_SYNC,
                     documentID: this.currentDocId,
                     state: doc.crdt.save(),
-                    bufferedOperations: undefined,
                 };
 
                 this.send(joinMsg); // send the join message to the joining user

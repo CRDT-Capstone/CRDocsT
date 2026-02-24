@@ -7,8 +7,8 @@ import { RootFilterQuery } from "mongoose";
 import { redis } from "../redis";
 import { RedisService } from "./RedisService";
 
-const createDocument = async (userId: string | null) => {
-    const document = await DocumentModel.create({ ownerId: userId });
+const createDocument = async (userId: string | null, name?: string) => {
+    const document = await DocumentModel.create({ ownerId: userId, name });
     return document;
 };
 
@@ -39,9 +39,45 @@ const getDocumentsByUserId = async (
 ): Promise<CursorPaginatedResponse<Document>> => {
     //current cursor is the id of the last document from a previous pagination...
 
-    const userEmail = (await UserService.getUserEmailById(userId)) || "";
+    // Filter out documents in projects
     const query: RootFilterQuery<Document> = {
-        $or: [{ ownerId: userId }, { "contributors.email": userEmail }],
+        ownerId: userId,
+        $or: [{ projectId: { $exists: false } }, { projectId: null }], // Exclude documents in projects
+    };
+
+    if (currentCursor) {
+        query._id = { $lt: new ObjectId(currentCursor) };
+    }
+
+    const documents = await DocumentModel.find(query)
+        .sort({ _id: -1 })
+        .limit(limit + 1);
+    const hasNext = documents.length > limit;
+    if (hasNext) documents.pop();
+    const nextCursor = documents[limit - 1]?._id.toString() || undefined;
+
+    return {
+        data: documents,
+        nextCursor,
+        hasNext,
+    };
+};
+
+const getSharedDocumentsByUserId = async (
+    userId: string,
+    limit: number = 10,
+    currentCursor?: string,
+): Promise<CursorPaginatedResponse<Document>> => {
+    //current cursor is the id of the last document from a previous pagination...
+
+    const userEmail = (await UserService.getUserEmailById(userId)) || "";
+    // Filter out docments in projects and documents owned by the user
+    const query: RootFilterQuery<Document> = {
+        $and: [
+            { "contributors.email": userEmail },
+            { ownerId: { $ne: userId } }, // Exclude documents owned by the user
+            { $or: [{ projectId: { $exists: false } }, { projectId: null }] }, // Exclude documents in projects
+        ],
     };
 
     if (currentCursor) {
@@ -119,7 +155,8 @@ const IsDocumentOwnerOrCollaborator = async (
     logger.debug("Checking if user is owner or collaborator", { documentId, email });
     const document = await DocumentModel.findById(documentId);
     logger.debug("Document", { document });
-    if (!document) throw Error("Document does not exist!");
+
+    if (!document) throw new APIError("Document does not exist", 404);
     if (!document.ownerId) return { hasAccess: true, contributorType: ContributorType.EDITOR };
     //if it was created by an anonymous user then anyone can have access to it...?
     //I don't think this is the most secure but I'm not quite sure what the solution is
@@ -136,19 +173,30 @@ const IsDocumentOwnerOrCollaborator = async (
 
     const user = await UserService.getUserByEmail(email);
 
-    const isDocumentOwnerOrCollaborator =
-        (user !== undefined && document.ownerId === user.id) ||
-        (document.contributors.length > 0 &&
-            document.contributors.find((contributor) => contributor.email === email) !== undefined);
+    // If the user doesn't exist then they don't have access to the document.
+    if (!user) {
+        return { hasAccess: false, contributorType: undefined };
+    }
+
+    logger.debug("Collaborators", { collaborators: document.contributors, email });
+    // If user is the document owner or they exist in the list of contributors then they have access to the document
+    const foundCollaborator = document.contributors.find((contributor) => contributor.email === email);
+    logger.debug("Found Collaborator", { foundCollaborator });
+    let isDocumentOwnerOrCollaborator = false;
+    if (document.ownerId === user.id || (document.contributors.length > 0 && foundCollaborator)) {
+        isDocumentOwnerOrCollaborator = true;
+    }
     logger.debug("Is Document Owner or Collaborator", { isDocumentOwnerOrCollaborator });
 
+    // If the user is not the document owner or a collaborator then they don't have access to the document
     if (!isDocumentOwnerOrCollaborator) return { hasAccess: false, contributorType: undefined };
 
+    // Determine contributer type
     let contributorType;
-    if (document.ownerId === user!.id) {
+    if (document.ownerId === user.id) {
         contributorType = ContributorType.EDITOR;
     } else {
-        const contributor = document.contributors!.find((c) => c.email === email);
+        const contributor = foundCollaborator;
         contributorType = contributor!.contributorType;
     }
 
@@ -192,6 +240,7 @@ export const DocumentServices = {
     findDocumentById,
     updateDocumentById,
     getDocumentsByUserId,
+    getSharedDocumentsByUserId,
     getDocumentMetadataById,
     IsDocumentOwnerOrCollaborator,
     addUserAsCollaborator,

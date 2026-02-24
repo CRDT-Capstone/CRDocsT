@@ -11,6 +11,7 @@ import { WSService } from "./services/WSService";
 import ErrorHandler from "./middlewares/errorHandler";
 import DocumentManager from "./managers/document";
 import { redis } from "./redis";
+import { ProjectRouter } from "./routes/project";
 
 dotenv.config();
 
@@ -77,6 +78,7 @@ if (process.env.NODE_ENV === "production") {
 app.use(cors(corsOptions));
 app.use(clerkMiddleware()); //by default allows anonymous and authenticated users
 app.use("/docs", DocumentRouter);
+app.use("/projects", ProjectRouter);
 app.use(ErrorHandler);
 
 server.listen(port, () => {

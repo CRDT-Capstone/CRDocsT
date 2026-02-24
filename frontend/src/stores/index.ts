@@ -1,9 +1,15 @@
-import { Contributor, Document, FugueMessage } from "@cr_docs_t/dts";
+import { Contributor, Document, FugueMessage, Project } from "@cr_docs_t/dts";
 import { Tree } from "web-tree-sitter";
 import { create } from "zustand";
 import { createJSONStorage, devtools, persist } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import { ConnectionState } from "../types";
+import { ConnectionState, NavBarType } from "../types";
+
+export type ProjectState = {
+    project?: Project;
+
+    setProject: (v: Project | undefined) => void;
+};
 
 export type DocumentState = {
     document?: Document;
@@ -15,7 +21,7 @@ export type DocumentState = {
     isEffecting: boolean;
     unEffectedMsgs: FugueMessage[];
 
-    setDocument: (v: Document) => void;
+    setDocument: (v: Document | undefined) => void;
     setYgg: (v: Tree) => void;
     setIsParsing: (v: boolean) => void;
     setActiveCollaborators: (v: string[]) => void;
@@ -37,13 +43,21 @@ export type UserState = {
     setAnonUserIdentity: (v?: string) => void;
 };
 
-export type State = DocumentState & UserState & DevState;
+export type State = DocumentState & UserState & DevState & ProjectState;
 
 const mainStore = create<State>()(
     immer(
         devtools(
             // persist(
             (set) => ({
+                // Project State
+                project: undefined,
+
+                setProject: (v) =>
+                    set((state) => {
+                        state.project = v;
+                    }),
+
                 anonUserIdentity: undefined,
                 document: undefined,
                 activeCollaborators: [],

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useDocuments } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { randomString } from "@cr_docs_t/dts";
+import { makeAnonUserIdentity } from "../../utils";
 
 export const SignInPage = () => {
     const nav = useNavigate();
@@ -11,13 +12,13 @@ export const SignInPage = () => {
     const setAnonUserIdentity = mainStore((state) => state.setAnonUserIdentity);
     const anonUserIdentity = mainStore((state) => state.anonUserIdentity);
     return (
-        <div className="flex flex-col justify-center items-center w-full h-screen">
+        <div className="flex flex-col justify-center items-center w-full">
             <SignIn />
             <h1> OR....</h1>
             <button
                 onClick={async () => {
-                    const res = await createDocumentMutation.mutateAsync();
-                    if (!anonUserIdentity) setAnonUserIdentity(randomString(10));
+                    if (!anonUserIdentity) setAnonUserIdentity(makeAnonUserIdentity());
+                    const res = await createDocumentMutation.mutateAsync(undefined);
                     nav(`/docs/${res.data._id}`);
                 }}
                 className="m-4 btn btn-l btn-neutral"

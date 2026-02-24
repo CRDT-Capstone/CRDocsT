@@ -50,48 +50,60 @@ const TagMap: Record<string, Tag> = {
 };
 
 export const latexHighlightStyle = HighlightStyle.define([
-    // --- General Syntax ---
-    { tag: t.keyword, color: "#c678dd", fontWeight: "bold" },
-    { tag: t.controlKeyword, color: "#c678dd", fontStyle: "italic" }, // \if, \else
-    { tag: t.function(t.variableName), color: "#61afef" },
-    { tag: t.macroName, color: "#d19a66" }, // \newcommand, etc.
-    { tag: t.variableName, color: "#e06c75" },
-    { tag: t.propertyName, color: "#d19a66" }, // key-value parameters
-    { tag: t.namespace, color: "#61afef", fontWeight: "bold" }, // \begin{env}
-    { tag: t.constant(t.variableName), color: "#d19a66" },
-    { tag: t.labelName, color: "#e5c07b" },
+    // --- Core Keywords & Macros ---
+    { tag: t.keyword, color: "#bb9af7", fontWeight: "bold" },
+    { tag: t.controlKeyword, color: "#bb9af7", fontStyle: "italic" }, // \if, \else
+    { tag: t.function(t.variableName), color: "#7aa2f7" }, // Standard macros
+    { tag: t.macroName, color: "#7aa2f7", fontWeight: "bold" }, // \newcommand
+    { tag: t.escape, color: "#ff9e64", fontWeight: "bold" }, // Escaped chars like \%, \&, \$ (Orange)
+
+    // --- Environments & Namespaces ---
+    // Grouped namespace, class, and tag to catch all variations of \begin{env}
+    { tag: [t.namespace, t.className, t.tagName], color: "#e0af68" },
+
+    // --- Variables, Arguments & Properties ---
+    { tag: t.variableName, color: "#c0caf5" }, // Foreground Text
+    { tag: t.propertyName, color: "#7dcfff", fontStyle: "italic" }, // Key-value params [key=value]
+    { tag: t.labelName, color: "#7dcfff", textDecoration: "underline" }, // \label{} and \ref{}
+
+    // --- Math Mode ---
+    { tag: t.special(t.number), color: "#9ece6a" }, // Math mode delimiters $...$
+    { tag: t.arithmeticOperator, color: "#89ddff" }, // +, -, =, etc.
+    { tag: t.number, color: "#ff9e64" }, // Numbers (Orange)
 
     // --- Markup & Formatting ---
     { tag: t.emphasis, fontStyle: "italic" },
-    { tag: t.strong, fontWeight: "bold" },
-    { tag: t.link, color: "#61afef", textDecoration: "underline" },
-    { tag: t.url, color: "#56b6c2" },
-    { tag: t.special(t.number), color: "#d19a66" }, // Math mode ($...$)
+    { tag: t.strong, fontWeight: "bold", color: "#f7768e" }, // Tokyo Night Red
+    { tag: t.strikethrough, textDecoration: "line-through" },
+    { tag: t.link, color: "#7dcfff", textDecoration: "underline" }, // Cyan
+    { tag: t.url, color: "#7dcfff", fontStyle: "italic" },
 
     // --- Headings ---
-    { tag: t.heading1, color: "#e06c75", fontWeight: "bold", fontSize: "1.6em" },
-    { tag: t.heading2, color: "#e06c75", fontWeight: "bold", fontSize: "1.4em" },
-    { tag: t.heading3, color: "#e06c75", fontWeight: "bold", fontSize: "1.25em" },
-    { tag: t.heading4, color: "#e06c75", fontWeight: "bold", fontSize: "1.15em" },
-    { tag: t.heading5, color: "#e06c75", fontWeight: "bold" },
-    { tag: t.heading6, color: "#e06c75", fontStyle: "italic" },
+    // Tokyo Night typically uses Blue or Purple for markdown headings. Using Purple here to stand out.
+    { tag: t.heading1, color: "#bb9af7", fontWeight: "bold", fontSize: "1.6em" },
+    { tag: t.heading2, color: "#bb9af7", fontWeight: "bold", fontSize: "1.4em" },
+    { tag: t.heading3, color: "#bb9af7", fontWeight: "bold", fontSize: "1.25em" },
+    { tag: t.heading4, color: "#bb9af7", fontWeight: "bold", fontSize: "1.15em" },
+    { tag: t.heading5, color: "#bb9af7", fontWeight: "bold" },
+    { tag: t.heading6, color: "#bb9af7", fontStyle: "italic" },
+    { tag: t.heading, color: "#bb9af7", fontWeight: "bold" }, // Catch-all fallback
 
     // --- Punctuation & Operators ---
-    { tag: t.punctuation, color: "#abb2bf" },
-    { tag: t.bracket, color: "#abb2bf" },
-    { tag: t.special(t.punctuation), color: "#c678dd", fontWeight: "bold" }, // \item
-    { tag: t.operator, color: "#56b6c2" },
+    { tag: [t.punctuation, t.bracket, t.separator], color: "#a9b1d6" }, // Dimmer Foreground
+    { tag: t.special(t.punctuation), color: "#89ddff", fontWeight: "bold" }, // \item
+    { tag: t.operator, color: "#89ddff" }, // Light Cyan
 
     // --- Strings & Paths ---
-    { tag: t.string, color: "#98c379" },
-    { tag: t.regexp, color: "#98c379" },
-    { tag: t.special(t.string), color: "#98c379", fontStyle: "italic" }, // Paths
+    { tag: t.string, color: "#9ece6a" }, // Tokyo Night Green
+    { tag: t.regexp, color: "#9ece6a" },
+    { tag: t.special(t.string), color: "#9ece6a", fontStyle: "italic" }, // Paths in \includegraphics
 
-    // --- Meta & Comments ---
-    { tag: t.lineComment, color: "#7f848e", fontStyle: "italic" },
-    { tag: t.processingInstruction, color: "#56b6c2" }, // \usepackage
-    { tag: t.meta, color: "#7f848e" }, // Magic comments & nospell nodes
-    { tag: t.null, color: "inherit" }, // none
+    // --- Meta, Comments & Errors ---
+    { tag: t.lineComment, color: "#565f89", fontStyle: "italic" }, // Tokyo Night Comment Grey
+    { tag: t.blockComment, color: "#565f89", fontStyle: "italic" },
+    { tag: t.processingInstruction, color: "#bb9af7" }, // \usepackage
+    { tag: t.meta, color: "#565f89" }, // Magic comments
+    { tag: t.invalid, color: "#1a1b26", backgroundColor: "#f7768e" }, // Red bg, dark bg text for contrast
 ]);
 
 export default TagMap;

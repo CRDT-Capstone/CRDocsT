@@ -1,14 +1,18 @@
 import { useState } from "react";
-import { ClerkProvider, SignedIn } from "@clerk/clerk-react";
+import { ClerkProvider, SignedIn, SignedOut } from "@clerk/clerk-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { HomePage } from "../HomePage";
 import { SignInPage } from "../SignInPage";
 import { SignUpPage } from "../SignUpPage";
 import { Toaster } from "sonner";
 import Canvas from "../Canvas";
 import DevBar from "../DevBar";
+import NavBar from "../NavBar";
+import AnonCanvas from "../AnonCanvas";
+import UserCanvas from "../UserCanvas";
+import ProjectCanvas from "../ProjectCanvas";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -44,38 +48,56 @@ const Main = () => {
 
     return (
         <BrowserRouter>
-            <QueryClientProvider client={queryClient}>
-                <ClerkProvider
-                    publishableKey={PUBLISHABLE_KEY}
-                    signInUrl="/sign-in"
-                    signUpUrl="/sign-up"
-                    signInFallbackRedirectUrl="/"
-                    signUpFallbackRedirectUrl="/"
-                >
-                    <Routes>
-                        <Route path="/sign-in" element={<SignInPage />} />
-                        <Route path="/sign-up" element={<SignUpPage />} />
-                        <Route path="/docs/:documentID" element={<Canvas />} />
-                        <Route path="/" element={<HomePage />} />
-                    </Routes>
-                </ClerkProvider>
-                <Toaster
-                    position="bottom-right"
-                    toastOptions={{
-                        unstyled: true,
-                        classNames: {
-                            toast: "alert shadow-lg border-2",
-                            success: "alert-success",
-                            error: "alert-error",
-                            info: "alert-info",
-                            warning: "alert-warning",
-                        },
-                    }}
-                />
-                <ReactQueryDevtools initialIsOpen={false} />
-                {/* {import.meta.env.MODE !== "production" && <DevBar />} */}
-                <DevBar />
-            </QueryClientProvider>
+            <div className="w-full">
+                <QueryClientProvider client={queryClient}>
+                    <ClerkProvider
+                        publishableKey={PUBLISHABLE_KEY}
+                        signInUrl="/sign-in"
+                        signUpUrl="/sign-up"
+                        signInFallbackRedirectUrl="/"
+                        signUpFallbackRedirectUrl="/"
+                    >
+                        <NavBar />
+                        <Routes>
+                            <Route path="/sign-in" element={<SignInPage />} />
+                            <Route path="/sign-up" element={<SignUpPage />} />
+                            <Route path="/docs/:documentID" element={<AnonCanvas />} />
+                            <Route
+                                path="/"
+                                element={
+                                    <>
+                                        <SignedIn>
+                                            <UserCanvas />
+                                        </SignedIn>
+                                        <SignedOut>
+                                            <Navigate to="/sign-in" replace />
+                                        </SignedOut>
+                                    </>
+                                }
+                            />
+                            <Route path="/projects/:projectId" element={<ProjectCanvas />} />
+                            <Route path="/:userId/docs/:documentID" element={<UserCanvas />} />
+                        </Routes>
+                    </ClerkProvider>
+                    <Toaster
+                        position="bottom-right"
+                        toastOptions={{
+                            unstyled: true,
+                            classNames: {
+                                toast: "alert alert-soft shadow-lg border-2",
+                                success: "alert-success",
+                                error: "alert-error",
+                                info: "alert-info",
+                                warning: "alert-warning",
+                                loader: "loading loading-spinner",
+                            },
+                        }}
+                    />
+                    <ReactQueryDevtools initialIsOpen={false} />
+                    {/* {import.meta.env.MODE !== "production" && <DevBar />} */}
+                    <DevBar />
+                </QueryClientProvider>
+            </div>
         </BrowserRouter>
     );
 };

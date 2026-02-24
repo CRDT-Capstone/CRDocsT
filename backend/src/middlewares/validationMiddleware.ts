@@ -6,7 +6,7 @@ import { logger } from "../logging";
 const handler: ErrorRequestHandler = (errs, req, res, next) => {
     logger.warn(`Validation failed for ${req.method} ${req.path}`, {
         details: errs.map((e) => ({
-            source: e.type, // 'body', 'query', or 'params'
+            source: e.type,
             errors: e.errors.issues,
         })),
     });
@@ -15,13 +15,11 @@ const handler: ErrorRequestHandler = (errs, req, res, next) => {
         message: "Validation Error",
         errors: errs.reduce(
             (acc, curr) => {
-                // Use .format() for a nested object or .flatten() for simple lists
                 acc[curr.type] = z.treeifyError(curr.errors);
                 return acc;
             },
             {} as Record<string, any>,
         ),
-        // 3. Proper Stack Tracing
         ...(process.env.NODE_ENV === "development" && {
             debug: errs.map((e) => ({
                 source: e.type,
@@ -33,7 +31,7 @@ const handler: ErrorRequestHandler = (errs, req, res, next) => {
 
 export const validate = (schema: Schema) => {
     return val({
-        handler, // Shorthand
+        handler,
         body: schema.body,
         query: schema.query,
         params: schema.params,

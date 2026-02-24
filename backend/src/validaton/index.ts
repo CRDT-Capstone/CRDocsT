@@ -1,5 +1,5 @@
 import type { z, ZodObject, ZodRawShape } from "zod";
-import { NextFunction, Request, RequestHandler } from "express";
+import { NextFunction, Request, RequestHandler, Response } from "express";
 import { getAuth } from "@clerk/express";
 
 export type AnyZodObject = ZodObject<ZodRawShape>;

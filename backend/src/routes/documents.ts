@@ -6,13 +6,17 @@ import { makeRouterRoute } from ".";
 export const DocumentRouter = Router();
 
 const makeDocumentRoute = makeRouterRoute(DocumentRouter);
-makeDocumentRoute("post", "/create", DocumentController.CreateDocument);
-makeDocumentRoute("delete", "/delete/:documentId", DocumentController.DeleteDocument);
-//TODO: make this a general update endpoint
-makeDocumentRoute("put", "/update/:documentId", DocumentController.UpdateDocumentName);
 makeDocumentRoute("get", "/user", DocumentController.GetDocumentsByUserId);
+makeDocumentRoute("get", "/shared-with-me", DocumentController.GetSharedDocumentsByUserId);
 makeDocumentRoute("get", "/:documentId", DocumentController.GetDocumentById);
+
 makeDocumentRoute("post", "/share", DocumentController.ShareDocumentViaEmail);
 makeDocumentRoute("post", "/:documentId/remove-collaborator", DocumentController.RemoveContributor);
 makeDocumentRoute("post", "/:documentId/update-collaborator-type", DocumentController.UpdateContributorType);
 makeDocumentRoute("post", "/:documentId/check-access", DocumentController.GetUserDocumentAccess);
+makeDocumentRoute("post", "/create", DocumentController.CreateDocument);
+
+//TODO: make this a general update endpoint
+makeDocumentRoute("put", "/update/:documentId", DocumentController.UpdateDocumentName);
+
+makeDocumentRoute("delete", "/delete/:documentId", DocumentController.DeleteDocument);

@@ -1,23 +1,38 @@
-import { useState, useEffect, useMemo } from "react";
-import CodeMirror, { EditorView } from "@uiw/react-codemirror";
+import { useState, useEffect, useMemo, memo, useCallback } from "react";
+import CodeMirror, {
+    Compartment,
+    EditorState,
+    EditorView,
+    basicSetup,
+    keymap,
+    highlightSpecialChars,
+} from "@uiw/react-codemirror";
 import { bracketMatching, indentOnInput } from "@codemirror/language";
-import { useNavigate, useParams } from "react-router-dom";
-import { NavBar } from "../NavBar";
+import { useNavigate } from "react-router-dom";
 import Loading from "../Loading";
 import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { latexSupport } from "../../treesitter/codemirror";
 import { Parser, Query, Tree } from "web-tree-sitter";
-import { newParser } from "../../treesitter";
+import { newParser } from "@cr_docs_t/dts/treesitter";
 import { useCollab } from "../../hooks/collab";
 import { createDocumentApi } from "../../api/document";
 import { useAuth } from "@clerk/clerk-react";
 import { toast } from "sonner";
 import ActiveCollaborators from "../ActiveCollaborators";
-import { HandleChange } from "./utils";
+import { HandleChange } from "../../utils/Canvas";
+import ConnectionIndicator from "../ConnectionIndicator";
+import { ConnectionState } from "../../types";
+import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
+import { autocompletion, completionKeymap } from "@codemirror/autocomplete";
+import { tokyoNight, tokyoNightInit } from "@uiw/codemirror-theme-tokyo-night";
 
-const Canvas = () => {
-    const { documentID } = useParams();
+interface CanvasProps {
+    documentId: string | undefined;
+    singleSession?: boolean;
+}
+
+const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
     const nav = useNavigate();
 
     const [parser, setParser] = useState<Parser | null>(null);
@@ -32,10 +47,19 @@ const Canvas = () => {
 
     const [editorView, setEditorView] = useState<EditorView | undefined>(undefined);
 
-    const { fugue, isAnon, isAuthError, previousTextRef, RemoteUpdate, socketRef, viewRef, userIdentity } = useCollab(
-        documentID!,
-        editorView,
-    );
+    const {
+        fugue,
+        isAnon,
+        isAuthError,
+        previousTextRef,
+        RemoteUpdate,
+        connectionState,
+        viewRef,
+        userIdentity,
+        connect,
+        disconnect,
+        delay,
+    } = useCollab(documentID!, editorView);
 
     if (isAuthError) {
         nav("/sign-in");
@@ -61,11 +85,17 @@ const Canvas = () => {
 
         (async () => {
             if (!parser || !query) {
-                const { parser, query } = await newParser();
+                const { parser, query } = await newParser("/tree-sitter-latex.wasm", "/highlights.scm");
                 setParser(parser);
                 setQuery(query);
             }
         })();
+
+        return () => {
+            // Clean up on unmount
+            disconnect();
+            setDocument(undefined);
+        };
     }, []);
 
     useEffect(() => {
@@ -87,66 +117,137 @@ const Canvas = () => {
         }
     }, [documentQuery.data]);
 
-    const { exts, Yggdrasil } = useMemo(() => {
-        const base = [bracketMatching(), indentOnInput(), EditorView.lineWrapping];
+    const theme = useMemo(
+        () =>
+            tokyoNightInit({
+                settings: {},
+            }),
+        [tokyoNightInit, tokyoNight],
+    );
+
+    const tabSize = new Compartment();
+
+    const { exts, Yggdrasil, CST } = useMemo(() => {
+        const base = [
+            highlightSpecialChars(),
+            basicSetup(),
+            highlightSelectionMatches(),
+            bracketMatching(),
+            indentOnInput(),
+            autocompletion({ activateOnTyping: true }),
+
+            EditorView.lineWrapping,
+            tabSize.of(EditorState.tabSize.of(4)),
+
+            keymap.of([...searchKeymap, ...completionKeymap]),
+        ];
 
         if (parser && query) {
-            const { extensions, Yggdrasil } = latexSupport(parser, query);
+            const { extensions, CST, Yggdrasil } = latexSupport(parser, query);
             return {
                 exts: [...base, ...extensions],
                 Yggdrasil,
+                CST,
             };
         }
 
-        return { exts: base, Yggdrasil: null };
+        return { exts: base, Yggdrasil: null, CST: null };
     }, [parser, query]);
 
+    const handleOnCreateEditor = useCallback(
+        (view: EditorView) => {
+            viewRef.current = view;
+            setEditorView(view);
+
+            // Sync initial content if fugue already has data
+            const currentContent = fugue.observe();
+            if (currentContent.length > 0) {
+                view.dispatch({
+                    changes: { from: 0, to: view.state.doc.length, insert: currentContent },
+                    annotations: [RemoteUpdate.of(true)],
+                });
+                previousTextRef.current = currentContent;
+            }
+        },
+        [fugue, RemoteUpdate],
+    );
+
+    const handleOnChange = useCallback(
+        () => HandleChange.bind(null, fugue, previousTextRef, RemoteUpdate),
+        [fugue, RemoteUpdate],
+    );
+
+    const handleConnectionIndicatorClick = useCallback(() => {
+        if (connectionState === ConnectionState.CONNECTED) {
+            toast.info("Disconnecting from collaborative session...");
+            disconnect();
+        } else if (connectionState === ConnectionState.DISCONNECTED) {
+            toast.info("Connecting to collaborative session...");
+            connect();
+        }
+    }, [connectionState]);
+
     if (documentQuery.isLoading) {
-        return <Loading fullPage={true} />;
+        return <Loading fullPage={singleSession} />;
     }
 
     return (
-        <div className="flex flex-col w-screen h-screen bg-base-100">
-            <NavBar documentID={documentID!} />
+        <div className="flex overflow-hidden relative flex-col flex-1 items-center w-full h-full">
+            <div className="overflow-hidden relative w-full">
+                {isParsing && (
+                    <div className="flex absolute top-4 right-4 z-10 gap-2 items-center py-1 px-3 rounded-full border shadow-md animate-pulse bg-base-200 border-base-300">
+                        <span className="loading loading-spinner loading-xs text-primary"></span>
+                        <span className="font-mono text-xs font-medium opacity-70">AST PARSING...</span>
+                    </div>
+                )}
 
-            <main className="flex overflow-hidden relative flex-col flex-1 items-center p-4 w-full h-full">
-                <div className="relative w-full h-full">
-                    {isParsing && (
-                        <div className="flex absolute top-4 right-4 z-10 gap-2 items-center py-1 px-3 rounded-full border shadow-md animate-pulse bg-base-200 border-base-300">
-                            <span className="loading loading-spinner loading-xs text-primary"></span>
-                            <span className="font-mono text-xs font-medium opacity-70">AST PARSING...</span>
-                        </div>
-                    )}
-
-                    <CodeMirror
-                        value={previousTextRef.current}
-                        extensions={exts}
-                        height="100%"
-                        width="100%"
-                        className="w-full h-full text-black rounded-lg border-2 shadow-sm"
-                        // editable={wsClient ? !wsClient.isOffline() : false}
-                        onCreateEditor={(view) => {
-                            viewRef.current = view;
-                            setEditorView(view);
-
-                            // Sync initial content if fugue already has data
-                            const currentContent = fugue.observe();
-                            if (currentContent.length > 0) {
-                                view.dispatch({
-                                    changes: { from: 0, to: view.state.doc.length, insert: currentContent },
-                                    annotations: [RemoteUpdate.of(true)],
-                                });
-                                previousTextRef.current = currentContent;
-                            }
-                        }}
-                        onChange={HandleChange.bind(null, fugue, previousTextRef, RemoteUpdate)}
-                    />
-                </div>
-            </main>
-
-            <ActiveCollaborators userIdentity={userIdentity} />
+                <CodeMirror
+                    value={previousTextRef.current}
+                    extensions={exts}
+                    height="80vh"
+                    width="100%"
+                    theme={theme}
+                    // editable={wsClient ? !wsClient.isOffline() : false}
+                    onCreateEditor={(view) => handleOnCreateEditor(view)}
+                    onChange={handleOnChange()}
+                />
+            </div>
+            <StatusBar
+                onConnectionIndicatorClick={handleConnectionIndicatorClick}
+                delay={delay}
+                connectionState={connectionState}
+                userIdentity={userIdentity}
+            />
         </div>
     );
 };
 
-export default Canvas;
+interface StatusBarProps {
+    userIdentity: string;
+    connectionState: ConnectionState;
+    delay?: number;
+    onConnectionIndicatorClick?: () => void;
+}
+
+const StatusBar = memo(({ userIdentity, connectionState, delay, onConnectionIndicatorClick }: StatusBarProps) => {
+    return (
+        <footer className="flex flex-row p-5 w-full bg-base">
+            {/* Left  */}
+            <div className="flex flex-1 self-start">
+                <ActiveCollaborators userIdentity={userIdentity} />
+            </div>
+            {/* Middle */}
+            <div className="flex flex-1 justify-center self-center">
+                <ConnectionIndicator
+                    onClick={onConnectionIndicatorClick}
+                    delay={delay}
+                    connectionState={connectionState}
+                />
+            </div>
+            {/* Right */}
+            <div className="flex flex-1 self-end"></div>
+        </footer>
+    );
+});
+
+export default memo(Canvas);
