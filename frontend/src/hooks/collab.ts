@@ -176,6 +176,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
         isAnon,
         disconnect,
         connectionState,
+        connect,
         delay,
     };
 };
