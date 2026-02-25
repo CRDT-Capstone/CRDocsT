@@ -41,8 +41,8 @@ const ProjectCanvas = () => {
         return () => {
             setActiveProjectId(undefined);
             // // Filter out any tabs that belong to this project
-            // setActiveTabs(new Map(Array.from(activeTabs.entries()).filter(([id, tab]) => tab.projectId !== projectId)));
-            // setSelectedTabId(activeTabs.size > 0 ? Array.from(activeTabs.keys())[0] : undefined);
+            setActiveTabs(new Map(Array.from(activeTabs.entries()).filter(([id, tab]) => tab.projectId !== projectId)));
+            setSelectedTabId(activeTabs.size > 0 ? Array.from(activeTabs.keys())[0] : undefined);
         };
     }, []);
 
@@ -50,7 +50,6 @@ const ProjectCanvas = () => {
         if (!(projectId && userIdentity)) return;
         (async () => {
             const res = await api.getUserProjectAccess(projectId, userIdentity);
-            console.log({ access: res });
             if (!res.data.hasAccess) {
                 toast.error("You do not have access to this project. Redirecting...");
                 nav("/");
@@ -79,6 +78,7 @@ const ProjectCanvas = () => {
                 id: item._id,
                 docId: item._id,
                 title: item.name,
+                projectId: projectId,
             });
             setActiveTab(item._id!);
         },

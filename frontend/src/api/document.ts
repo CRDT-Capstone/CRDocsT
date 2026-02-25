@@ -29,7 +29,6 @@ export const createDocumentApi = (getToken: TokenFunc) => {
             );
 
             const document = response.data;
-            console.log("The document -> ", document);
             return response;
         } catch (err) {
             console.error("There was an error creating a document -> ", err);
@@ -67,11 +66,10 @@ export const createDocumentApi = (getToken: TokenFunc) => {
                     },
                 },
             );
-            console.log({ response });
 
             return response;
         } catch (err) {
-            console.log("There was an error updating document name -> ", err);
+            console.error("There was an error updating document name -> ", err);
             throw err;
             //TODO: change this to some daisy UI element
         }
@@ -96,7 +94,7 @@ export const createDocumentApi = (getToken: TokenFunc) => {
 
             return response.data;
         } catch (err) {
-            console.log("There was an error retrieving documents-> ", err);
+            console.error("There was an error retrieving documents-> ", err);
             throw err;
             //TODO: change this to some daisy UI element
         }
@@ -104,7 +102,6 @@ export const createDocumentApi = (getToken: TokenFunc) => {
 
     const getSharedDocumentsByUserId = async (limit: number = 10, nextCursor?: string) => {
         try {
-            console.log("Getting shared documents with limit -> ", limit, " and nextCursor -> ", nextCursor);
             const token = await getToken();
             const queryParams = new URLSearchParams({ limit: limit.toString() });
             if (nextCursor) {
@@ -122,7 +119,7 @@ export const createDocumentApi = (getToken: TokenFunc) => {
 
             return response.data;
         } catch (err) {
-            console.log("There was an error retrieving documents-> ", err);
+            console.error("There was an error retrieving documents-> ", err);
             throw err;
             //TODO: change this to some daisy UI element
         }
@@ -131,7 +128,6 @@ export const createDocumentApi = (getToken: TokenFunc) => {
     const getDocumentById = async (documentId: string) => {
         const token = await getToken();
 
-        console.log({ documentId });
         const response = await f.get<Msg<Document>>(`${ApiBaseUrl}/${path}/${documentId}`, {
             headers: {
                 ...includeToken(token),
@@ -139,7 +135,6 @@ export const createDocumentApi = (getToken: TokenFunc) => {
         });
 
         const document = response.data;
-        console.log("Document -> ", document);
         return document;
     };
 
@@ -172,7 +167,7 @@ export const createDocumentApi = (getToken: TokenFunc) => {
             );
             return response;
         } catch (err) {
-            console.log("Unable to share document -> ", err);
+            console.error("Unable to share document -> ", err);
             throw err;
         }
     };
@@ -221,7 +216,7 @@ export const createDocumentApi = (getToken: TokenFunc) => {
 
             return res;
         } catch (err) {
-            console.log("Unable to update collaborator type -> ", err);
+            console.error("Unable to update collaborator type -> ", err);
             throw err;
         }
     };
@@ -246,7 +241,7 @@ export const createDocumentApi = (getToken: TokenFunc) => {
 
             return res;
         } catch (err) {
-            console.log("Unable to get user document access -> ", err);
+            console.error("Unable to get user document access -> ", err);
             throw err;
         }
     };

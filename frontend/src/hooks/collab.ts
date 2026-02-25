@@ -119,7 +119,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
             reconnectTimeoutRef.current = null;
         }
 
-        if (retriesRef.current === 0) retriesRef.current = 1; // Make next connect a reconnect
+        if (retriesRef.current == 0) retriesRef.current = 1; // If we disconnect manually, set retries to 1 to avoid initial sync message on reconnect
         setDelay(undefined);
 
         if (socketRef.current) {
@@ -150,14 +150,13 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
         return () => {
             disconnect();
         };
-    }, [documentID, isLoaded, userIdentity, !!editorView]);
+    }, [documentID, isLoaded, userIdentity, isSignedIn, !!editorView]);
 
     // Apply any buffered messages once the editor is ready and we're connected
     useEffect(() => {
         if (!isLoaded || !isEffecting || !editorView || !wsClient) return;
 
         if (isEffecting && unEffectedMsgs.length > 0) {
-            console.log("Applying buffered messages ->", unEffectedMsgs);
             toast.info("Applying buffered messages");
             wsClient.effectMsgs(unEffectedMsgs);
             setUnEffectedMsgs([]);

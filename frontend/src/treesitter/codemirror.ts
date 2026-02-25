@@ -24,7 +24,6 @@ export const CSTBuilder = (parser: Parser) =>
         },
 
         update(tree, tr) {
-            mainStore.getState().setIsParsing(true);
             if (!tr.docChanged) return tree;
 
             let newTree = tree;
@@ -48,29 +47,32 @@ export const CSTBuilder = (parser: Parser) =>
             }
 
             newTree = parser.parse(tr.state.doc.toString(), newTree || undefined);
-            mainStore.getState().setIsParsing(false);
             return newTree;
         },
-
-        provide: (f) => [f],
     });
 
 export type YggdrasilType = ReturnType<typeof YggdrasilBuilder>;
 export const YggdrasilBuilder = (cst: CSTType) =>
     StateField.define<BragiAST | null>({
         create(state) {
-            const tree = state.field(cst);
+            const tree = state.field(cst, false);
             if (!tree) return null;
             const root = tree.rootNode;
             return parseCST(root);
         },
 
         update(oldAst, tr) {
-            if (!tr.docChanged) return oldAst;
-            const tree = tr.state.field(cst);
-            if (!tree) return oldAst;
-            const root = tree.rootNode;
-            return parseCST(root);
+            const oldTree = tr.startState.field(cst, false);
+            const newTree = tr.state.field(cst, false);
+            if (newTree === oldTree) return oldAst;
+            if (!newTree) return null;
+
+            try {
+                return parseCST(newTree.rootNode);
+            } catch (e) {
+                console.error("Error parsing CST to AST ->", e);
+                return null;
+            }
         },
     });
 
@@ -81,7 +83,6 @@ export const treeSitterHighlightPlugin = (query: Query, ygg: CSTType) => {
     return ViewPlugin.fromClass(
         class implements PluginValue {
             decorations: DecorationSet;
-            lastTree: Tree | null = null;
             debounceTimeout: NodeJS.Timeout | null = null;
 
             constructor(readonly view: EditorView) {
@@ -90,17 +91,15 @@ export const treeSitterHighlightPlugin = (query: Query, ygg: CSTType) => {
 
             update(update: ViewUpdate) {
                 const tree = update.state.field(ygg);
-                mainStore.getState().setIsParsing(true);
-                if (update.docChanged || update.viewportChanged || tree !== this.lastTree) {
-                    this.lastTree = tree;
+                if (update.docChanged || update.viewportChanged || update.startState.field(ygg) !== tree) {
                     this.decorations = this.buildDecorations(update.view);
-                    this.view.requestMeasure(); // Force redraw
                 }
-                mainStore.getState().setIsParsing(false);
             }
 
             buildDecorations(view: EditorView) {
-                if (!this.lastTree) return Decoration.none;
+                const tree = view.state.field(ygg);
+                if (!tree) return Decoration.none;
+
                 const builder = new RangeSetBuilder<Decoration>();
 
                 const margin = 999999999;
@@ -109,18 +108,23 @@ export const treeSitterHighlightPlugin = (query: Query, ygg: CSTType) => {
                 const viewportTo = view.viewport.to + margin; // HACK: Allow captures that end beyond the document end cause clipping isn't working properly for some reason
                 // console.log(`Building decorations for viewport [${viewportFrom}, ${viewportTo}]`);
 
-                const captures = query.captures(this.lastTree.rootNode, {
+                const captures = query.captures(tree.rootNode, {
                     startIndex: viewportFrom,
                     endIndex: viewportTo,
                 });
 
-                const sortedCaptures = captures.sort((a, b) => {
-                    return a.node.startIndex - b.node.startIndex || b.node.endIndex - a.node.endIndex;
-                });
+                const sortedCaptures = captures.sort((a, b) => a.node.startIndex - b.node.startIndex);
 
                 let lastFrom = -1;
-
                 for (const { node, name } of sortedCaptures) {
+                    // Clamp to current document limits to prevent out-of-bounds errors
+                    const from = node.startIndex;
+                    const to = node.endIndex;
+
+                    if (from >= to) continue; // Skip empty or invalid ranges
+
+                    if (from < lastFrom) continue; // Skip if this capture starts before the last one (overlapping)
+
                     const parts = name.split(".");
                     let tag = null;
                     for (let i = parts.length; i > 0; i--) {
@@ -132,25 +136,25 @@ export const treeSitterHighlightPlugin = (query: Query, ygg: CSTType) => {
                     }
                     if (!tag) continue;
 
-                    // Clamp to current document limits to prevent out-of-bounds errors
-                    const from = Math.max(node.startIndex, 0);
-                    const to = Math.min(node.endIndex, view.state.doc.length);
+                    const highlightClass = highlightingFor(view.state, [tag]);
+                    const spec = Decoration.mark({ class: `${highlightClass!} ts-${name.replace(/\./g, "-")}` });
+                    builder.add(from, to, spec);
+                    lastFrom = from; // Update the pointer
 
                     // RangeSetBuilder Validation:
                     // - from must be >= lastFrom
                     // - from must be < to (no empty ranges)
-                    if (from < to && from >= lastFrom) {
-                        const highlightClass = highlightingFor(view.state, [tag]);
-                        const classes = [highlightClass, `cm-${name.replace(/\./g, "-")}`].filter(Boolean).join(" ");
-
-                        try {
-                            builder.add(from, to, Decoration.mark({ class: classes }));
-                            lastFrom = from; // Update the pointer
-                        } catch (e) {
-                            // If this logs, you have a logic error in your sorting
-                            console.warn(`RangeSetBuilder error at ${from}-${to} for ${name}:`, e);
-                        }
-                    }
+                    // if (from < to && from >= lastFrom) {
+                    //     const highlightClass = highlightingFor(view.state, [tag]);
+                    //     const classes = [highlightClass, `cm-${name.replace(/\./g, "-")}`].filter(Boolean).join(" ");
+                    //
+                    //     try {
+                    //         builder.add(from, to, Decoration.mark({ class: classes }));
+                    //         lastFrom = from; // Update the pointer
+                    //     } catch (e) {
+                    //         console.warn(`RangeSetBuilder error at ${from}-${to} for ${name}:`, e);
+                    //     }
+                    // }
                 }
 
                 return builder.finish();
@@ -166,6 +170,20 @@ export const treeSitterHighlightPlugin = (query: Query, ygg: CSTType) => {
     );
 };
 
+export const syncParsingStatus = (cstField: CSTType) =>
+    ViewPlugin.fromClass(
+        class {
+            update(update: ViewUpdate) {
+                if (update.docChanged) {
+                    mainStore.getState().setIsParsing(true);
+                }
+                if (update.transactions.some((tr) => tr.docChanged)) {
+                    mainStore.getState().setIsParsing(false);
+                }
+            }
+        },
+    );
+
 export const yggdrasilLogger = (ygg: YggdrasilType) =>
     ViewPlugin.fromClass(
         class {
@@ -175,6 +193,7 @@ export const yggdrasilLogger = (ygg: YggdrasilType) =>
                     if (!ast) return;
                     // console.log({ tree: tree?.rootNode });
                     // console.dir(buildNestedAst(ast), { depth: null });
+                    // console.log({ ast });
                 }
             }
         },
@@ -183,10 +202,12 @@ export const yggdrasilLogger = (ygg: YggdrasilType) =>
 export const latexSupport = (parser: Parser, query: Query) => {
     const CST = CSTBuilder(parser);
     const Yggdrasil = YggdrasilBuilder(CST);
+    const parserSync = syncParsingStatus(CST);
     const extensions = [
         CST,
         Yggdrasil,
         treeSitterHighlightPlugin(query, CST),
+        parserSync,
         EditorState.languageData.of(() => [
             {
                 commentTokens: { line: "%" },

@@ -1,4 +1,11 @@
-import { FugueTree, FugueStateSerializer, FugueLeaveMessage, FugueMessageSerialzier, Operation } from "@cr_docs_t/dts";
+import {
+    FugueTree,
+    FugueStateSerializer,
+    FugueLeaveMessage,
+    FugueMessageSerialzier,
+    Operation,
+    makeFugueMessage,
+} from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import WebSocket from "ws";
 import crypto from "crypto";
@@ -47,13 +54,22 @@ class ActiveDocument {
         await RedisService.updateCollaboratorsByDocumentId(this.documentID, this.users);
         // Possibly mongoDB logic too
     }
+
+    send(bytes: Uint8Array, sendingSock?: WebSocket) {
+        this.sockets.forEach((sock) => {
+            if (sock.readyState !== WebSocket.OPEN) return;
+            // If sending sock is passed skip it when propagating
+            if (sendingSock && sock === sendingSock) return;
+            sock.send(bytes);
+        });
+    }
 }
 
 class DocumentManager {
     private static instances: Map<string, ActiveDocument> = new Map();
     private static loadingTasks: Map<string, Promise<ActiveDocument>> = new Map();
     private static dirtyDocs: Set<string> = new Set();
-    static readonly persistenceIntervalMs: number = 3 * 1000; // 3 seconds
+    static readonly persistenceIntervalMs: number = 0.5 * 1000; // 0.5 seconds
 
     static async loadProjectDocuments(projectID: string, documentIDs: string[]): Promise<ActiveDocument[]> {
         const loadedDocs: ActiveDocument[] = [];
@@ -127,17 +143,17 @@ class DocumentManager {
         await doc.removeUser(ws, userIdentity);
         if (userIdentity) {
             const collaborators = await RedisService.getCollaboratorsByDocumentId(documentID);
-            const leaveMessage: FugueLeaveMessage = {
+            const leaveMessage = makeFugueMessage<FugueLeaveMessage>({
                 operation: Operation.LEAVE,
                 userIdentity,
                 documentID: documentID,
                 replicaId: doc.crdt.replicaId(),
                 collaborators: collaborators,
-            };
-
-            doc.sockets.forEach((sock) => {
-                if (sock.readyState === WebSocket.OPEN) sock.send(FugueMessageSerialzier.serialize([leaveMessage]));
             });
+
+            logger.debug(`Sending leave message for -> ${userIdentity}`);
+            const bytes = FugueMessageSerialzier.serialize([leaveMessage]);
+            doc.send(bytes);
             logger.info("User left document", { documentID, userIdentity });
 
             // Persist the document immediately to ensure the leaving user's changes are saved and to update the list of collaborators in storage

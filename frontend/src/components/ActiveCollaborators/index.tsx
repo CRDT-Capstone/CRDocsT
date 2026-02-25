@@ -1,17 +1,22 @@
 import { useEffect, useState } from "react";
 import mainStore from "../../stores";
+import { genNRandomHexColors } from "../../utils";
+import uiStore from "../../stores/uiStore";
+import { ActiveCollaborator } from "../../types";
 
 interface ActiveCollaboratorsProps {
     userIdentity: string;
 }
 
 const ActiveCollaborators = ({ userIdentity }: ActiveCollaboratorsProps) => {
-    const activeCollaborators = mainStore((state) => state.activeCollaborators);
-    const [displayCollaborators, setDisplayCollaborators] = useState<string[]>([]);
+    const activeCollaborators = uiStore((state) => state.activeCollaborators);
+    const [displayCollaborators, setDisplayCollaborators] = useState<ActiveCollaborator[]>([]);
 
     useEffect(() => {
         // Filter out the current user from the list of active collaborators
-        const filteredCollaborators = activeCollaborators.filter((collaborator) => collaborator !== userIdentity);
+        const filteredCollaborators = [...activeCollaborators.values()].filter(
+            (collaborator) => collaborator.collaborator !== userIdentity,
+        );
         setDisplayCollaborators(filteredCollaborators);
     }, [activeCollaborators]);
 
@@ -26,8 +31,14 @@ const ActiveCollaborators = ({ userIdentity }: ActiveCollaboratorsProps) => {
             >
                 {displayCollaborators.length > 0 ? (
                     displayCollaborators.map((ac, index) => (
-                        <li key={index} className="py-1 px-2 text-sm italic">
-                            {ac}
+                        <li key={index} className={`py-1 px-2 text-sm italic`}>
+                            <span>
+                                {ac.collaborator}
+                                <span
+                                    className="inline-block ml-2 w-3 h-3 rounded-full"
+                                    style={{ backgroundColor: ac.color }}
+                                ></span>
+                            </span>
                         </li>
                     ))
                 ) : (

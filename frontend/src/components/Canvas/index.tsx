@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, memo, useCallback } from "react";
+import { useState, useEffect, useMemo, memo, useCallback, useRef } from "react";
 import CodeMirror, {
     Compartment,
     EditorState,
@@ -12,7 +12,7 @@ import { useNavigate } from "react-router-dom";
 import Loading from "../Loading";
 import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
-import { latexSupport } from "../../treesitter/codemirror";
+import { CSTType, latexSupport, YggdrasilType } from "../../treesitter/codemirror";
 import { Parser, Query, Tree } from "web-tree-sitter";
 import { newParser } from "@cr_docs_t/dts/treesitter";
 import { useCollab } from "../../hooks/collab";
@@ -26,6 +26,7 @@ import { ConnectionState } from "../../types";
 import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { autocompletion, completionKeymap } from "@codemirror/autocomplete";
 import { tokyoNight, tokyoNightInit } from "@uiw/codemirror-theme-tokyo-night";
+import { remoteCursorSupport } from "../../codemirror/decorations";
 
 interface CanvasProps {
     documentId: string | undefined;
@@ -59,6 +60,7 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
         connect,
         disconnect,
         delay,
+        wsClient
     } = useCollab(documentID!, editorView);
 
     if (isAuthError) {
@@ -93,7 +95,6 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
 
         return () => {
             // Clean up on unmount
-            disconnect();
             setDocument(undefined);
         };
     }, []);
@@ -126,8 +127,18 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
     );
 
     const tabSize = new Compartment();
+    const treeSitterCompartment = useMemo(() => new Compartment(), []);
 
-    const { exts, Yggdrasil, CST } = useMemo(() => {
+    useEffect(() => {
+        if (editorView && parser && query) {
+            const { extensions } = latexSupport(parser, query);
+            editorView.dispatch({
+                effects: [treeSitterCompartment.reconfigure(extensions)],
+            });
+        }
+    }, [parser, query, editorView]);
+
+    const { exts } = useMemo(() => {
         const base = [
             highlightSpecialChars(),
             basicSetup(),
@@ -138,51 +149,35 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
 
             EditorView.lineWrapping,
             tabSize.of(EditorState.tabSize.of(4)),
+            treeSitterCompartment.of([]),
+
+            remoteCursorSupport(),
 
             keymap.of([...searchKeymap, ...completionKeymap]),
         ];
 
-        if (parser && query) {
-            const { extensions, CST, Yggdrasil } = latexSupport(parser, query);
-            return {
-                exts: [...base, ...extensions],
-                Yggdrasil,
-                CST,
-            };
-        }
-
-        return { exts: base, Yggdrasil: null, CST: null };
-    }, [parser, query]);
+        return { exts: base };
+    }, []);
 
     const handleOnCreateEditor = useCallback(
         (view: EditorView) => {
             viewRef.current = view;
             setEditorView(view);
-
-            // Sync initial content if fugue already has data
-            const currentContent = fugue.observe();
-            if (currentContent.length > 0) {
-                view.dispatch({
-                    changes: { from: 0, to: view.state.doc.length, insert: currentContent },
-                    annotations: [RemoteUpdate.of(true)],
-                });
-                previousTextRef.current = currentContent;
-            }
         },
         [fugue, RemoteUpdate],
     );
 
     const handleOnChange = useCallback(
-        () => HandleChange.bind(null, fugue, previousTextRef, RemoteUpdate),
-        [fugue, RemoteUpdate],
+        () => HandleChange.bind(null,fugue, wsClient, previousTextRef, RemoteUpdate),
+        [fugue, RemoteUpdate, wsClient],
     );
 
     const handleConnectionIndicatorClick = useCallback(() => {
         if (connectionState === ConnectionState.CONNECTED) {
-            toast.info("Disconnecting from collaborative session...");
+            toast.info("Disconnecting from collaborative session");
             disconnect();
         } else if (connectionState === ConnectionState.DISCONNECTED) {
-            toast.info("Connecting to collaborative session...");
+            toast.info("Connecting to collaborative session");
             connect();
         }
     }, [connectionState]);
@@ -193,7 +188,17 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
 
     return (
         <div className="flex overflow-hidden relative flex-col flex-1 items-center w-full h-full">
-            <div className="overflow-hidden relative w-full">
+            <div className="overflow-hidden relative w-full h-[80vh]">
+                {connectionState !== ConnectionState.CONNECTED && (
+                    <div className="flex absolute inset-0 z-50 flex-col gap-4 justify-center items-center w-full h-full bg-base-100 backdrop-blur-[2px]">
+                        <div className="flex flex-col gap-2 justify-center items-center p-4 w-1/2 h-1/2 rounded-lg border bg-base-200/80 border-base-300">
+                            <span className="w-full text-xl text-center">
+                                You are currently offline. Connect to enable collaboration.
+                            </span>
+                        </div>
+                    </div>
+                )}
+
                 {isParsing && (
                     <div className="flex absolute top-4 right-4 z-10 gap-2 items-center py-1 px-3 rounded-full border shadow-md animate-pulse bg-base-200 border-base-300">
                         <span className="loading loading-spinner loading-xs text-primary"></span>
@@ -207,7 +212,7 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
                     height="80vh"
                     width="100%"
                     theme={theme}
-                    // editable={wsClient ? !wsClient.isOffline() : false}
+                    editable={connectionState === ConnectionState.CONNECTED} // Disable editing when disconnected while offline sync is not implemented
                     onCreateEditor={(view) => handleOnCreateEditor(view)}
                     onChange={handleOnChange()}
                 />

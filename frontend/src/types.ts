@@ -32,3 +32,11 @@ export interface Tab {
 }
 
 export type TabMap = Map<string, Tab>;
+
+export type ActiveCollaborator = {
+    collaborator: string;
+    color: string;
+    pos?: number;
+};
+
+export type ActiveCollaboratorMap = Map<string, ActiveCollaborator>;
