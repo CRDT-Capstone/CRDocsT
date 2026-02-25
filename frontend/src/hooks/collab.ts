@@ -119,7 +119,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
             reconnectTimeoutRef.current = null;
         }
 
-        retriesRef.current = 0;
+        if (retriesRef.current === 0) retriesRef.current = 1; // Make next connect a reconnect
         setDelay(undefined);
 
         if (socketRef.current) {
