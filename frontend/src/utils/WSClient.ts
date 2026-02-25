@@ -83,7 +83,6 @@ export class WSClient {
                 documentID: this.documentID,
                 state: null,
                 userIdentity: this.userIdentity,
-                bufferedOperations: undefined,
                 replicaId: this.fugue.replicaId(),
             };
             console.log("joinMsg -> ", joinMsg);
