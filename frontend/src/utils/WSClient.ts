@@ -334,7 +334,7 @@ export class WSClient {
         return this.userIdentity;
     }
 
-    private effectMsgs(msgs: FugueMessage[]) {
+    effectMsgs(msgs: FugueMessage[]) {
         const applied = this.fugue.effect(msgs);
 
         if (!this.viewRef.current) return;
