@@ -295,8 +295,6 @@ export class WSClient {
 
         const handleMsgType = (msg: BasePresenceMessage) => {
             if (!this.viewRef.current) return;
-            const view = this.viewRef.current;
-            console.log({ pMsg: msg });
             switch (msg.type) {
                 case PresenceMessageType.CURSOR:
                     // If its a cursor message update remove cursor positons for that user identity
