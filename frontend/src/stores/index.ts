@@ -15,7 +15,6 @@ export type DocumentState = {
     document?: Document;
     ygg?: Tree; // Concrete Syntax Tree (Yggdrasil)
     isParsing: boolean;
-    activeCollaborators: string[];
     connectionState: ConnectionState;
 
     isEffecting: boolean;
@@ -24,7 +23,6 @@ export type DocumentState = {
     setDocument: (v: Document | undefined) => void;
     setYgg: (v: Tree) => void;
     setIsParsing: (v: boolean) => void;
-    setActiveCollaborators: (v: string[]) => void;
 
     setConnectionState: (v: ConnectionState) => void;
     toggleIsEffecting: () => void;
@@ -60,7 +58,6 @@ const mainStore = create<State>()(
 
                 anonUserIdentity: undefined,
                 document: undefined,
-                activeCollaborators: [],
                 isParsing: false,
                 connectionState: ConnectionState.DISCONNECTED,
                 isEffecting: true,
@@ -89,11 +86,6 @@ const mainStore = create<State>()(
                 setConnectionState: (v) =>
                     set((state) => {
                         state.connectionState = v;
-                    }),
-
-                setActiveCollaborators: (v) =>
-                    set((state) => {
-                        state.activeCollaborators = v;
                     }),
 
                 toggleIsEffecting: () =>

@@ -1,5 +1,4 @@
 import { BragiAST, NodeId } from "@cr_docs_t/dts/treesitter";
-import { Parser } from "web-tree-sitter";
 
 export function randomString(length: number = 10): string {
     let res = new Array<string>(length);
@@ -18,7 +17,7 @@ export function buildNestedAst(ast: BragiAST, nodeId: NodeId = ast.rootId): any 
     const result: any = {
         type: node.type,
         text: JSON.stringify(node.text).slice(1, -1),
-        id: node.id, // Uncomment if you want to see the UUIDs
+        id: node.id,
     };
 
     for (const [key, value] of Object.entries(node)) {
@@ -28,7 +27,6 @@ export function buildNestedAst(ast: BragiAST, nodeId: NodeId = ast.rootId): any 
         if (Array.isArray(value)) {
             result[key] = value.map((id) => buildNestedAst(ast, id));
         } else if (typeof value === "string") {
-            // Single NodeId
             result[key] = buildNestedAst(ast, value);
         }
     }
@@ -43,4 +41,15 @@ export function buildNestedAst(ast: BragiAST, nodeId: NodeId = ast.rootId): any 
 
 export function makeAnonUserIdentity(): string {
     return `anon-${crypto.randomUUID()}`;
+}
+
+export function genNRandomHexColors(n: number = 1): string[] {
+    const colors: string[] = [];
+    for (let i = 0; i < n; i++) {
+        const color = `#${Math.floor(Math.random() * 0xffffff)
+            .toString(16)
+            .padStart(6, "0")}`;
+        colors.push(color);
+    }
+    return colors;
 }

@@ -2,20 +2,28 @@ import { AnnotationType } from "@codemirror/state";
 import { ViewUpdate } from "@codemirror/view";
 import { FugueTree } from "@cr_docs_t/dts";
 import { RefObject } from "react";
+import { WSClient } from "./WSClient";
 
 /**
  * Handle changes from CodeMirror
  */
 export const HandleChange = async (
     fugue: FugueTree,
+    wsClient: WSClient | undefined,
     previousTextRef: RefObject<string>,
     RemoteUpdate: AnnotationType<boolean>,
     value: string,
     viewUpdate: ViewUpdate,
 ) => {
+    // Get cursor changes
+    if (wsClient && viewUpdate.selectionSet) {
+        const pos = viewUpdate.state.selection.main.head;
+        wsClient.sendCursorUpdate(pos);
+    }
+
     if (!viewUpdate.docChanged) return;
 
-    // If this transaction has our "RemoteUpdate" annotation, we strictly ignore CRDT logic
+    // If this transaction has the RemoteUpdate annotation we  ignore CRDT logic
     const isRemote = viewUpdate.transactions.some((tr) => tr.annotation(RemoteUpdate));
 
     if (isRemote) {
@@ -34,25 +42,11 @@ export const HandleChange = async (
 
         // Handle deletion
         if (deleteLen > 0) {
-            // console.log({
-            //     operation: Operation.DELETE,
-            //     index: fromA,
-            //     count: deleteLen,
-            //     userIdentity,
-            // });
             const msgs = fugue.deleteMultiple(fromA, deleteLen);
         }
 
         // Handle insertion
         if (insertedLen > 0) {
-            // console.log({
-            //     operation: Operation.INSERT,
-            //     index: fromA,
-            //     text: insertedTxt,
-            //     userIdentity,
-            //     fugueIdentity: fugue.userIdentity,
-            // });
-
             const msgs = fugue.insertMultiple(fromA, insertedTxt);
         }
     });

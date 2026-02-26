@@ -3,23 +3,23 @@ import { logger } from "../logging";
 import {
     ContributorType,
     FugueJoinMessage,
-    FugueLeaveMessage,
     FugueMessage,
     FugueMessageSerialzier,
-    FugueMessageType,
     FugueRejectMessage,
     Operation,
-    FugueMutationMessageTypes,
     FugueUserJoinMessage,
-    FTree,
-    FugueStateSerializer,
     BaseFugueMessage,
     operationToString,
+    makeFugueMessage,
+    PresenceMessageSerializer,
+    BasePresenceMessage,
+    PresenceMessageType,
+    Seralizer,
 } from "@cr_docs_t/dts";
 import { DocumentServices } from "../services/DocumentServices";
 import DocumentManager from "../managers/document";
-import { UserService } from "./UserService";
 import { RedisService } from "./RedisService";
+import { BaseMessage, MessageType } from "@cr_docs_t/dts";
 
 export class WSService {
     private ws: WebSocket;
@@ -42,22 +42,52 @@ export class WSService {
         this.ws.on("error", (err) => logger.error("WebSocket error", { err }));
     }
 
-    private send(msg: BaseFugueMessage | BaseFugueMessage[]) {
-        const serializedMsg = FugueMessageSerialzier.serialize(Array.isArray(msg) ? msg : [msg]);
-        this.ws.send(serializedMsg);
+    private send(msgs: BaseMessage | BaseMessage[]) {
+        const msgsArray = Array.isArray(msgs) ? msgs : [msgs];
+        const bytes = this.serialize(msgsArray);
+        this.ws.send(bytes);
+    }
+
+    private serialize(msgs: BaseMessage | BaseMessage[]): Uint8Array {
+        return Seralizer.serialize(msgs);
+    }
+
+    private deserialize(bytes: Uint8Array): BaseFugueMessage[] | BasePresenceMessage[] {
+        return Seralizer.deserialize(bytes);
     }
 
     async handleMessage(message: Uint8Array<ArrayBuffer>) {
+        try {
+            const raw = this.deserialize(message);
+
+            if (raw.length === 0) {
+                logger.warn("Received empty message");
+                return;
+            }
+
+            const firstMsg = raw[0];
+            switch (firstMsg.msgType) {
+                case MessageType.FUGUE:
+                    return this.handleFugueMessages(raw as BaseFugueMessage[]);
+                case MessageType.PRESENCE:
+                    return this.handlePresenceMessages(raw as BasePresenceMessage[]);
+                default:
+                    // Exhastive check to make sure we handled all message types
+                    const _exhaustiveCheck: never = firstMsg;
+                    return _exhaustiveCheck;
+            }
+        } catch (err) {
+            logger.error("Failed to handle message", { err });
+            throw err;
+        }
+    }
+
+    async handleFugueMessages(msgs: BaseFugueMessage[]) {
         //There needs to be multiple message types
         //The first message type to be sent to the server whenever a client connects should be a join message
         //The join message should have the documentID ... that's pretty much it
         //We can add other things like possibly userId and all that jazz lateer
         //Then for every other message, we'd need to keep the documentID but everything else can be the same
-
-        const raw = FugueMessageSerialzier.deserialize(message);
-        const isArray = Array.isArray(raw);
-        const msgs: BaseFugueMessage[] = isArray ? raw : [raw];
-
         if (msgs.length === 0) return;
 
         const firstMsg = msgs[0];
@@ -81,13 +111,13 @@ export class WSService {
                 documentID: this.currentDocId,
                 userIdentity: firstMsg.userIdentity,
             });
-            const rejectMessage: FugueRejectMessage = {
+            const rejectMessage = makeFugueMessage<FugueRejectMessage>({
                 userIdentity: firstMsg.userIdentity,
                 replicaId: firstMsg.replicaId,
                 operation: Operation.REJECT,
                 documentID: firstMsg.documentID,
                 reason: "User does not have access",
-            };
+            });
             this.send(rejectMessage);
             this.ws.close(1000, "User does not have access");
             // 1000 -> normal expected socket connection closure
@@ -99,13 +129,13 @@ export class WSService {
 
         const sendUserJoin = async (userIdentity: string, currentDocId: string) => {
             const collaborators = await RedisService.getCollaboratorsByDocumentId(currentDocId);
-            const userJoinedNotification: FugueUserJoinMessage = {
+            const userJoinedNotification = makeFugueMessage<FugueUserJoinMessage>({
                 operation: Operation.USER_JOIN,
                 userIdentity: userIdentity,
                 documentID: currentDocId,
                 replicaId: firstMsg.replicaId,
                 collaborators,
-            };
+            });
 
             const serialisedMsg = FugueMessageSerialzier.serialize([userJoinedNotification]);
             doc.sockets.forEach((sock) => {
@@ -121,13 +151,13 @@ export class WSService {
         if (firstMsg.operation === Operation.INITIAL_SYNC) {
             logger.info(`Join operation for doc id ${this.currentDocId}`);
             try {
-                const joinMsg: FugueJoinMessage = {
+                const joinMsg = makeFugueMessage<FugueJoinMessage>({
                     userIdentity: this.userIdentity,
                     replicaId: doc.crdt.replicaId(),
                     operation: Operation.INITIAL_SYNC,
                     documentID: this.currentDocId,
                     state: doc.crdt.save(),
-                };
+                });
 
                 this.send(joinMsg); // send the join message to the joining user
 
@@ -151,13 +181,36 @@ export class WSService {
                 );
                 doc.crdt.effect(ms);
                 DocumentManager.markDirty(this.currentDocId);
-                const broadcastMsg = message; //relay the message as received
-                doc.sockets.forEach((sock) => {
-                    if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
-                });
+                doc.send(this.serialize(ms), this.ws);
+                // doc.sockets.forEach((sock) => {
+                //     if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
+                // });
             }
         } catch (err) {
             logger.error("Error handling delete or insert operation", { err });
+        }
+    }
+
+    async handlePresenceMessages(msgs: BasePresenceMessage[]) {
+        const handleMsgType = async (msg: BasePresenceMessage) => {
+            const { documentID } = msg;
+            const doc = await DocumentManager.getOrCreate(documentID);
+            logger.debug("Received presence message", { msg });
+            switch (msg.type) {
+                case PresenceMessageType.CURSOR:
+                    // Propagate the cursor information to the rest of the members of the
+                    // document
+                    doc.send(this.serialize(msg), this.ws);
+                    break;
+                case PresenceMessageType.SELECTION:
+                    break;
+            }
+        };
+
+        if (msgs.length === 0) return;
+
+        for (const msg of msgs) {
+            await handleMsgType(msg);
         }
     }
 

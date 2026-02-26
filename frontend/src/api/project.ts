@@ -29,7 +29,6 @@ export const createProjectApi = (getToken: TokenFunc) => {
             );
 
             const project = response.data;
-            console.log("The project -> ", project);
             return response;
         } catch (err) {
             console.error("There was an error creating a project -> ", err);
@@ -67,11 +66,10 @@ export const createProjectApi = (getToken: TokenFunc) => {
                     },
                 },
             );
-            console.log({ response });
 
             return response;
         } catch (err) {
-            console.log("There was an error updating project name -> ", err);
+            console.error("There was an error updating project name -> ", err);
             throw err;
             //TODO: change this to some daisy UI element
         }
@@ -96,7 +94,7 @@ export const createProjectApi = (getToken: TokenFunc) => {
 
             return response.data;
         } catch (err) {
-            console.log("There was an error retrieving projects-> ", err);
+            console.error("There was an error retrieving projects-> ", err);
             throw err;
             //TODO: change this to some daisy UI element
         }
@@ -104,7 +102,6 @@ export const createProjectApi = (getToken: TokenFunc) => {
 
     const getSharedProjectsByUserId = async (limit: number = 10, nextCursor?: string) => {
         try {
-            console.log("Getting shared projects with limit -> ", limit, " and nextCursor -> ", nextCursor);
             const token = await getToken();
             const queryParams = new URLSearchParams({ limit: limit.toString() });
             if (nextCursor) {
@@ -122,7 +119,7 @@ export const createProjectApi = (getToken: TokenFunc) => {
 
             return response.data;
         } catch (err) {
-            console.log("There was an error retrieving projects-> ", err);
+            console.error("There was an error retrieving projects-> ", err);
             throw err;
             //TODO: change this to some daisy UI element
         }
@@ -131,7 +128,6 @@ export const createProjectApi = (getToken: TokenFunc) => {
     const getProjectById = async (projectId: string) => {
         const token = await getToken();
 
-        console.log({ projectId });
         const response = await f.get<Msg<ProjectWithDocuments>>(`${ApiBaseUrl}/${path}/${projectId}`, {
             headers: {
                 ...includeToken(token),
@@ -139,7 +135,6 @@ export const createProjectApi = (getToken: TokenFunc) => {
         });
 
         const projectWDocs = response.data;
-        console.log("Project -> ", projectWDocs);
         return projectWDocs;
     };
 
@@ -172,7 +167,7 @@ export const createProjectApi = (getToken: TokenFunc) => {
             );
             return response;
         } catch (err) {
-            console.log("Unable to share project -> ", err);
+            console.error("Unable to share project -> ", err);
             throw err;
         }
     };
@@ -221,7 +216,7 @@ export const createProjectApi = (getToken: TokenFunc) => {
 
             return res;
         } catch (err) {
-            console.log("Unable to update collaborator type -> ", err);
+            console.error("Unable to update collaborator type -> ", err);
             throw err;
         }
     };
@@ -246,7 +241,7 @@ export const createProjectApi = (getToken: TokenFunc) => {
 
             return res;
         } catch (err) {
-            console.log("Unable to get user project access -> ", err);
+            console.error("Unable to get user project access -> ", err);
             throw err;
         }
     };
@@ -267,7 +262,7 @@ export const createProjectApi = (getToken: TokenFunc) => {
 
             return res;
         } catch (err) {
-            console.log("There was an error creating a project document -> ", err);
+            console.error("There was an error creating a project document -> ", err);
             throw err;
         }
     };
@@ -284,7 +279,7 @@ export const createProjectApi = (getToken: TokenFunc) => {
 
             return res;
         } catch (err) {
-            console.log("There was an error removing a project document -> ", err);
+            console.error("There was an error removing a project document -> ", err);
             throw err;
         }
     };

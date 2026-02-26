@@ -8,13 +8,13 @@ interface LoadingProps {
     label?: string;
 }
 
-const Loading: React.FC<LoadingProps> = ({
+const Loading = ({
     size = "lg",
     variant = "dots",
     color = "text-white",
     fullPage = false,
     label = "Loading...",
-}) => {
+}: LoadingProps) => {
     const sizeClasses = {
         xs: "loading-xs",
         sm: "loading-sm",

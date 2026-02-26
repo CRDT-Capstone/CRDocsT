@@ -3,11 +3,9 @@ import { ClerkProvider, SignedIn, SignedOut } from "@clerk/clerk-react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { HomePage } from "../HomePage";
 import { SignInPage } from "../SignInPage";
 import { SignUpPage } from "../SignUpPage";
 import { Toaster } from "sonner";
-import Canvas from "../Canvas";
 import DevBar from "../DevBar";
 import NavBar from "../NavBar";
 import AnonCanvas from "../AnonCanvas";
@@ -94,8 +92,7 @@ const Main = () => {
                         }}
                     />
                     <ReactQueryDevtools initialIsOpen={false} />
-                    {/* {import.meta.env.MODE !== "production" && <DevBar />} */}
-                    <DevBar />
+                    {import.meta.env.MODE !== "production" && <DevBar />}
                 </QueryClientProvider>
             </div>
         </BrowserRouter>
