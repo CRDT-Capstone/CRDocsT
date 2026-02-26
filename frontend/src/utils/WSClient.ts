@@ -86,16 +86,39 @@ export class WSClient {
 
     private async handleJoin() {
         console.log(`Is reconnect -> ${this.isReconnection}`);
+        // Now that offline sync is out of scope when we reconnect we clear the
+        // editor state, and send an initial sync message to receive the state of
+        // all the other replicas that stayed online
         if (this.isReconnection) {
-            const userJoinedMsg = makeFugueMessage<FugueUserJoinMessage>({
-                operation: Operation.USER_JOIN,
-                documentID: this.documentID,
-                replicaId: this.fugue.replicaId(),
-                userIdentity: this.userIdentity,
-                collaborators: [],
+            // Clear fugue state
+            this.fugue.clear();
+
+            // Clear editor state
+            if (!this.viewRef.current) return;
+            const view = this.viewRef.current;
+            view.dispatch({
+                changes: {
+                    from: 0,
+                    to: view.state.doc.length,
+                    insert: "",
+                },
+                annotations: [this.remoteUpdate.of(true)],
+                selection: EditorSelection.cursor(0),
             });
-            this.send(userJoinedMsg);
-            console.log("Sent user joined msg");
+
+            this.previousTextRef.current = "";
+
+            // Send initial sync message to request the persisted state from other replicas that stayed online
+            const joinMsg = makeFugueMessage<FugueJoinMessage>({
+                operation: Operation.INITIAL_SYNC,
+                documentID: this.documentID,
+                state: null,
+                userIdentity: this.userIdentity,
+                replicaId: this.fugue.replicaId(),
+            });
+
+            this.send(joinMsg);
+            console.log("Sent reconnect initial sync message");
         } else {
             //send the initial sync message to request the persisted state
             const joinMsg = makeFugueMessage<FugueJoinMessage>({
@@ -213,6 +236,7 @@ export class WSClient {
         if (firstRemoteMsg.operation === Operation.INITIAL_SYNC && firstRemoteMsg.state) {
             const msg = remoteMsgs[0] as FugueJoinMessage;
 
+            this.fugue.clear();
             this.fugue.load(msg.state!);
 
             const newText = this.fugue.observe();
