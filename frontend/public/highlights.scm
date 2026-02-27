@@ -290,9 +290,10 @@
         (_) @markup.strong))
  (#any-of? @_name "\\textbf" "\\mathbf"))
 
+; FIX: was (#lua-match? ...) — replaced with (#match? ...) for web-tree-sitter (JS regex)
 (generic_command
   (command_name) @keyword.conditional
-  (#lua-match? @keyword.conditional "^\\if[a-zA-Z@]+$"))
+  (#match? @keyword.conditional "^\\\\if[a-zA-Z@]+$"))
 
 (generic_command
   (command_name) @keyword.conditional
@@ -396,7 +397,7 @@
 @comment @spell
 
 ((line_comment) @keyword.directive @nospell
-  (#lua-match? @keyword.directive "^%% !TeX"))
+  (#match? @keyword.directive "^%% !TeX"))
 
 ((line_comment) @keyword.directive @nospell
-  (#lua-match? @keyword.directive "^%%&"))
+  (#match? @keyword.directive "^%%&"))

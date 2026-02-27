@@ -1,6 +1,6 @@
 import { AnnotationType } from "@codemirror/state";
 import { ViewUpdate } from "@codemirror/view";
-import { FugueTree } from "@cr_docs_t/dts";
+import { chunkArray, FugueMessage, FugueTree } from "@cr_docs_t/dts";
 import { RefObject } from "react";
 import { WSClient } from "./WSClient";
 
@@ -32,24 +32,27 @@ export const HandleChange = async (
         return;
     }
 
-    // Get the actual changes from viewUpdate
-    const newText = value;
-
-    viewUpdate.changes.iterChanges(async (fromA, toA, fromB, toB, inserted) => {
-        const deleteLen = toA - fromA;
-        const insertedLen = toB - fromB;
-        const insertedTxt = inserted.toString();
-
-        // Handle deletion
-        if (deleteLen > 0) {
-            const msgs = fugue.deleteMultiple(fromA, deleteLen);
-        }
-
-        // Handle insertion
-        if (insertedLen > 0) {
-            const msgs = fugue.insertMultiple(fromA, insertedTxt);
-        }
+    // Collect all change regions first
+    const changes: Array<{ fromA: number; toA: number; fromB: number; inserted: string }> = [];
+    viewUpdate.changes.iterChanges((fromA, toA, fromB, _toB, inserted) => {
+        changes.push({ fromA, toA, fromB, inserted: inserted.toString() });
     });
 
-    previousTextRef.current = newText;
+    // Now process each change region asynchronously with yielding
+    for (const { fromA, toA, fromB, inserted } of changes) {
+        const deleteLen = toA - fromA;
+        const insertedLen = inserted.length;
+
+        if (deleteLen > 0) {
+            const msgs = fugue.deleteMultiple(fromA, deleteLen);
+            fugue.propagate(msgs);
+        }
+
+        if (insertedLen > 0) {
+            const msgs = fugue.insertMultiple(fromB, inserted);
+            fugue.propagate(msgs);
+        }
+    }
+
+    previousTextRef.current = value;
 };

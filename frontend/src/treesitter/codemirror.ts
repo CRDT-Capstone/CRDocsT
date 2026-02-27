@@ -3,9 +3,9 @@ import { Decoration, DecorationSet, ViewPlugin, PluginValue, EditorView, ViewUpd
 import { EditorState, Range, RangeSetBuilder, StateField, Transaction } from "@codemirror/state";
 import { Edit, Node } from "web-tree-sitter";
 import mainStore from "../stores";
-import TagMap from "./mappings";
+import TagMap, { latexHighlightStyle } from "./mappings";
 import { parseCST, BragiAST } from "@cr_docs_t/dts/treesitter";
-import { highlightingFor } from "@codemirror/language";
+import { highlightingFor, syntaxHighlighting } from "@codemirror/language";
 import { buildNestedAst } from "../utils";
 
 /**
@@ -101,29 +101,33 @@ export const treeSitterHighlightPlugin = (query: Query, ygg: CSTType) => {
                 if (!tree) return Decoration.none;
 
                 const builder = new RangeSetBuilder<Decoration>();
+                const { from: viewportFrom, to: viewportTo } = view.viewport;
 
-                const margin = 999999999;
-                const viewportFrom = Math.max(0, view.viewport.from - margin);
-                // const viewportTo = Math.min(view.state.doc.length, view.viewport.to + margin);
-                const viewportTo = view.viewport.to + margin; // HACK: Allow captures that end beyond the document end cause clipping isn't working properly for some reason
-                // console.log(`Building decorations for viewport [${viewportFrom}, ${viewportTo}]`);
+                const startPosition = getPoint(view.state.doc, viewportFrom);
+                const endPosition = getPoint(view.state.doc, viewportTo);
 
                 const captures = query.captures(tree.rootNode, {
-                    startIndex: viewportFrom,
-                    endIndex: viewportTo,
+                    startPosition,
+                    endPosition,
                 });
 
-                const sortedCaptures = captures.sort((a, b) => a.node.startIndex - b.node.startIndex);
+                const sorted = captures.sort((a, b) => {
+                    // Sort by start index ascending
+                    if (a.node.startIndex !== b.node.startIndex) {
+                        return a.node.startIndex - b.node.startIndex;
+                    }
+                    // If start index is the same, sort by end index descending
+                    return b.node.endIndex - a.node.endIndex;
+                });
 
-                let lastFrom = -1;
-                for (const { node, name } of sortedCaptures) {
-                    // Clamp to current document limits to prevent out-of-bounds errors
+                let lastEnd = -1;
+
+                for (const { node, name } of sorted) {
                     const from = node.startIndex;
                     const to = node.endIndex;
 
-                    if (from >= to) continue; // Skip empty or invalid ranges
-
-                    if (from < lastFrom) continue; // Skip if this capture starts before the last one (overlapping)
+                    if (from < lastEnd) continue;
+                    if (from >= to || to <= viewportFrom || from >= viewportTo) continue;
 
                     const parts = name.split(".");
                     let tag = null;
@@ -134,27 +138,22 @@ export const treeSitterHighlightPlugin = (query: Query, ygg: CSTType) => {
                             break;
                         }
                     }
-                    if (!tag) continue;
 
-                    const highlightClass = highlightingFor(view.state, [tag]);
-                    const spec = Decoration.mark({ class: `${highlightClass!} ts-${name.replace(/\./g, "-")}` });
-                    builder.add(from, to, spec);
-                    lastFrom = from; // Update the pointer
+                    if (tag) {
+                        const highlightClass = highlightingFor(view.state, [tag]);
+                        if (highlightClass) {
+                            const spec = Decoration.mark({
+                                class: `${highlightClass} ts-${name.replace(/\./g, "-")}`,
+                            });
 
-                    // RangeSetBuilder Validation:
-                    // - from must be >= lastFrom
-                    // - from must be < to (no empty ranges)
-                    // if (from < to && from >= lastFrom) {
-                    //     const highlightClass = highlightingFor(view.state, [tag]);
-                    //     const classes = [highlightClass, `cm-${name.replace(/\./g, "-")}`].filter(Boolean).join(" ");
-                    //
-                    //     try {
-                    //         builder.add(from, to, Decoration.mark({ class: classes }));
-                    //         lastFrom = from; // Update the pointer
-                    //     } catch (e) {
-                    //         console.warn(`RangeSetBuilder error at ${from}-${to} for ${name}:`, e);
-                    //     }
-                    // }
+                            try {
+                                builder.add(from, to, spec);
+                                lastEnd = to;
+                            } catch (e) {
+                                console.error("Builder Error:", e);
+                            }
+                        }
+                    }
                 }
 
                 return builder.finish();
@@ -206,6 +205,7 @@ export const latexSupport = (parser: Parser, query: Query) => {
     const extensions = [
         CST,
         Yggdrasil,
+        syntaxHighlighting(latexHighlightStyle),
         treeSitterHighlightPlugin(query, CST),
         parserSync,
         EditorState.languageData.of(() => [

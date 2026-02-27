@@ -20,7 +20,7 @@
         "@codemirror/search": "^6.6.0",
         "@codemirror/state": "^6.5.4",
         "@codemirror/view": "^6.39.13",
-        "@cr_docs_t/dts": "^0.31.0",
+        "@cr_docs_t/dts": "link:/home/mads/projects/Typescript/applied_crdt/CRDocsT-dts",
         "@esbuild-plugins/node-globals-polyfill": "^0.2.3",
         "@lexical/react": "^0.38.2",
         "@lezer/highlight": "^1.2.3",
