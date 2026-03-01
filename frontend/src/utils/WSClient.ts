@@ -16,7 +16,7 @@ import {
     makeFugueMessage,
     PresenceCursorMessage,
     makePresenceMsg,
-    Seralizer,
+    Serializer,
 } from "@cr_docs_t/dts";
 import { AnnotationType, ChangeSet, ChangeSpec, EditorSelection, EditorView } from "@uiw/react-codemirror";
 import { RefObject } from "react";
@@ -77,11 +77,11 @@ export class WSClient {
     }
 
     private serialize(msgs: BaseMessage | BaseMessage[]): Uint8Array {
-        return Seralizer.serialize(msgs);
+        return Serializer.serialize(msgs);
     }
 
     private deserialize(bytes: Uint8Array): BaseFugueMessage[] | BasePresenceMessage[] {
-        return Seralizer.deserialize(bytes);
+        return Serializer.deserialize(bytes);
     }
 
     private async handleJoin() {
@@ -153,8 +153,7 @@ export class WSClient {
 
     async handleMessage(ev: MessageEvent) {
         try {
-            const blob = ev.data as Blob;
-            const buffer = await blob.arrayBuffer(); //convert blob to buffer
+            const buffer = ev.data as ArrayBuffer;
             const bytes = new Uint8Array(buffer); //convert to Unit8Array
 
             const raw = this.deserialize(bytes);

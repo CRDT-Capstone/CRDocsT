@@ -64,6 +64,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
 
     const connect = () => {
         const sock = new WebSocket(webSocketUrl);
+        sock.binaryType = "arraybuffer";
         socketRef.current = sock;
 
         sock.onopen = () => {

@@ -16,7 +16,7 @@ const colors = {
 };
 winston.addColors(colors);
 
-const devFormat = combine(
+const devFmt = combine(
     colorize({ all: true }),
     timestamp({ format: "YYYY-MM-DD HH:mm:ss" }),
     errors({ stack: true }),
@@ -31,7 +31,7 @@ const devFormat = combine(
     }),
 );
 
-const prodFormat = combine(
+const prodFmt = combine(
     errors({ stack: true }),
     timestamp(),
     metadata(), // Wraps extra arguments into a "metadata" field
@@ -40,7 +40,7 @@ const prodFormat = combine(
 
 const transports: winston.transport[] = [
     new winston.transports.Console({
-        format: isProduction ? prodFormat : devFormat,
+        format: isProduction ? prodFmt : devFmt,
     }),
 ];
 
@@ -50,7 +50,7 @@ if (isProduction) {
             filename: "logs/combined-%DATE%.log",
             datePattern: "YYYY-MM-DD",
             maxFiles: "14d", // Keep logs for 14 days
-            format: prodFormat,
+            format: prodFmt,
         }),
     );
 }

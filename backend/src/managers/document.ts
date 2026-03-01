@@ -4,6 +4,7 @@ import {
     FugueLeaveMessage,
     FugueMessageSerialzier,
     Operation,
+    Serializer,
     makeFugueMessage,
 } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
@@ -85,11 +86,11 @@ class DocumentManager {
         let doc = this.instances.get(documentID);
 
         if (doc) {
-            logger.info(`Found existing ActiveDocument for ID ${documentID}.`);
+            logger.debug(`Found existing ActiveDocument for ID ${documentID}.`);
             if (doc.cleanupTimeout) {
                 clearTimeout(doc.cleanupTimeout);
                 doc.cleanupTimeout = undefined;
-                logger.info(`Cancelled cleanup for document ${documentID} due to new activity.`);
+                logger.debug(`Cancelled cleanup for document ${documentID} due to new activity.`);
             }
             doc.lastActivity = Date.now();
             return doc;
@@ -152,7 +153,7 @@ class DocumentManager {
             });
 
             logger.debug(`Sending leave message for -> ${userIdentity}`);
-            const bytes = FugueMessageSerialzier.serialize([leaveMessage]);
+            const bytes = Serializer.serialize([leaveMessage]);
             doc.send(bytes);
             logger.info("User left document", { documentID, userIdentity });
 

@@ -11,10 +11,9 @@ import {
     BaseFugueMessage,
     operationToString,
     makeFugueMessage,
-    PresenceMessageSerializer,
     BasePresenceMessage,
     PresenceMessageType,
-    Seralizer,
+    Serializer,
 } from "@cr_docs_t/dts";
 import { DocumentServices } from "../services/DocumentServices";
 import DocumentManager from "../managers/document";
@@ -49,16 +48,18 @@ export class WSService {
     }
 
     private serialize(msgs: BaseMessage | BaseMessage[]): Uint8Array {
-        return Seralizer.serialize(msgs);
+        return Serializer.serialize(msgs);
     }
 
     private deserialize(bytes: Uint8Array): BaseFugueMessage[] | BasePresenceMessage[] {
-        return Seralizer.deserialize(bytes);
+        return Serializer.deserialize(bytes);
     }
 
     async handleMessage(message: Uint8Array<ArrayBuffer>) {
         try {
+            logger.debug("Deserializing message");
             const raw = this.deserialize(message);
+            logger.debug("Done deserializing message", { raw });
 
             if (raw.length === 0) {
                 logger.warn("Received empty message");
@@ -137,10 +138,8 @@ export class WSService {
                 collaborators,
             });
 
-            const serialisedMsg = FugueMessageSerialzier.serialize([userJoinedNotification]);
-            doc.sockets.forEach((sock) => {
-                if (sock.readyState === WebSocket.OPEN) sock.send(serialisedMsg);
-            });
+            const bytes = this.serialize([userJoinedNotification]);
+            doc.send(bytes);
         };
 
         if (firstMsg.operation === Operation.USER_JOIN) {
@@ -170,7 +169,7 @@ export class WSService {
 
         try {
             const ms = msgs as FugueMessage[];
-            logger.info(`Received ${msgs.length} operations for doc id ${this.currentDocId} from ${ms[0].replicaId}`);
+            logger.debug(`Received ${msgs.length} operations for doc id ${this.currentDocId} from ${ms[0].replicaId}`);
 
             if (accessType === ContributorType.EDITOR) {
                 //Ideally the editor would be disabled on the frontend but you can never be too sure.
@@ -182,9 +181,6 @@ export class WSService {
                 doc.crdt.effect(ms);
                 DocumentManager.markDirty(this.currentDocId);
                 doc.send(this.serialize(ms), this.ws);
-                // doc.sockets.forEach((sock) => {
-                //     if (sock !== this.ws && sock.readyState === WebSocket.OPEN) sock.send(broadcastMsg);
-                // });
             }
         } catch (err) {
             logger.error("Error handling delete or insert operation", { err });

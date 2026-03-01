@@ -12,6 +12,7 @@ import ErrorHandler from "./middlewares/errorHandler";
 import DocumentManager from "./managers/document";
 import { redis } from "./redis";
 import { ProjectRouter } from "./routes/project";
+import { setConsole } from "@cr_docs_t/dts";
 
 dotenv.config();
 
@@ -42,6 +43,14 @@ const app = express();
 app.use(express.json());
 app.use(httpLogger);
 
+setConsole({
+    ...console,
+    log: (message?: any, ...optionalParams: any[]) => logger.info(message, ...optionalParams),
+    error: (message?: any, ...optionalParams: any[]) => logger.error(message, ...optionalParams),
+    warn: (message?: any, ...optionalParams: any[]) => logger.warn(message, ...optionalParams),
+    debug: (message?: any, ...optionalParams: any[]) => logger.debug(message, ...optionalParams),
+});
+
 const server = http.createServer(app);
 const port = process.env.PORT || 5001;
 
@@ -65,7 +74,7 @@ let corsOptions: cors.CorsOptions = {
 };
 if (process.env.NODE_ENV === "production") {
     corsOptions = {
-        origin: ["https://crdocst.surge.sh"],
+        origin: ["https://crdocst.surge.sh", "http://localhost:5173"],
         methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         allowedHeaders: ["Content-Type", "Authorization"],
         credentials: true,
