@@ -58,10 +58,10 @@ export const HandleChange = async (
             console.error("No AST found on join update!");
             return;
         }
-        // Use the new ast to populate registry
-        console.log("Processing join update...");
-        Registry.populate(newAst, fugue.getState());
-        console.log({ Registry, newAst });
+        Registry.clear();
+        if (fugue.observe().length > 0) {
+            Registry.populate(newAst, fugue.getState());
+        }
         previousTextRef.current = value;
         return;
     }

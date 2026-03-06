@@ -46,7 +46,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
     const [delay, setDelay] = useState<number | undefined>(undefined);
 
     const [registry] = useState(() => new Registry());
-    const [matcher] = useState(() => new CompositeMatcher(new ChawatheScriptGen()));
+    const [matcher] = useState(() => new CompositeMatcher());
     const [ratatoskr, setRatatoskr] = useState<Ratatoskr | undefined>();
     const [nidhoggr, setNidhoggr] = useState<Nidhoggr | undefined>();
 
@@ -93,6 +93,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
             fugue.ws = sock;
             fugue.userIdentity = userIdentity;
             setDelay(undefined);
+            registry.clear();
 
             console.log("Creating Ratatoskr and Nidhoggr");
             const newRatatoskr = new Ratatoskr(fugue, registry);
@@ -112,7 +113,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
                 userIdentity,
                 registry,
                 wasReconncting,
-                nidhoggr,
+                newNidhoggr,
             );
             setWsClient(newWsClient);
             retriesRef.current = 0;
