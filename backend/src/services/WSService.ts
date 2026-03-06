@@ -178,7 +178,7 @@ export class WSService {
                     `Effecting ${ms.length} on server crdt with id ${doc.crdt.replicaId()} from ${ms[0].replicaId}`,
                     { firstMsg: { OP: ms[0].operation, DATA: ms[0].data } },
                 );
-                doc.crdt.effect(ms);
+                doc.effect(ms);
                 DocumentManager.markDirty(this.currentDocId);
                 doc.send(this.serialize(ms), this.ws);
             }

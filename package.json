@@ -1,0 +1,5 @@
+{
+	"dependencies": {
+		"@cr_docs_t/dts": "link:/home/mads/projects/Typescript/applied_crdt/CRDocsT-dts"
+	}
+}

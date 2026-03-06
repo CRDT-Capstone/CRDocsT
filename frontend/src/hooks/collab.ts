@@ -8,9 +8,21 @@ import { WSClient } from "../utils/WSClient";
 import { toast } from "sonner";
 import { ConnectionState } from "../types";
 import { makeAnonUserIdentity } from "../utils";
+import {
+    Nidhoggr,
+    Ratatoskr,
+    Registry,
+    SimplifiedChawatheScriptGen,
+    CompositeMatcher,
+    ChawatheScriptGen,
+} from "@cr_docs_t/dts/treesitter";
+import { createFrontendConflictHandler as createConflictHandler } from "../treesitter/conflictHandler";
 
-// Ref to ignore next change (to prevent rebroadcasting remote changes)
+// Annotation to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
+
+// Annotation to mark if a change is from a join update, which should be treated differently for cursor updates
+const JoinUpdate = Annotation.define<boolean>();
 
 export const useCollab = (documentID: string, editorView: EditorView | undefined) => {
     const { user, isLoaded, isSignedIn } = useUser();
@@ -32,6 +44,13 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
     const unEffectedMsgs = mainStore((state) => state.unEffectedMsgs);
     const setUnEffectedMsgs = mainStore((state) => state.setUnEffectedMsgs);
     const [delay, setDelay] = useState<number | undefined>(undefined);
+
+    const [registry] = useState(() => new Registry());
+    const [matcher] = useState(() => new CompositeMatcher(new ChawatheScriptGen()));
+    const [ratatoskr, setRatatoskr] = useState<Ratatoskr | undefined>();
+    const [nidhoggr, setNidhoggr] = useState<Nidhoggr | undefined>();
+
+    const conflictHandler = createConflictHandler();
 
     const retriesRef = useRef(0);
 
@@ -75,16 +94,25 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
             fugue.userIdentity = userIdentity;
             setDelay(undefined);
 
+            console.log("Creating Ratatoskr and Nidhoggr");
+            const newRatatoskr = new Ratatoskr(fugue, registry);
+            const newNidhoggr = new Nidhoggr(fugue, registry, { onConflict: conflictHandler });
+            setRatatoskr(newRatatoskr);
+            setNidhoggr(newNidhoggr);
+
             console.log("Creating new WSClient");
             const newWsClient = new WSClient(
                 sock,
                 fugue,
                 documentID,
                 RemoteUpdate,
+                JoinUpdate,
                 viewRef,
                 previousTextRef,
                 userIdentity,
+                registry,
                 wasReconncting,
+                nidhoggr,
             );
             setWsClient(newWsClient);
             retriesRef.current = 0;
@@ -132,6 +160,8 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
             socketRef.current = null;
         }
 
+        setRatatoskr(undefined);
+        setNidhoggr(undefined);
         setWsClient(undefined);
         setIsConnected(ConnectionState.DISCONNECTED);
     };
@@ -178,5 +208,10 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
         connectionState,
         connect,
         delay,
+        registry,
+        nidhoggr,
+        ratatoskr,
+        JoinUpdate,
+        matcher,
     };
 };

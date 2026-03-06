@@ -1,0 +1,13 @@
+lockfileVersion: '9.0'
+
+settings:
+  autoInstallPeers: true
+  excludeLinksFromLockfile: false
+
+importers:
+
+  .:
+    dependencies:
+      '@cr_docs_t/dts':
+        specifier: link:/home/mads/projects/Typescript/applied_crdt/CRDocsT-dts
+        version: link:../CRDocsT-dts

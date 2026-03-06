@@ -3,6 +3,16 @@ import { ViewUpdate } from "@codemirror/view";
 import { chunkArray, FugueMessage, FugueTree } from "@cr_docs_t/dts";
 import { RefObject } from "react";
 import { WSClient } from "./WSClient";
+import { YggdrasilType } from "../treesitter/codemirror";
+import {
+    GumTreeBottomUp,
+    GumTreeTopDown,
+    Ratatoskr,
+    Registry,
+    SimplifiedChawatheScriptGen,
+    TreeMetricComputer,
+    CompositeMatcher,
+} from "@cr_docs_t/dts/treesitter";
 
 /**
  * Handle changes from CodeMirror
@@ -12,6 +22,11 @@ export const HandleChange = async (
     wsClient: WSClient | undefined,
     previousTextRef: RefObject<string>,
     RemoteUpdate: AnnotationType<boolean>,
+    JoinUpdate: AnnotationType<boolean>,
+    Yggdrasil: YggdrasilType | null,
+    Ratatoskr: Ratatoskr | undefined,
+    Registry: Registry,
+    matcher: CompositeMatcher,
     value: string,
     viewUpdate: ViewUpdate,
 ) => {
@@ -25,9 +40,28 @@ export const HandleChange = async (
 
     // If this transaction has the RemoteUpdate annotation we  ignore CRDT logic
     const isRemote = viewUpdate.transactions.some((tr) => tr.annotation(RemoteUpdate));
+    // If this transaction has the JoinUpdate annotation, we should treat it differently for cursor updates
+    const isJoin = viewUpdate.transactions.some((tr) => tr.annotation(JoinUpdate));
+    console.log({ isRemote, isJoin });
 
     if (isRemote) {
         // Just sync the ref so we don't diff against stale text later
+        previousTextRef.current = value;
+        return;
+    }
+
+    const oldAst = Yggdrasil ? viewUpdate.startState.field(Yggdrasil, false) : undefined;
+    const newAst = Yggdrasil ? viewUpdate.state.field(Yggdrasil, false) : undefined;
+
+    if (isJoin) {
+        if (!newAst) {
+            console.error("No AST found on join update!");
+            return;
+        }
+        // Use the new ast to populate registry
+        console.log("Processing join update...");
+        Registry.populate(newAst, fugue.getState());
+        console.log({ Registry, newAst });
         previousTextRef.current = value;
         return;
     }
@@ -38,21 +72,32 @@ export const HandleChange = async (
         changes.push({ fromA, toA, fromB, inserted: inserted.toString() });
     });
 
-    // Now process each change region asynchronously with yielding
-    for (const { fromA, toA, fromB, inserted } of changes) {
-        const deleteLen = toA - fromA;
-        const insertedLen = inserted.length;
+    if (Ratatoskr && oldAst && newAst) {
+        console.log("Processing changes with GumTree...");
+        Ratatoskr.newAst = newAst;
+        const editScript = matcher.match(oldAst, newAst);
 
-        if (deleteLen > 0) {
-            const msgs = fugue.deleteMultiple(fromA, deleteLen);
-            fugue.propagate(msgs);
-        }
-
-        if (insertedLen > 0) {
-            const msgs = fugue.insertMultiple(fromB, inserted);
-            fugue.propagate(msgs);
-        }
+        const msgs = Ratatoskr.translate(editScript);
+        console.log({ msgs });
+        fugue.propagate(msgs);
     }
+    // } else {
+    //     console.log("Processing changes with basic diff...");
+    //     for (const { fromA, toA, fromB, inserted } of changes) {
+    //         const deleteLen = toA - fromA;
+    //         const insertedLen = inserted.length;
+    //
+    //         if (deleteLen > 0) {
+    //             const msgs = fugue.deleteMultiple(fromA, deleteLen);
+    //             fugue.propagate(msgs);
+    //         }
+    //
+    //         if (insertedLen > 0) {
+    //             const msgs = fugue.insertMultiple(fromB, inserted);
+    //             fugue.propagate(msgs);
+    //         }
+    //     }
+    // }
 
     previousTextRef.current = value;
 };

@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { BaseMessage, MessageType } from "@cr_docs_t/dts";
 import { createRemoteCursorEffect, RemoteCursor } from "../codemirror/decorations";
 import uiStore from "../stores/uiStore";
+import { Nidhoggr, Registry } from "@cr_docs_t/dts/treesitter";
 
 export class WSClient {
     private ws: WebSocket;
@@ -34,27 +35,36 @@ export class WSClient {
     private userIdentity: string;
     private fugue: FugueTree;
     private remoteUpdate: AnnotationType<boolean>; // Annotation to mark remote updates and prevent rebroadcasting
+    private joinUpdate: AnnotationType<boolean>; // Annotation to mark join updates for special handling
     private isReconnection: boolean;
     private Q: Promise<void> = Promise.resolve();
+    private registry: Registry;
+    nidhoggr?: Nidhoggr;
 
     constructor(
         ws: WebSocket,
         fugue: FugueTree,
         documentID: string,
         remoteUpdate: AnnotationType<boolean>,
+        joinUpdate: AnnotationType<boolean>,
         viewRef: RefObject<EditorView | undefined>,
         previousTextRef: RefObject<string>,
         userIdentity: string,
+        registry: Registry,
         isReconnection: boolean = false,
+        nidhoggr?: Nidhoggr,
     ) {
         this.ws = ws;
         this.viewRef = viewRef;
         this.documentID = documentID;
         this.fugue = fugue;
         this.remoteUpdate = remoteUpdate;
+        this.joinUpdate = joinUpdate;
         this.previousTextRef = previousTextRef;
         this.isReconnection = isReconnection;
         this.userIdentity = userIdentity;
+        this.registry = registry;
+        this.nidhoggr = nidhoggr;
         if (userIdentity) this.userIdentity = userIdentity;
         uiStore.getState().setActiveCollaborators(undefined);
 
@@ -235,6 +245,8 @@ export class WSClient {
         if (firstRemoteMsg.operation === Operation.INITIAL_SYNC && firstRemoteMsg.state) {
             const msg = remoteMsgs[0] as FugueJoinMessage;
 
+            // Populate registry from state
+
             this.fugue.clear();
             this.fugue.load(msg.state!);
 
@@ -256,7 +268,7 @@ export class WSClient {
                         },
                     ],
                     selection: EditorSelection.cursor(Math.min(view.state.selection.main.from, newText.length)),
-                    annotations: [this.remoteUpdate.of(true)],
+                    annotations: [this.joinUpdate.of(true)],
                 });
                 view.dispatch(tr);
             }
@@ -334,7 +346,7 @@ export class WSClient {
     }
 
     effectMsgs(msgs: FugueMessage[]) {
-        const applied = this.fugue.effect(msgs);
+        const applied = this.nidhoggr ? this.nidhoggr.consume(msgs) : this.fugue.effect(msgs);
 
         if (!this.viewRef.current) return;
         for (const m of applied) {

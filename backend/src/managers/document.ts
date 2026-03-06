@@ -6,11 +6,14 @@ import {
     Operation,
     Serializer,
     makeFugueMessage,
+    FugueMessage,
 } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import WebSocket from "ws";
 import crypto from "crypto";
 import { logger } from "../logging";
+import { Nidhoggr, Registry, parseCST } from "@cr_docs_t/dts/treesitter";
+import { Parser } from "web-tree-sitter";
 
 // interface ActiveDocument {
 //     crdt: FugueTree;
@@ -23,6 +26,8 @@ import { logger } from "../logging";
 class ActiveDocument {
     documentID: string;
     crdt: FugueTree;
+    registry: Registry;
+    nidhoggr: Nidhoggr;
     sockets: Set<WebSocket>;
     users: Set<string>;
     lastActivity: number;
@@ -31,9 +36,33 @@ class ActiveDocument {
     constructor(documentID: string, crdt: FugueTree) {
         this.documentID = documentID;
         this.crdt = crdt;
+        this.registry = new Registry();
+        this.nidhoggr = new Nidhoggr(this.crdt, this.registry);
         this.sockets = new Set();
         this.users = new Set();
         this.lastActivity = Date.now();
+    }
+
+    initRegistry(parser: Parser) {
+        const content = this.crdt.observe();
+        if (!content.trim()) return;
+
+        logger.debug(`Initializing registry for document ${this.documentID} with content length: ${content.length}`);
+        const cst = parser.parse(content);
+        if (!cst) return;
+        try {
+            logger.debug(
+                `Parsed CST for document ${this.documentID}. Root node type: ${cst.rootNode.type}, child count: ${cst.rootNode.childCount}`,
+            );
+            const ast = parseCST(cst.rootNode);
+            logger.debug(`Parsed AST for document`, {
+                rootNode: ast.nodes.get(ast.rootId),
+                totalNodes: ast.nodes.size,
+            });
+            this.registry.populate(ast, this.crdt.getState());
+        } finally {
+            cst.delete();
+        }
     }
 
     async addUser(ws: WebSocket, userIdentity: string) {
@@ -64,6 +93,10 @@ class ActiveDocument {
             sock.send(bytes);
         });
     }
+
+    effect(msg: FugueMessage | FugueMessage[]) {
+        return this.nidhoggr.consume(msg);
+    }
 }
 
 class DocumentManager {
@@ -71,6 +104,7 @@ class DocumentManager {
     private static loadingTasks: Map<string, Promise<ActiveDocument>> = new Map();
     private static dirtyDocs: Set<string> = new Set();
     static readonly persistenceIntervalMs: number = 0.5 * 1000; // 0.5 seconds
+    private static parser: Parser | undefined;
 
     static async loadProjectDocuments(projectID: string, documentIDs: string[]): Promise<ActiveDocument[]> {
         const loadedDocs: ActiveDocument[] = [];
@@ -121,6 +155,7 @@ class DocumentManager {
                 //     users: new Set(),
                 // };
                 const newDoc = new ActiveDocument(documentID, crdt);
+                if (this.parser) newDoc.initRegistry(this.parser);
 
                 this.instances.set(documentID, newDoc);
                 return newDoc;
@@ -188,37 +223,30 @@ class DocumentManager {
     static async startPersistenceInterval() {
         const runPersistence = async () => {
             const now = Date.now();
-
-            // Copy to avoid mutation issues during the loop
             const docsToProcess = Array.from(this.dirtyDocs);
 
             for (const documentID of docsToProcess) {
                 const doc = this.instances.get(documentID);
-
-                if (doc) {
-                    const timeSinceLastActivity = now - doc.lastActivity;
-
-                    if (timeSinceLastActivity >= this.persistenceIntervalMs) {
-                        try {
-                            logger.debug(`Persisting ${documentID}`);
-                            await this.persist(documentID);
-                            this.dirtyDocs.delete(documentID);
-                        } catch (err) {
-                            logger.error(`Failed to persist ${documentID}`, { err });
-                            // We leave it in dirtyDocs so it retries next time
-                        }
-                    }
-                } else {
+                if (!doc) {
                     this.dirtyDocs.delete(documentID);
+                    continue;
+                }
+
+                const timeSinceLastActivity = now - doc.lastActivity;
+                if (timeSinceLastActivity >= this.persistenceIntervalMs) {
+                    try {
+                        await this.persist(documentID);
+                        this.dirtyDocs.delete(documentID);
+                    } catch (err) {
+                        logger.error(`Failed to persist ${documentID}`, { err });
+                    }
                 }
             }
 
-            // Schedule the next run only after this one finishes
             setTimeout(runPersistence, this.persistenceIntervalMs);
         };
 
-        // Start the first run immediately
-        runPersistence();
+        setTimeout(runPersistence, this.persistenceIntervalMs);
     }
 
     private static async cleanup(documentID: string) {
@@ -236,6 +264,14 @@ class DocumentManager {
 
     static getActiveDocs(): Map<string, ActiveDocument> {
         return this.instances;
+    }
+
+    static setParser(parser: Parser) {
+        this.parser = parser;
+    }
+
+    static destroy() {
+        this.parser?.delete();
     }
 }
 

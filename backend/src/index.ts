@@ -13,6 +13,10 @@ import DocumentManager from "./managers/document";
 import { redis } from "./redis";
 import { ProjectRouter } from "./routes/project";
 import { setConsole } from "@cr_docs_t/dts";
+import { newParser } from "@cr_docs_t/dts/treesitter";
+import { join } from "node:path";
+
+const cwd = process.cwd();
 
 dotenv.config();
 
@@ -36,6 +40,18 @@ mongoose
     .then(() => logger.info("Successfully connected to mongo db!"))
     .catch((e) => {
         logger.info("error connecting to the db ", { error: e });
+        process.exit(1);
+    });
+
+const wasmPath = join(cwd, "node_modules", "@cr_docs_t/dts", "dist", "wasm");
+
+newParser(join(wasmPath, "tree-sitter-latex.wasm"), join(wasmPath, "web-tree-sitter.wasm"))
+    .then(({ parser }) => {
+        logger.info("Successfully initialized tree-sitter parser");
+        DocumentManager.setParser(parser);
+    })
+    .catch((err) => {
+        logger.error("error initializing tree-sitter-parser", { err });
         process.exit(1);
     });
 
@@ -99,6 +115,7 @@ process.on("SIGTERM", () => {
     server.close(() => {
         mongoose.connection.close();
         redis.quit();
+        DocumentManager.destroy();
         process.exit(0);
     });
 });

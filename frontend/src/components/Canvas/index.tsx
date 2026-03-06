@@ -14,7 +14,7 @@ import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { CSTType, latexSupport, YggdrasilType } from "../../treesitter/codemirror";
 import { Parser, Query, Tree } from "web-tree-sitter";
-import { newParser } from "@cr_docs_t/dts/treesitter";
+import { newParser, newParserAndQuery, Ratatoskr, Registry } from "@cr_docs_t/dts/treesitter";
 import { useCollab } from "../../hooks/collab";
 import { createDocumentApi } from "../../api/document";
 import { useAuth } from "@clerk/clerk-react";
@@ -60,7 +60,11 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
         connect,
         disconnect,
         delay,
-        wsClient
+        wsClient,
+        ratatoskr,
+        registry,
+        JoinUpdate,
+        matcher,
     } = useCollab(documentID!, editorView);
 
     if (isAuthError) {
@@ -87,7 +91,7 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
 
         (async () => {
             if (!parser || !query) {
-                const { parser, query } = await newParser("/tree-sitter-latex.wasm", "/highlights.scm");
+                const { parser, query } = await newParserAndQuery("/tree-sitter-latex.wasm", "/highlights.scm");
                 setParser(parser);
                 setQuery(query);
             }
@@ -128,10 +132,12 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
 
     const tabSize = new Compartment();
     const treeSitterCompartment = useMemo(() => new Compartment(), []);
+    const YggdrasilRef = useRef<YggdrasilType | null>(null);
 
     useEffect(() => {
         if (editorView && parser && query) {
-            const { extensions } = latexSupport(parser, query);
+            const { extensions, Yggdrasil } = latexSupport(parser, query);
+            YggdrasilRef.current = Yggdrasil;
             editorView.dispatch({
                 effects: [treeSitterCompartment.reconfigure(extensions)],
             });
@@ -168,8 +174,20 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
     );
 
     const handleOnChange = useCallback(
-        () => HandleChange.bind(null,fugue, wsClient, previousTextRef, RemoteUpdate),
-        [fugue, RemoteUpdate, wsClient],
+        () =>
+            HandleChange.bind(
+                null,
+                fugue,
+                wsClient,
+                previousTextRef,
+                RemoteUpdate,
+                JoinUpdate,
+                YggdrasilRef.current,
+                ratatoskr,
+                registry,
+                matcher,
+            ),
+        [fugue, RemoteUpdate, wsClient, ratatoskr, registry, JoinUpdate, matcher],
     );
 
     const handleConnectionIndicatorClick = useCallback(() => {
