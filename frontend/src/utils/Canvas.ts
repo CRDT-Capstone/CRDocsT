@@ -25,7 +25,6 @@ export const HandleChange = async (
     JoinUpdate: AnnotationType<boolean>,
     Yggdrasil: YggdrasilType | null,
     Ratatoskr: Ratatoskr | undefined,
-    Registry: Registry,
     matcher: CompositeMatcher,
     value: string,
     viewUpdate: ViewUpdate,
@@ -58,10 +57,7 @@ export const HandleChange = async (
             console.error("No AST found on join update!");
             return;
         }
-        Registry.clear();
-        if (fugue.observe().length > 0) {
-            Registry.populate(newAst, fugue.getState());
-        }
+        fugue.stampAll(newAst);
         previousTextRef.current = value;
         return;
     }
@@ -72,14 +68,24 @@ export const HandleChange = async (
         changes.push({ fromA, toA, fromB, inserted: inserted.toString() });
     });
 
+    console.log({
+        Ratatoskr: !!Ratatoskr,
+        oldAst: !!oldAst,
+        newAst: !!newAst,
+    });
     if (Ratatoskr && oldAst && newAst) {
+        // fugue.stampAll(oldAst);
+        console.log({ astIdx: fugue.astIdx });
         console.log("Processing changes with GumTree...");
         Ratatoskr.newAst = newAst;
         const editScript = matcher.match(oldAst, newAst);
 
         const msgs = Ratatoskr.translate(editScript);
         console.log({ msgs });
+        fugue.stampAll(newAst);
         fugue.propagate(msgs);
+    } else if (newAst && fugue.length() > 0) {
+        fugue.stampAll(newAst);
     }
     // } else {
     //     console.log("Processing changes with basic diff...");

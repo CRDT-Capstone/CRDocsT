@@ -62,7 +62,6 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
         delay,
         wsClient,
         ratatoskr,
-        registry,
         JoinUpdate,
         matcher,
     } = useCollab(documentID!, editorView);
@@ -136,13 +135,13 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
 
     useEffect(() => {
         if (editorView && parser && query) {
-            const { extensions, Yggdrasil } = latexSupport(parser, query);
+            const { extensions, Yggdrasil } = latexSupport(parser, query, fugue);
             YggdrasilRef.current = Yggdrasil;
             editorView.dispatch({
                 effects: [treeSitterCompartment.reconfigure(extensions)],
             });
         }
-    }, [parser, query, editorView]);
+    }, [parser, query, fugue, editorView]);
 
     const { exts } = useMemo(() => {
         const base = [
@@ -184,10 +183,9 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
                 JoinUpdate,
                 YggdrasilRef.current,
                 ratatoskr,
-                registry,
                 matcher,
             ),
-        [fugue, RemoteUpdate, wsClient, ratatoskr, registry, JoinUpdate, matcher],
+        [fugue, RemoteUpdate, wsClient, ratatoskr, JoinUpdate, matcher],
     );
 
     const handleConnectionIndicatorClick = useCallback(() => {

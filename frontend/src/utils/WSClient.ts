@@ -38,7 +38,6 @@ export class WSClient {
     private joinUpdate: AnnotationType<boolean>; // Annotation to mark join updates for special handling
     private isReconnection: boolean;
     private Q: Promise<void> = Promise.resolve();
-    private registry: Registry;
     nidhoggr?: Nidhoggr;
 
     constructor(
@@ -50,7 +49,6 @@ export class WSClient {
         viewRef: RefObject<EditorView | undefined>,
         previousTextRef: RefObject<string>,
         userIdentity: string,
-        registry: Registry,
         isReconnection: boolean = false,
         nidhoggr?: Nidhoggr,
     ) {
@@ -63,7 +61,6 @@ export class WSClient {
         this.previousTextRef = previousTextRef;
         this.isReconnection = isReconnection;
         this.userIdentity = userIdentity;
-        this.registry = registry;
         this.nidhoggr = nidhoggr;
         if (userIdentity) this.userIdentity = userIdentity;
         uiStore.getState().setActiveCollaborators(undefined);

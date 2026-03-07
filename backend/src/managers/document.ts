@@ -26,7 +26,6 @@ import { Parser } from "web-tree-sitter";
 class ActiveDocument {
     documentID: string;
     crdt: FugueTree;
-    registry: Registry;
     nidhoggr: Nidhoggr;
     sockets: Set<WebSocket>;
     users: Set<string>;
@@ -36,14 +35,13 @@ class ActiveDocument {
     constructor(documentID: string, crdt: FugueTree) {
         this.documentID = documentID;
         this.crdt = crdt;
-        this.registry = new Registry();
-        this.nidhoggr = new Nidhoggr(this.crdt, this.registry);
+        this.nidhoggr = new Nidhoggr(this.crdt);
         this.sockets = new Set();
         this.users = new Set();
         this.lastActivity = Date.now();
     }
 
-    initRegistry(parser: Parser) {
+    init(parser: Parser) {
         const content = this.crdt.observe();
         if (!content.trim()) return;
 
@@ -59,7 +57,7 @@ class ActiveDocument {
                 rootNode: ast.nodes.get(ast.rootId),
                 totalNodes: ast.nodes.size,
             });
-            this.registry.populate(ast, this.crdt.getState());
+            this.crdt.stampAll(ast);
         } finally {
             cst.delete();
         }
@@ -155,7 +153,7 @@ class DocumentManager {
                 //     users: new Set(),
                 // };
                 const newDoc = new ActiveDocument(documentID, crdt);
-                if (this.parser) newDoc.initRegistry(this.parser);
+                if (this.parser) newDoc.init(this.parser);
 
                 this.instances.set(documentID, newDoc);
                 return newDoc;

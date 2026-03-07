@@ -45,7 +45,6 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
     const setUnEffectedMsgs = mainStore((state) => state.setUnEffectedMsgs);
     const [delay, setDelay] = useState<number | undefined>(undefined);
 
-    const [registry] = useState(() => new Registry());
     const [matcher] = useState(() => new CompositeMatcher());
     const [ratatoskr, setRatatoskr] = useState<Ratatoskr | undefined>();
     const [nidhoggr, setNidhoggr] = useState<Nidhoggr | undefined>();
@@ -93,11 +92,10 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
             fugue.ws = sock;
             fugue.userIdentity = userIdentity;
             setDelay(undefined);
-            registry.clear();
 
             console.log("Creating Ratatoskr and Nidhoggr");
-            const newRatatoskr = new Ratatoskr(fugue, registry);
-            const newNidhoggr = new Nidhoggr(fugue, registry, { onConflict: conflictHandler });
+            const newRatatoskr = new Ratatoskr(fugue);
+            const newNidhoggr = new Nidhoggr(fugue, { onConflict: conflictHandler });
             setRatatoskr(newRatatoskr);
             setNidhoggr(newNidhoggr);
 
@@ -111,7 +109,6 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
                 viewRef,
                 previousTextRef,
                 userIdentity,
-                registry,
                 wasReconncting,
                 newNidhoggr,
             );
@@ -209,7 +206,6 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
         connectionState,
         connect,
         delay,
-        registry,
         nidhoggr,
         ratatoskr,
         JoinUpdate,

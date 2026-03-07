@@ -7,6 +7,7 @@ import TagMap, { latexHighlightStyle } from "./mappings";
 import { parseCST, BragiAST } from "@cr_docs_t/dts/treesitter";
 import { highlightingFor, syntaxHighlighting } from "@codemirror/language";
 import { buildNestedAst } from "../utils";
+import { FugueTree } from "@cr_docs_t/dts";
 
 /**
  * Helper to convert a linear index to a Tree-sitter Point (row/column)
@@ -198,16 +199,29 @@ export const yggdrasilLogger = (ygg: YggdrasilType) =>
         },
     );
 
-export const latexSupport = (parser: Parser, query: Query) => {
+export const YggdrasilStamper = (ygg: YggdrasilType, fugue: FugueTree) =>
+    ViewPlugin.fromClass(
+        class {
+            constructor(view: EditorView) {
+                // Stamp on initial mount
+                const ast = view.state.field(ygg);
+                if (ast && fugue.length() > 0) fugue.stampAll(ast);
+            }
+        },
+    );
+
+export const latexSupport = (parser: Parser, query: Query, fugue: FugueTree) => {
     const CST = CSTBuilder(parser);
     const Yggdrasil = YggdrasilBuilder(CST);
     const parserSync = syncParsingStatus(CST);
+    const stamper = YggdrasilStamper(Yggdrasil, fugue);
     const extensions = [
         CST,
         Yggdrasil,
         syntaxHighlighting(latexHighlightStyle),
         treeSitterHighlightPlugin(query, CST),
         parserSync,
+        stamper,
         EditorState.languageData.of(() => [
             {
                 commentTokens: { line: "%" },
