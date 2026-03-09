@@ -192,8 +192,7 @@ export const yggdrasilLogger = (ygg: YggdrasilType) =>
                     const ast = update.state.field(ygg);
                     if (!ast) return;
                     // console.log({ tree: tree?.rootNode });
-                    console.dir(buildNestedAst(ast), { depth: null });
-                    // console.log({ ast });
+                    console.dir(buildNestedAst(ast));
                 }
             }
         },

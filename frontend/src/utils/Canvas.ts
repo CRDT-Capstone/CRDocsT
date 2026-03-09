@@ -13,6 +13,7 @@ import {
     TreeMetricComputer,
     CompositeMatcher,
 } from "@cr_docs_t/dts/treesitter";
+import { buildNestedAst } from ".";
 
 /**
  * Handle changes from CodeMirror
@@ -74,8 +75,13 @@ export const HandleChange = async (
         newAst: !!newAst,
     });
     if (Ratatoskr && oldAst && newAst) {
-        // fugue.stampAll(oldAst);
-        console.log({ astIdx: fugue.astIdx });
+        if (fugue.length() > 0) {
+            fugue.stampAll(oldAst);
+            console.log({ astIdx: fugue.astIdx });
+        }
+        console.dir(buildNestedAst(oldAst));
+        console.dir(buildNestedAst(newAst));
+        console.log({ content: fugue.observe(), astIdx: fugue.astIdx });
         console.log("Processing changes with GumTree...");
         Ratatoskr.newAst = newAst;
         const editScript = matcher.match(oldAst, newAst);
@@ -84,26 +90,26 @@ export const HandleChange = async (
         console.log({ msgs });
         fugue.stampAll(newAst);
         fugue.propagate(msgs);
-    } else if (newAst && fugue.length() > 0) {
-        fugue.stampAll(newAst);
+    } else {
+        console.log("Processing changes with basic diff...");
+        for (const { fromA, toA, fromB, inserted } of changes) {
+            const deleteLen = toA - fromA;
+            const insertedLen = inserted.length;
+
+            if (deleteLen > 0) {
+                const msgs = fugue.deleteMultiple(fromA, deleteLen);
+                if (newAst) fugue.stampAll(newAst);
+                fugue.propagate(msgs);
+            }
+
+            if (insertedLen > 0) {
+                const msgs = fugue.insertMultiple(fromB, inserted);
+                if (newAst) fugue.stampAll(newAst);
+                fugue.propagate(msgs);
+            }
+            console.log({ astIdx: fugue.astIdx });
+        }
     }
-    // } else {
-    //     console.log("Processing changes with basic diff...");
-    //     for (const { fromA, toA, fromB, inserted } of changes) {
-    //         const deleteLen = toA - fromA;
-    //         const insertedLen = inserted.length;
-    //
-    //         if (deleteLen > 0) {
-    //             const msgs = fugue.deleteMultiple(fromA, deleteLen);
-    //             fugue.propagate(msgs);
-    //         }
-    //
-    //         if (insertedLen > 0) {
-    //             const msgs = fugue.insertMultiple(fromB, inserted);
-    //             fugue.propagate(msgs);
-    //         }
-    //     }
-    // }
 
     previousTextRef.current = value;
 };
