@@ -11,6 +11,7 @@ import NavBar from "../NavBar";
 import AnonCanvas from "../AnonCanvas";
 import UserCanvas from "../UserCanvas";
 import ProjectCanvas from "../ProjectCanvas";
+import Hero from "../Hero";
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
@@ -68,7 +69,7 @@ const Main = () => {
                                             <UserCanvas />
                                         </SignedIn>
                                         <SignedOut>
-                                            <Navigate to="/sign-in" replace />
+                                            <Hero />
                                         </SignedOut>
                                     </>
                                 }

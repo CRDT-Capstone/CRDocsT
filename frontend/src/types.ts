@@ -22,6 +22,7 @@ export enum NavBarType {
     HOME = "HOME",
     CANVAS = "CANVAS",
     PROJECT = "PROJECT",
+    HERO = "HERO",
 }
 
 export interface Tab {

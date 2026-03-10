@@ -11,6 +11,7 @@ export const SignInPage = () => {
     const { createDocumentMutation } = mutations;
     const setAnonUserIdentity = mainStore((state) => state.setAnonUserIdentity);
     const anonUserIdentity = mainStore((state) => state.anonUserIdentity);
+
     return (
         <div className="flex flex-col justify-center items-center w-full">
             <SignIn />
