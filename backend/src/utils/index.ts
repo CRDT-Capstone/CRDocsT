@@ -10,6 +10,7 @@ export const handleErrorAsAPIError = (
             msg: {
                 message: err.message,
                 error: err.stack || "API Error",
+                data: err.data,
             },
         };
     }
@@ -21,4 +22,3 @@ export const handleErrorAsAPIError = (
         },
     };
 };
-
