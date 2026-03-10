@@ -12,7 +12,7 @@ import { makeAnonUserIdentity } from "../utils";
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
 
-export const useCollab = (documentID: string, editorView: EditorView | undefined) => {
+export const useCollab = (documentID: string, editorView: EditorView | undefined, onPresenceUpdate?: () => void) => {
     const { user, isLoaded, isSignedIn } = useUser();
     const nav = useNavigate();
     const anonUserIdentity = mainStore((state) => state.anonUserIdentity);
@@ -85,6 +85,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
                 previousTextRef,
                 userIdentity,
                 wasReconncting,
+                onPresenceUpdate,
             );
             setWsClient(newWsClient);
             retriesRef.current = 0;

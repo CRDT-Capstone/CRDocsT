@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "@tanstack/react-form";
 import { Document, Project } from "@cr_docs_t/dts";
@@ -18,6 +18,7 @@ import useModal, { Modal } from "../../hooks/modal";
 import BaseFileTree, { FileTreeItemType } from "../BaseFileTree";
 import mainStore from "../../stores";
 import uiStore from "../../stores/uiStore";
+import { toast } from "sonner";
 
 interface ProjectFileTreeProps {
     projectId: string;
@@ -25,6 +26,7 @@ interface ProjectFileTreeProps {
     handleItemClick: (item: Document | Project, type: FileTreeItemType) => void;
     handleItemDelete: (item: Document | Project, type: FileTreeItemType) => Promise<void>;
     handleItemCreate: (name: string, type: FileTreeItemType) => Promise<void>;
+    handleDownload?: () => Promise<void>;
     isSharedProject?: boolean;
 }
 
@@ -34,13 +36,15 @@ export const ProjectFileTree = ({
     handleItemClick,
     handleItemDelete,
     handleItemCreate,
+    handleDownload,
 }: ProjectFileTreeProps) => {
     const nav = useNavigate();
     const setProject = mainStore((state) => state.setProject);
     const { modalRef, showModal, closeModal } = useModal();
 
-    const { queries } = projectQueriesAndMutations;
+    const { queries, mutations } = projectQueriesAndMutations;
     const { projectQuery } = queries;
+    const { downloadProjectMutation } = mutations;
 
     useEffect(() => {
         if (projectId && projectQuery.data) setProject(projectQuery.data.project);
@@ -70,6 +74,7 @@ export const ProjectFileTree = ({
                     onAddClick: showModal,
                     onItemClick: handleItemClick,
                     onItemDelete: handleItemDelete,
+                    onDownload: handleDownload,
                 },
             ]}
         />

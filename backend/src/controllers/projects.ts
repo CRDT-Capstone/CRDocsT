@@ -334,6 +334,24 @@ const updateContributorType = async (req: ValidatedRequest<typeof updateContribu
     }
 };
 
+const downloadProjectSchema = {
+    params: projectIdSchema(),
+};
+const downloadProject = async (req: ValidatedRequest<typeof downloadProjectSchema>, res: Response) => {
+    try {
+        const { projectId } = req.params;
+        const dlProj = await ProjectServices.downloadProject(projectId);
+        // Send zip file as response with appropriate headers
+        res.setHeader("Content-Type", "application/zip");
+        res.setHeader("Content-Disposition", `attachment; filename=${dlProj.name}`);
+        return res.send(dlProj.content);
+    } catch (err: any) {
+        logger.error("Unable to download project", { err });
+        const e = handleErrorAsAPIError(err, "Unable to download project");
+        return sendErr(res, e.msg, e.status);
+    }
+};
+
 export const ProjectController = defineController({
     CreateProject: {
         con: createProject,
@@ -386,5 +404,9 @@ export const ProjectController = defineController({
     UpdateProjectCollaboratorType: {
         con: updateContributorType,
         sch: updateContributorTypeSchema,
+    },
+    DownloadProject: {
+        con: downloadProject,
+        sch: downloadProjectSchema,
     },
 });

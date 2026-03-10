@@ -5,6 +5,8 @@ import mongoose, { RootFilterQuery } from "mongoose";
 import { ObjectId } from "mongodb";
 import { UserService } from "./UserService";
 import { logger } from "../logging";
+import { DocumentServices, DownloadDocument } from "./DocumentServices";
+import AdmZip from "adm-zip";
 
 const createProject = async (userId: string | null, name?: string) => {
     const project = await ProjectModel.create({ ownerId: userId, name });
@@ -341,6 +343,41 @@ const isProjectOwnerOrCollaborator = async (
     return { hasAccess: isProjectOwnerOrCollaborator, contributorType: contributorType };
 };
 
+export type DownloadProject = {
+    name: string;
+    content: Buffer;
+};
+const downloadProject = async (projectId: string): Promise<DownloadProject> => {
+    try {
+        const proj = await ProjectModel.findById(projectId);
+        if (!proj) throw new APIError("Project not found", 404);
+
+        // async get all documents and their content
+        const ps: Promise<DownloadDocument>[] = [];
+        for (const docId of proj.documentIds) ps.push(DocumentServices.downloadDocument(docId));
+        const content = await Promise.all(ps);
+
+        // zip the content and return it as a buffer
+        const zip = new AdmZip();
+        for (const doc of content) {
+            zip.addFile(doc.name, doc.content);
+        }
+        const name = proj.name || "Untitled_Project";
+        const nameSan = `${name.replace(/[^a-z0-9_\-]+/gi, "_")}.zip`;
+        return {
+            name: nameSan,
+            content: zip.toBuffer(),
+        };
+    } catch (err) {
+        logger.error("Error downloading project", { err });
+        if (err instanceof APIError) {
+            throw err;
+        }
+        const e = err as Error;
+        throw new APIError(e.message || "Error downloading project", 500);
+    }
+};
+
 export const ProjectServices = {
     createProject,
     findProjectById,
@@ -355,4 +392,5 @@ export const ProjectServices = {
     changeContributorType,
     isProjectOwner,
     isProjectOwnerOrCollaborator,
+    downloadProject,
 };

@@ -1,11 +1,11 @@
 import { Request, Response } from "express";
-import { DocumentServices } from "../services/DocumentServices";
+import { DocumentServices, DownloadDocument } from "../services/DocumentServices";
 import { APIError, ContributorSchema, ContributorType, FugueTree, FugueStateSerializer } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import { getAuth } from "@clerk/express";
 import { MailService } from "../services/MailService";
 import { logger } from "../logging";
-import { sendOk, sendErr } from "../utils/ApiResponseUtils";
+import { sendOk, sendErr, send } from "../utils/ApiResponseUtils";
 import { handleErrorAsAPIError } from "../utils";
 import { z } from "zod";
 import { AuthenticatedRequest, Schema, ValidatedRequest } from "../validaton";
@@ -297,6 +297,28 @@ const getUserDocumentAccess = async (req: ValidatedRequest<typeof getUserDocumen
     }
 };
 
+const downloadDocumentSchema = {
+    params: documentIdSchema(),
+    body: z.strictObject({
+        name: z.string().optional(),
+    }),
+};
+const downloadDocument = async (req: ValidatedRequest<typeof downloadDocumentSchema>, res: Response) => {
+    try {
+        const { documentId } = req.params;
+        const { name } = req.body;
+        const dlDoc = await DocumentServices.downloadDocument(documentId, name);
+        // Send latex file as file with appropriate headers
+        res.setHeader("Content-Disposition", `attachment; filename="${dlDoc.name}"`);
+        res.setHeader("Content-Type", "application/x-latex");
+        return res.send(dlDoc.content);
+    } catch (err: any) {
+        logger.error("Unable to download document", { err });
+        const er = handleErrorAsAPIError(err, "Unable to download document");
+        return sendErr(res, er.msg, er.status);
+    }
+};
+
 export const DocumentController = defineController({
     CreateDocument: {
         con: createDocument,
@@ -337,5 +359,9 @@ export const DocumentController = defineController({
     GetUserDocumentAccess: {
         con: getUserDocumentAccess,
         sch: getUserDocumentAccessSchema,
+    },
+    DownloadDocument: {
+        con: downloadDocument,
+        sch: downloadDocumentSchema,
     },
 });

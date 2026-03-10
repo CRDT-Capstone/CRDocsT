@@ -1,7 +1,7 @@
 import React, { ReactNode, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Document, Project } from "@cr_docs_t/dts";
-import { LuFileText, LuFolder, LuPlus, LuTrash2, LuChevronDown, LuChevronRight } from "react-icons/lu";
+import { LuFileText, LuFolder, LuPlus, LuTrash2, LuChevronDown, LuChevronRight, LuDownload } from "react-icons/lu";
 
 export enum FileTreeItemType {
     DOCUMENT = "document",
@@ -17,6 +17,7 @@ export interface SectionData {
     onAddClick?: () => void;
     onItemClick: (item: Document | Project, type: FileTreeItemType) => void;
     onItemDelete?: (item: Document | Project, type: FileTreeItemType) => void;
+    onDownload?: () => Promise<void>;
 }
 
 interface FileTreeItemProps {
@@ -40,7 +41,10 @@ const FileTreeItem = ({ onClick, itemType, doc, modifiable, onDelete }: FileTree
             >
                 <span className="flex overflow-hidden gap-2 items-center">
                     <Icon className={`${iconColor} size-4 shrink-0`} />
-                    <span className="text-sm text-left truncate max-w-32 is-drawer-close:hidden">{doc.name}</span>
+                    <span className="text-sm text-left truncate max-w-32 is-drawer-close:hidden">
+                        {doc.name}
+                        {itemType === FileTreeItemType.DOCUMENT ? ".tex" : ""}
+                    </span>
                 </span>
 
                 {modifiable && (
@@ -194,18 +198,34 @@ const FileTreeSection = ({ section }: { section: SectionData }) => {
                     {section.name}
                 </span>
                 {section.modifiable && (
-                    <button
-                        className="btn btn-ghost btn-sm btn-square is-drawer-close:tooltip is-drawer-close:tooltip-right hover:bg-base-300"
-                        data-tip="New Item"
-                        disabled={section.isLoading}
-                        onClick={section.onAddClick}
-                    >
-                        {section.isLoading ? (
-                            <span className="loading loading-spinner loading-xs"></span>
-                        ) : (
-                            <LuPlus size={18} />
+                    <div className="flex ml-2">
+                        {section.onDownload && (
+                            <button
+                                className="btn btn-ghost btn-sm btn-square is-drawer-close:tooltip is-drawer-close:tooltip-right hover:btn-success"
+                                data-tip="Download"
+                                disabled={section.isLoading}
+                                onClick={section.onDownload}
+                            >
+                                {section.isLoading ? (
+                                    <span className="loading loading-spinner loading-xs"></span>
+                                ) : (
+                                    <LuDownload size={18} />
+                                )}
+                            </button>
                         )}
-                    </button>
+                        <button
+                            className="btn btn-ghost btn-sm btn-square is-drawer-close:tooltip is-drawer-close:tooltip-right hover:bg-base-300"
+                            data-tip="New Item"
+                            disabled={section.isLoading}
+                            onClick={section.onAddClick}
+                        >
+                            {section.isLoading ? (
+                                <span className="loading loading-spinner loading-xs"></span>
+                            ) : (
+                                <LuPlus size={18} />
+                            )}
+                        </button>
+                    </div>
                 )}
             </div>
 

@@ -4,9 +4,11 @@ import Canvas from "../Canvas";
 import { Tab, TabMap } from "../../types";
 import uiStore from "../../stores/uiStore";
 
-interface TabbedEditorProps {}
+interface TabbedEditorProps {
+    onPresenceUpdate?: () => void;
+}
 
-const TabbedEditor = ({}: TabbedEditorProps) => {
+const TabbedEditor = ({ onPresenceUpdate }: TabbedEditorProps) => {
     const activeTabs = uiStore((state) => state.activeTabs);
     const removeTab = uiStore((state) => state.removeTab);
     const selectedTabId = uiStore((state) => state.selectedTabId);
@@ -98,7 +100,10 @@ const TabbedEditor = ({}: TabbedEditorProps) => {
                                     aria-labelledby={`tab-${selectedTabId}`}
                                     className="block w-full h-full border-b shadow-sm tab-content border-x border-base-300 rounded-b-box"
                                 >
-                                    <Canvas documentId={activeTabs.get(selectedTabId)!.docId} />
+                                    <Canvas
+                                        onPresenceUpdate={onPresenceUpdate}
+                                        documentId={activeTabs.get(selectedTabId)!.docId}
+                                    />
                                 </div>
                             )}
                         </div>

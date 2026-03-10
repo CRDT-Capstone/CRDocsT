@@ -69,7 +69,8 @@ const ProjectCanvas = () => {
     }, [setNavBarType]);
 
     const { queries, mutations } = useProject(projectId!);
-    const { createProjectDocumentMutation, removeProjectDocumentMutation } = mutations;
+    const { projectQuery } = queries;
+    const { createProjectDocumentMutation, removeProjectDocumentMutation, downloadProjectMutation } = mutations;
 
     const handleItemClick = useCallback(
         (item: Document | Project, type: FileTreeItemType) => {
@@ -100,13 +101,26 @@ const ProjectCanvas = () => {
         [removeProjectDocumentMutation, removeTab],
     );
 
+    const handlePresenceUpdate = useCallback(async () => {
+        projectQuery.refetch();
+    }, [projectQuery]);
+
+    const handleDownload = useCallback(async () => {
+        try {
+            await downloadProjectMutation.mutateAsync();
+        } catch (error) {
+            console.error("Failed to download project", error);
+            toast.error("Failed to download project");
+        }
+    }, [downloadProjectMutation, projectId]);
+
     return (
         <div className="w-full drawer drawer-open">
             <input id="user-canvas-drawer" type="checkbox" className="drawer-toggle" />
 
             <div className="flex overflow-hidden flex-col drawer-content">
                 {/* Tabbed editor */}
-                <TabbedEditor />
+                <TabbedEditor onPresenceUpdate={handlePresenceUpdate} />
             </div>
 
             {/* File tree */}
@@ -116,6 +130,7 @@ const ProjectCanvas = () => {
                 handleItemClick={handleItemClick}
                 handleItemCreate={handleItemCreate}
                 handleItemDelete={handleItemDelete}
+                handleDownload={handleDownload}
             />
         </div>
     );

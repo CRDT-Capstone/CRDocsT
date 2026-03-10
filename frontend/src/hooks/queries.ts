@@ -144,6 +144,22 @@ export const useDocument = (documentId: string) => {
         },
     });
 
+    const downloadDocumentMutation = useMutation({
+        ...mutationOptions,
+        mutationFn: () => api.downloadDocument(documentId),
+        onSuccess: ({ content, filename }) => {
+            // Start downloading the file
+            const url = window.URL.createObjectURL(content);
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        },
+    });
+
     return {
         queries: { documentQuery },
         mutations: {
@@ -151,6 +167,7 @@ export const useDocument = (documentId: string) => {
             shareDocumentMutation,
             removeCollaboratorMutation,
             updateCollaboratorTypeMutation,
+            downloadDocumentMutation,
         },
     };
 };
@@ -299,6 +316,22 @@ export const useProject = (projectId: string) => {
         },
     });
 
+    const downloadProjectMutation = useMutation({
+        ...mutationOptions,
+        mutationFn: () => api.downloadProject(projectId),
+        onSuccess: ({ content, filename }) => {
+            // Start downloading the file
+            const url = window.URL.createObjectURL(content);
+            const link = document.createElement("a");
+            link.href = url;
+            link.setAttribute("download", filename);
+            document.body.appendChild(link);
+            link.click();
+            link.parentNode?.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        },
+    });
+
     return {
         queries: { projectQuery },
         mutations: {
@@ -308,6 +341,7 @@ export const useProject = (projectId: string) => {
             updateCollaboratorTypeMutation,
             createProjectDocumentMutation,
             removeProjectDocumentMutation,
+            downloadProjectMutation,
         },
     };
 };

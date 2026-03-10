@@ -1,4 +1,4 @@
-import { APIError, ContributorType, Document, CursorPaginatedResponse } from "@cr_docs_t/dts";
+import { APIError, ContributorType, Document, CursorPaginatedResponse, FugueTree } from "@cr_docs_t/dts";
 import { DocumentModel } from "../models/Document.schema";
 import { UserService } from "./UserService";
 import { logger } from "../logging";
@@ -234,6 +234,38 @@ const isDocumentOwner = async (documentId: string, userId: string) => {
     return document.ownerId === userId;
 };
 
+export type DownloadDocument = {
+    name: string;
+    content: Buffer;
+};
+const downloadDocument = async (documentId: string, docname?: string): Promise<DownloadDocument> => {
+    try {
+        const document = await DocumentModel.findById(documentId);
+        if (!document) throw new APIError("Document not found", 404);
+
+        const state = await RedisService.getCRDTStateByDocumentID(documentId);
+        if (!state) throw new APIError("Document state not found", 404);
+
+        const crdt = new FugueTree(null, documentId, `doc-${documentId}-download`);
+        crdt.load(state);
+        const content = Buffer.from(crdt.observe());
+        const name = docname || document?.name || "Untitled_Document";
+        const nameSan = `${name.replace(/[^a-z0-9_\-]+/gi, "_")}.tex`;
+        logger.info("Document downloaded", { documentId, name: nameSan });
+        return {
+            name: nameSan,
+            content,
+        };
+    } catch (err) {
+        logger.error("Error downloading document", { err });
+        if (err instanceof APIError) {
+            throw err;
+        }
+        const e = err as Error;
+        throw new APIError(e.message || "Error downloading document", 500);
+    }
+};
+
 export const DocumentServices = {
     createDocument,
     removeDocument,
@@ -247,4 +279,5 @@ export const DocumentServices = {
     removeContributor,
     changeContributorType,
     isDocumentOwner,
+    downloadDocument,
 };
