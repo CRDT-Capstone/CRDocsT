@@ -194,11 +194,9 @@ export class WSService {
             logger.debug("Received presence message", { msg });
             switch (msg.type) {
                 case PresenceMessageType.CURSOR:
-                    // Propagate the cursor information to the rest of the members of the
-                    // document
+                // Propagate the cursor information to the rest of the members of the document
+                case PresenceMessageType.UPDATE:
                     doc.send(this.serialize(msg), this.ws);
-                    break;
-                case PresenceMessageType.SELECTION:
                     break;
             }
         };

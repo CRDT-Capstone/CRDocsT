@@ -1,15 +1,9 @@
 import { useAuth } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 import { ContributorType, Document, f, Msg, CursorPaginatedResponse } from "@cr_docs_t/dts";
+import { ApiBaseUrl, includeToken, TokenFunc } from ".";
 
-const ApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 const path = "docs";
-
-type TokenFunc = () => Promise<string | null>;
-
-const includeToken = (token: string | null) => {
-    return { Authorization: `Bearer ${token}` };
-};
 
 export const createDocumentApi = (getToken: TokenFunc) => {
     const navigate = useNavigate();
@@ -246,6 +240,36 @@ export const createDocumentApi = (getToken: TokenFunc) => {
         }
     };
 
+    const downloadDocument = async (documentId: string, name?: string) => {
+        try {
+            const token = await getToken();
+
+            let filename = "Document.tex";
+            const res = await f.post<Blob>(
+                `${ApiBaseUrl}/${path}/${documentId}/download`,
+                {
+                    name: name,
+                },
+                {
+                    headers: {
+                        ...includeToken(token),
+                    },
+                    asBlob: true,
+                    handleHeaders: (headers) => {
+                        const dis = headers.get("Content-Disposition");
+                        if (dis && dis.includes("filename")) {
+                            filename = dis.split("filename=")[1].replace(/"/g, "");
+                        }
+                    },
+                },
+            );
+            return { content: res, filename };
+        } catch (err) {
+            console.error("Unable to download document -> ", err);
+            throw err;
+        }
+    };
+
     return {
         createDocument,
         deleteDocument,
@@ -258,5 +282,6 @@ export const createDocumentApi = (getToken: TokenFunc) => {
         removeCollaborator,
         updateCollaboratorType,
         getUserDocumentAccess,
+        downloadDocument,
     };
 };

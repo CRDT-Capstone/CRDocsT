@@ -15,6 +15,7 @@ makeDocumentRoute("post", "/:documentId/remove-collaborator", DocumentController
 makeDocumentRoute("post", "/:documentId/update-collaborator-type", DocumentController.UpdateContributorType);
 makeDocumentRoute("post", "/:documentId/check-access", DocumentController.GetUserDocumentAccess);
 makeDocumentRoute("post", "/create", DocumentController.CreateDocument);
+makeDocumentRoute("post", "/:documentId/download", DocumentController.DownloadDocument);
 
 //TODO: make this a general update endpoint
 makeDocumentRoute("put", "/update/:documentId", DocumentController.UpdateDocumentName);

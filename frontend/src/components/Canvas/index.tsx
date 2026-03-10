@@ -27,13 +27,17 @@ import { searchKeymap, highlightSelectionMatches } from "@codemirror/search";
 import { autocompletion, completionKeymap } from "@codemirror/autocomplete";
 import { tokyoNight, tokyoNightInit } from "@uiw/codemirror-theme-tokyo-night";
 import { remoteCursorSupport } from "../../codemirror/decorations";
+import { usePreview } from "../../hooks/preview";
+import { Preview } from "../Preview";
+import { LuEye } from "react-icons/lu";
 
 interface CanvasProps {
     documentId: string | undefined;
     singleSession?: boolean;
+    onPresenceUpdate?: () => void;
 }
 
-const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
+const Canvas = ({ documentId: documentID, singleSession, onPresenceUpdate }: CanvasProps) => {
     const nav = useNavigate();
 
     const [parser, setParser] = useState<Parser | null>(null);
@@ -47,6 +51,7 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
     const isParsing = mainStore((state) => state.isParsing);
 
     const [editorView, setEditorView] = useState<EditorView | undefined>(undefined);
+    const [showPreview, setShowPreview] = useState(false);
 
     const {
         fugue,
@@ -60,8 +65,10 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
         connect,
         disconnect,
         delay,
-        wsClient
-    } = useCollab(documentID!, editorView);
+        wsClient,
+    } = useCollab(documentID!, editorView, onPresenceUpdate);
+
+    const { pdfUrl, isRendering, error, recompile } = usePreview();
 
     if (isAuthError) {
         nav("/sign-in");
@@ -159,6 +166,13 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
         return { exts: base };
     }, []);
 
+    useEffect(() => {
+        if (connectionState !== ConnectionState.CONNECTED) {
+            // Disable preview when not connected
+            setShowPreview(false);
+        }
+    }, [connectionState]);
+
     const handleOnCreateEditor = useCallback(
         (view: EditorView) => {
             viewRef.current = view;
@@ -168,7 +182,7 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
     );
 
     const handleOnChange = useCallback(
-        () => HandleChange.bind(null,fugue, wsClient, previousTextRef, RemoteUpdate),
+        () => HandleChange.bind(null, fugue, wsClient, previousTextRef, RemoteUpdate),
         [fugue, RemoteUpdate, wsClient],
     );
 
@@ -182,43 +196,64 @@ const Canvas = ({ documentId: documentID, singleSession }: CanvasProps) => {
         }
     }, [connectionState]);
 
+    const handleTogglePreview = useCallback(() => {
+        setShowPreview((v) => !v);
+    }, [recompile, showPreview, fugue]);
+
     if (documentQuery.isLoading) {
         return <Loading fullPage={singleSession} />;
     }
 
     return (
         <div className="flex overflow-hidden relative flex-col flex-1 items-center w-full h-full">
-            <div className="overflow-hidden relative w-full h-[80vh]">
-                {connectionState !== ConnectionState.CONNECTED && (
-                    <div className="flex absolute inset-0 z-50 flex-col gap-4 justify-center items-center w-full h-full bg-base-100 backdrop-blur-[2px]">
-                        <div className="flex flex-col gap-2 justify-center items-center p-4 w-1/2 h-1/2 rounded-lg border bg-base-200/80 border-base-300">
-                            <span className="w-full text-xl text-center">
-                                You are currently offline. Connect to enable collaboration.
-                            </span>
+            <div className="flex overflow-hidden relative w-full h-[80vh]">
+                <div
+                    className={`relative overflow-hidden h-full transition-all duration-300 ${showPreview ? "w-[55%]" : "w-full"}`}
+                >
+                    {connectionState !== ConnectionState.CONNECTED && (
+                        <div className="flex absolute inset-0 z-50 flex-col gap-4 justify-center items-center w-full h-full bg-base-100 backdrop-blur-[2px]">
+                            <div className="flex flex-col gap-2 justify-center items-center p-4 w-1/2 h-1/2 rounded-lg border bg-base-200/80 border-base-300">
+                                <span className="w-full text-xl text-center">
+                                    You are currently offline. Connect to enable collaboration.
+                                </span>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
 
-                {isParsing && (
-                    <div className="flex absolute top-4 right-4 z-10 gap-2 items-center py-1 px-3 rounded-full border shadow-md animate-pulse bg-base-200 border-base-300">
-                        <span className="loading loading-spinner loading-xs text-primary"></span>
-                        <span className="font-mono text-xs font-medium opacity-70">AST PARSING...</span>
-                    </div>
-                )}
+                    {isParsing && (
+                        <div className="flex absolute top-4 right-4 z-10 gap-2 items-center py-1 px-3 rounded-full border shadow-md animate-pulse bg-base-200 border-base-300">
+                            <span className="loading loading-spinner loading-xs text-primary"></span>
+                            <span className="font-mono text-xs font-medium opacity-70">AST PARSING...</span>
+                        </div>
+                    )}
 
-                <CodeMirror
-                    value={previousTextRef.current}
-                    extensions={exts}
-                    height="80vh"
-                    width="100%"
-                    theme={theme}
-                    editable={connectionState === ConnectionState.CONNECTED} // Disable editing when disconnected while offline sync is not implemented
-                    onCreateEditor={(view) => handleOnCreateEditor(view)}
-                    onChange={handleOnChange()}
-                />
+                    <CodeMirror
+                        value={previousTextRef.current}
+                        extensions={exts}
+                        height="80vh"
+                        width="100%"
+                        theme={theme}
+                        editable={connectionState === ConnectionState.CONNECTED} // Disable editing when disconnected while offline sync is not implemented
+                        onCreateEditor={(view) => handleOnCreateEditor(view)}
+                        onChange={handleOnChange()}
+                    />
+                </div>
+                {/* Preview pane */}
+                {showPreview && (
+                    <Preview
+                        pdfUrl={pdfUrl}
+                        isRendering={isRendering}
+                        error={error}
+                        onClose={() => setShowPreview(false)}
+                        onRecompile={() => recompile(fugue.observe())}
+                    />
+                )}
             </div>
+
             <StatusBar
                 onConnectionIndicatorClick={handleConnectionIndicatorClick}
+                onTogglePreview={handleTogglePreview}
+                showPreview={showPreview}
                 delay={delay}
                 connectionState={connectionState}
                 userIdentity={userIdentity}
@@ -232,27 +267,46 @@ interface StatusBarProps {
     connectionState: ConnectionState;
     delay?: number;
     onConnectionIndicatorClick?: () => void;
+    showPreview: boolean;
+    onTogglePreview: () => void;
 }
 
-const StatusBar = memo(({ userIdentity, connectionState, delay, onConnectionIndicatorClick }: StatusBarProps) => {
-    return (
-        <footer className="flex flex-row p-5 w-full bg-base">
-            {/* Left  */}
-            <div className="flex flex-1 self-start">
-                <ActiveCollaborators userIdentity={userIdentity} />
-            </div>
-            {/* Middle */}
-            <div className="flex flex-1 justify-center self-center">
-                <ConnectionIndicator
-                    onClick={onConnectionIndicatorClick}
-                    delay={delay}
-                    connectionState={connectionState}
-                />
-            </div>
-            {/* Right */}
-            <div className="flex flex-1 self-end"></div>
-        </footer>
-    );
-});
+const StatusBar = memo(
+    ({
+        userIdentity,
+        connectionState,
+        delay,
+        onConnectionIndicatorClick,
+        showPreview,
+        onTogglePreview,
+    }: StatusBarProps) => {
+        return (
+            <footer className="flex flex-row p-5 w-full bg-base">
+                <div className="flex flex-1 self-start">
+                    <ActiveCollaborators userIdentity={userIdentity} />
+                </div>
+                <div className="flex flex-1 justify-center self-center">
+                    <ConnectionIndicator
+                        onClick={onConnectionIndicatorClick}
+                        delay={delay}
+                        connectionState={connectionState}
+                    />
+                </div>
+                <div className="flex flex-1 justify-end self-end">
+                    <button
+                        onClick={onTogglePreview}
+                        className={`btn btn-sm btn-ghost gap-1 font-mono text-xs ${showPreview ? "btn-active" : ""}`}
+                        title="Toggle LaTeX Preview"
+                    >
+                        <span className="flex gap-2 justify-center items-center">
+                            <LuEye />
+                            <span className="text-xs">{showPreview ? "Hide Preview" : "Preview"}</span>
+                        </span>
+                    </button>
+                </div>
+            </footer>
+        );
+    },
+);
 
 export default memo(Canvas);

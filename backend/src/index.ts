@@ -13,6 +13,7 @@ import DocumentManager from "./managers/document";
 import { redis } from "./redis";
 import { ProjectRouter } from "./routes/project";
 import { setConsole } from "@cr_docs_t/dts";
+import { PreviewRouter } from "./routes/preview";
 
 dotenv.config();
 
@@ -70,16 +71,18 @@ let corsOptions: cors.CorsOptions = {
     origin: ["http://localhost:5173"],
     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     credentials: true,
-    allowedHeaders: ["Content-Type", "Authorization"], // Allow specific headers
+    allowedHeaders: ["Content-Type", "Authorization", "Content-Disposition"],
+    exposedHeaders: ["Content-Disposition"],
 };
 if (process.env.NODE_ENV === "production") {
     corsOptions = {
         origin: ["https://crdocst.surge.sh", "http://localhost:5173"],
         methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-        allowedHeaders: ["Content-Type", "Authorization"],
+        allowedHeaders: ["Content-Type", "Authorization", "Content-Disposition"],
         credentials: true,
         preflightContinue: false,
         optionsSuccessStatus: 204,
+        exposedHeaders: ["Content-Disposition"],
     };
 }
 
@@ -88,6 +91,7 @@ app.use(cors(corsOptions));
 app.use(clerkMiddleware()); //by default allows anonymous and authenticated users
 app.use("/docs", DocumentRouter);
 app.use("/projects", ProjectRouter);
+app.use("/preview", PreviewRouter);
 app.use(ErrorHandler);
 
 server.listen(port, () => {

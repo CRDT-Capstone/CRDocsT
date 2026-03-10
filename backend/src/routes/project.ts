@@ -17,6 +17,7 @@ makeProjectRoute("post", "/share", ProjectController.ShareProjectViaEmail);
 makeProjectRoute("post", "/:projectId/remove-collaborator", ProjectController.RemoveProjectCollaborator);
 makeProjectRoute("post", "/:projectId/update-collaborator-type", ProjectController.UpdateProjectCollaboratorType);
 makeProjectRoute("post", "/:projectId/check-access", ProjectController.GetUserProjectAccess);
+makeProjectRoute("post", "/:projectId/download", ProjectController.DownloadProject);
 
 makeProjectRoute("put", "/update/:projectId", ProjectController.UpdateProjectName);
 

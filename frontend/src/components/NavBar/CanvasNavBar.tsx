@@ -1,4 +1,4 @@
-import { Dispatch, SetStateAction, useEffect, useLayoutEffect, useState } from "react";
+import { Dispatch, SetStateAction, use, useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSession, useUser } from "@clerk/clerk-react";
 import { createDocumentApi } from "../../api/document";
@@ -8,8 +8,7 @@ import { DocumentCollaborators } from "../Collaborators";
 import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { toast } from "sonner";
-import { LuCheck } from "react-icons/lu";
-import { ConnectionState } from "../../types";
+import { LuDownload } from "react-icons/lu";
 
 interface CanvasNavBarProps {
     documentId: string;
@@ -23,7 +22,7 @@ const CanvasNavBar = ({ documentId }: CanvasNavBarProps) => {
     const [title, setTitle] = useState("New Document");
 
     const { mutations } = useDocument(documentId);
-    const { updateDocumentNameMutation } = mutations;
+    const { updateDocumentNameMutation, downloadDocumentMutation } = mutations;
 
     useLayoutEffect(() => {
         if (document) {
@@ -31,7 +30,7 @@ const CanvasNavBar = ({ documentId }: CanvasNavBarProps) => {
         }
     }, [document]);
 
-    const saveTitle = async () => {
+    const saveTitle = useCallback(async () => {
         try {
             const res = await updateDocumentNameMutation.mutateAsync(title);
             setIsEditing(false);
@@ -39,7 +38,16 @@ const CanvasNavBar = ({ documentId }: CanvasNavBarProps) => {
             console.error("Failed to update document name", error);
             toast.error("Failed to update document name");
         }
-    };
+    }, [title, updateDocumentNameMutation, documentId]);
+
+    const handleDownload = useCallback(async () => {
+        try {
+            await downloadDocumentMutation.mutateAsync();
+        } catch (error) {
+            console.log("Failed to download document", error);
+            toast.error("Failed to download document");
+        }
+    }, [downloadDocumentMutation]);
 
     return (
         <>
@@ -68,6 +76,9 @@ const CanvasNavBar = ({ documentId }: CanvasNavBarProps) => {
                     </li>
                 </ul>
             </div>
+            <button className="btn btn-success" onClick={handleDownload}>
+                <LuDownload size={20} />
+            </button>
             <DocumentCollaborators documentId={documentId} />
             <ShareDocForm documentId={documentId} />
         </>

@@ -36,6 +36,7 @@ export class WSClient {
     private remoteUpdate: AnnotationType<boolean>; // Annotation to mark remote updates and prevent rebroadcasting
     private isReconnection: boolean;
     private Q: Promise<void> = Promise.resolve();
+    private onPresenceUpdate?: () => void;
 
     constructor(
         ws: WebSocket,
@@ -46,6 +47,7 @@ export class WSClient {
         previousTextRef: RefObject<string>,
         userIdentity: string,
         isReconnection: boolean = false,
+        onPresenceUpdate?: () => void,
     ) {
         this.ws = ws;
         this.viewRef = viewRef;
@@ -55,6 +57,7 @@ export class WSClient {
         this.previousTextRef = previousTextRef;
         this.isReconnection = isReconnection;
         this.userIdentity = userIdentity;
+        this.onPresenceUpdate = onPresenceUpdate;
         if (userIdentity) this.userIdentity = userIdentity;
         uiStore.getState().setActiveCollaborators(undefined);
 
@@ -303,7 +306,10 @@ export class WSClient {
                     this.updateCursors();
 
                     break;
-                case PresenceMessageType.SELECTION:
+                case PresenceMessageType.UPDATE:
+                    // For the Update presence message type we just referesh all the active queries, like
+                    // project files list, name, etc. This removes the need for continuously refetching with tanstack
+                    this.onPresenceUpdate?.();
                     break;
             }
         };

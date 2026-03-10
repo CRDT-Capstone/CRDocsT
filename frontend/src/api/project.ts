@@ -1,15 +1,9 @@
 import { useAuth } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 import { ContributorType, Project, f, Msg, CursorPaginatedResponse, ProjectWithDocuments } from "@cr_docs_t/dts";
+import { ApiBaseUrl, includeToken, TokenFunc } from ".";
 
-const ApiBaseUrl = import.meta.env.VITE_API_BASE_URL;
 const path = "projects";
-
-type TokenFunc = () => Promise<string | null>;
-
-const includeToken = (token: string | null) => {
-    return { Authorization: `Bearer ${token}` };
-};
 
 export const createProjectApi = (getToken: TokenFunc) => {
     const navigate = useNavigate();
@@ -284,6 +278,34 @@ export const createProjectApi = (getToken: TokenFunc) => {
         }
     };
 
+    const downloadProject = async (projectId: string) => {
+        try {
+            const token = await getToken();
+
+            let filename = "Project.zip";
+            const res = await f.post<Blob>(
+                `${ApiBaseUrl}/${path}/${projectId}/download`,
+                {},
+                {
+                    headers: {
+                        ...includeToken(token),
+                    },
+                    asBlob: true,
+                    handleHeaders: (headers) => {
+                        const dis = headers.get("Content-Disposition");
+                        if (dis && dis.includes("filename")) {
+                            filename = dis.split("filename=")[1].replace(/"/g, "");
+                        }
+                    },
+                },
+            );
+            return { content: res, filename };
+        } catch (err) {
+            console.error("There was an error downloading the project -> ", err);
+            throw err;
+        }
+    };
+
     return {
         createProject,
         deleteProject,
@@ -298,5 +320,6 @@ export const createProjectApi = (getToken: TokenFunc) => {
         removeCollaborator,
         updateCollaboratorType,
         getUserProjectAccess,
+        downloadProject,
     };
 };
