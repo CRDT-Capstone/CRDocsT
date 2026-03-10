@@ -345,7 +345,7 @@ const Hero = () => {
                             {
                                 icon: <LuCode className="w-5 h-5" />,
                                 title: "Tree-sitter AST parsing",
-                                desc: "Syntax-aware editing powered by a WebAssembly Tree-sitter LaTeX parser. Structure-preserving operations keep your document valid.",
+                                desc: "Syntax-aware editing powered by a WebAssembly Tree-sitter LaTeX parser.",
                             },
                             {
                                 icon: <LuZap className="w-5 h-5" />,
@@ -355,7 +355,7 @@ const Hero = () => {
                             {
                                 icon: <LuFileText className="w-5 h-5" />,
                                 title: "Multi-file projects",
-                                desc: "Organise your work into projects with independent per-file CRDT buffers. File metadata syncs so the workspace stays coherent across all editors.",
+                                desc: "Organise your work into projects with independent per-file CRDT buffers.",
                             },
                             {
                                 icon: <LuGitMerge className="w-5 h-5" />,
