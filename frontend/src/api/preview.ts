@@ -1,4 +1,4 @@
-import { f } from "@cr_docs_t/dts";
+import { APIError, f } from "@cr_docs_t/dts";
 import { ApiBaseUrl } from ".";
 const path = "preview";
 
@@ -17,7 +17,8 @@ export const createPreviewApi = () => {
             console.log({ res });
             return res;
         } catch (err: any) {
-            console.error("There was an error rendering the content -> ", err);
+            const e = err as APIError;
+            console.error("There was an error rendering the content -> ", e);
             throw err;
         }
     };
