@@ -6,6 +6,7 @@ import CanvasNavBar from "./CanvasNavBar";
 import ProjectNavBar from "./ProjectNavBar";
 import uiStore from "../../stores/uiStore";
 import { HeroNavBar } from "./HeroNavBar";
+import { Styles } from "../fonts";
 
 interface NavBarProps {}
 
@@ -42,11 +43,7 @@ const NavBar = ({}: NavBarProps) => {
     return (
         <div className="shadow-sm navbar bg-base-100">
             <div className="flex-none">
-                <a
-                    className="text-xl btn btn-ghost"
-                    onClick={handleTitleClick}
-                    style={{ fontFamily: "Georgia, 'Times New Roman', serif" }}
-                >
+                <a className="text-2xl btn btn-ghost" onClick={handleTitleClick} style={Styles.headings}>
                     Bragi
                 </a>
             </div>

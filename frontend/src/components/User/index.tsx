@@ -1,12 +1,19 @@
 import { useClerk, useUser } from "@clerk/clerk-react";
+import { useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 
 const User = () => {
     const { signOut } = useClerk();
     const { user } = useUser();
+    const nav = useNavigate();
 
-    // Safely extract the first letter of the primary email
     const email = user?.primaryEmailAddress?.emailAddress;
     const initial = email ? email.charAt(0).toUpperCase() : "?";
+
+    const handleSignOut = useCallback(async () => {
+        await signOut();
+        nav("/");
+    }, [signOut, nav]);
 
     return (
         <div className="flex p-4">
@@ -24,7 +31,7 @@ const User = () => {
                 >
                     <li>
                         <button
-                            onClick={() => signOut()}
+                            onClick={handleSignOut}
                             className="font-medium text-error hover:bg-error/10 hover:text-error"
                         >
                             Sign Out
