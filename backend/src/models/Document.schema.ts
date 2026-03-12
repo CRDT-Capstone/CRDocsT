@@ -10,7 +10,7 @@ const DocumentSchema = new Schema<Document>(
             required: true,
         },
         serializedCRDTState: {
-            type: String,
+            type: Buffer,
             required: false,
         },
         ownerId: {

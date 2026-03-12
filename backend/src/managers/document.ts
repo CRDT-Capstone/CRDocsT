@@ -11,6 +11,7 @@ import { RedisService } from "../services/RedisService";
 import WebSocket from "ws";
 import crypto from "crypto";
 import { logger } from "../logging";
+import { DocumentServices } from "../services/DocumentServices";
 
 // interface ActiveDocument {
 //     crdt: FugueTree;
@@ -53,7 +54,9 @@ class ActiveDocument {
     async save() {
         await RedisService.updateCRDTStateByDocumentID(this.documentID, Buffer.from(this.crdt.save()));
         await RedisService.updateCollaboratorsByDocumentId(this.documentID, this.users);
-        // Possibly mongoDB logic too
+        await DocumentServices.updateDocumentById(this.documentID, {
+            serializedCRDTState: Buffer.from(this.crdt.save())
+        });
     }
 
     send(bytes: Uint8Array, sendingSock?: WebSocket) {
@@ -181,7 +184,6 @@ class DocumentManager {
         const doc = this.instances.get(documentID);
         if (doc) {
             await doc.save();
-            // Possibly mongoDB logic too
         }
     }
 
