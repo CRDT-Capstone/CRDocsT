@@ -16,14 +16,14 @@ import { UserService } from "../services/UserService";
 export const OnlyCollaboratorsAndOwners = async (req: Request, res: Response, next: NextFunction) => {
     const { documentId } = req.params;
 
-    let { email } = req.body; //has to be in there to allow for 'anonymous' users
+    let { userIdentifier } = req.body; //has to be in there to allow for 'anonymous' users
 
-    if (!email) {
-        sendUnathorizedResponse(res, "Email is required");
+    if (!userIdentifier) {
+        sendUnathorizedResponse(res, "userIdentifier is required");
         return;
     }
 
-    const isAllowed = await DocumentServices.IsDocumentOwnerOrCollaborator(documentId as string, email);
+    const isAllowed = await DocumentServices.IsDocumentOwnerOrCollaborator(documentId as string, userIdentifier);
     if (isAllowed) next();
     else sendUnathorizedResponse(res);
 };

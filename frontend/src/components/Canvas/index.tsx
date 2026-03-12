@@ -30,6 +30,7 @@ import { remoteCursorSupport } from "../../codemirror/decorations";
 import { usePreview } from "../../hooks/preview";
 import { Preview } from "../Preview";
 import { LuEye } from "react-icons/lu";
+import AddCommentButton from "../AddCommentButton";
 
 interface CanvasProps {
     documentId: string | undefined;
@@ -69,6 +70,22 @@ const Canvas = ({ documentId: documentID, singleSession, onPresenceUpdate }: Can
     } = useCollab(documentID!, editorView, onPresenceUpdate);
 
     const { pdfUrl, isRendering, error, recompile } = usePreview();
+
+    const [commentIconPosition, setCommentIconPosition] = useState<{ top: number }>();
+    const highlightExtension = useMemo(() => {
+        return EditorView.updateListener.of((update) => {
+            const { from, to } = update.state.selection.main;
+
+            if (from === to){
+                setCommentIconPosition(undefined);
+                return;
+            }
+
+            const newCommentIconPosition = update.view.coordsAtPos(from);
+            if (newCommentIconPosition)
+                setCommentIconPosition({ top: newCommentIconPosition.top });
+        });
+    }, []);
 
     if (isAuthError) {
         nav("/sign-in");
@@ -161,6 +178,7 @@ const Canvas = ({ documentId: documentID, singleSession, onPresenceUpdate }: Can
             remoteCursorSupport(),
 
             keymap.of([...searchKeymap, ...completionKeymap]),
+            highlightExtension
         ];
 
         return { exts: base };
@@ -175,6 +193,7 @@ const Canvas = ({ documentId: documentID, singleSession, onPresenceUpdate }: Can
 
     const handleOnCreateEditor = useCallback(
         (view: EditorView) => {
+
             viewRef.current = view;
             setEditorView(view);
         },
@@ -208,7 +227,7 @@ const Canvas = ({ documentId: documentID, singleSession, onPresenceUpdate }: Can
         <div className="flex overflow-hidden relative flex-col flex-1 items-center w-full h-full">
             <div className="flex overflow-hidden relative w-full h-[80vh]">
                 <div
-                    className={`relative overflow-hidden h-full transition-all duration-300 ${showPreview ? "w-[55%]" : "w-full"}`}
+                    className={`relative px-12 overflow-hidden h-full transition-all duration-300 ${showPreview ? "w-[55%]" : "w-full"}`}
                 >
                     {connectionState !== ConnectionState.CONNECTED && (
                         <div className="flex absolute inset-0 z-50 flex-col gap-4 justify-center items-center w-full h-full bg-base-100 backdrop-blur-[2px]">
@@ -238,6 +257,10 @@ const Canvas = ({ documentId: documentID, singleSession, onPresenceUpdate }: Can
                         onChange={handleOnChange()}
                     />
                 </div>
+                {commentIconPosition && (
+                    <AddCommentButton position={commentIconPosition} />
+                )}
+
                 {/* Preview pane */}
                 {showPreview && (
                     <Preview
