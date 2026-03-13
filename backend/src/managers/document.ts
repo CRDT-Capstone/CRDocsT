@@ -11,6 +11,7 @@ import { RedisService } from "../services/RedisService";
 import WebSocket from "ws";
 import crypto from "crypto";
 import { logger } from "../logging";
+import { DocumentServices } from "../services/DocumentServices";
 
 // interface ActiveDocument {
 //     crdt: FugueTree;
@@ -53,7 +54,9 @@ class ActiveDocument {
     async save() {
         await RedisService.updateCRDTStateByDocumentID(this.documentID, Buffer.from(this.crdt.save()));
         await RedisService.updateCollaboratorsByDocumentId(this.documentID, this.users);
-        // Possibly mongoDB logic too
+        await DocumentServices.updateDocumentById(this.documentID, {
+            serializedCRDTState: Buffer.from(this.crdt.save())
+        });
     }
 
     send(bytes: Uint8Array, sendingSock?: WebSocket) {
@@ -102,9 +105,16 @@ class DocumentManager {
         const loadTask = (async () => {
             try {
                 // Otherwise get from DB or create a new one
-                const existingState = await RedisService.getCRDTStateByDocumentID(documentID);
+                let existingState = await RedisService.getCRDTStateByDocumentID(documentID);
                 logger.info(
-                    `Creating new ActiveDocument for ID ${documentID}. Existing state: ${existingState ? "found" : "not found"}`,
+                    `Creating new ActiveDocument for ID ${documentID}. Existing state: ${existingState ? "found" : "not found"} in Redis`,
+                );
+                logger.info('Attempting to get state from database');
+                const document = await DocumentServices.getDocumentStateFromDB(documentID);
+                existingState = document?.serializedCRDTState;
+
+                logger.info(
+                    `Creating new ActiveDocument for ID ${documentID}. Existing state: ${existingState ? "found" : "not found"} in DB`,
                 );
                 // The central CRDT is a netural observer that just holds the definitive state of a document
                 // therefore its document ID can be randomly generated, however it should probably have an identifiable
@@ -181,7 +191,6 @@ class DocumentManager {
         const doc = this.instances.get(documentID);
         if (doc) {
             await doc.save();
-            // Possibly mongoDB logic too
         }
     }
 

@@ -103,6 +103,11 @@ const getDocumentMetadataById = async (documentId: string) => {
     return documentObj;
 };
 
+const getDocumentStateFromDB = async(documentId: string)=>{
+    const documentState = await DocumentModel.findById(documentId, { serializedCRDTState: 1});
+    return documentState;
+}
+
 const addUserAsCollaborator = async (
     documentId: string,
     contributorEmail: string,
@@ -280,4 +285,5 @@ export const DocumentServices = {
     changeContributorType,
     isDocumentOwner,
     downloadDocument,
+    getDocumentStateFromDB
 };
