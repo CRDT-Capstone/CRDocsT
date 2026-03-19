@@ -13,6 +13,7 @@ import TabbedEditor from "../TabbedEditor";
 import uiStore from "../../stores/uiStore";
 import { createProjectApi } from "../../api/project";
 import { toast } from "sonner";
+import { usePresence } from "../../hooks/presence";
 
 const ProjectCanvas = () => {
     const nav = useNavigate();
@@ -33,6 +34,10 @@ const ProjectCanvas = () => {
     const userIdentity = user?.primaryEmailAddress?.emailAddress;
     const { getToken } = useAuth();
     const api = createProjectApi(getToken);
+
+    const { sendPresenceUpdateMsg } = usePresence(() => {
+        projectQuery.refetch();
+    }, projectId);
 
     useEffect(() => {
         if (projectId) {
@@ -89,6 +94,7 @@ const ProjectCanvas = () => {
     const handleItemCreate = useCallback(
         async (name: string | undefined, type: FileTreeItemType) => {
             await createProjectDocumentMutation.mutateAsync(name);
+            sendPresenceUpdateMsg();
         },
         [createProjectDocumentMutation],
     );
@@ -97,6 +103,7 @@ const ProjectCanvas = () => {
         async (item: Document | Project, type: FileTreeItemType) => {
             removeTab(item._id!);
             await removeProjectDocumentMutation.mutateAsync(item._id!);
+            sendPresenceUpdateMsg();
         },
         [removeProjectDocumentMutation, removeTab],
     );

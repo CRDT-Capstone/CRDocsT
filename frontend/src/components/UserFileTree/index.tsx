@@ -17,6 +17,7 @@ import { useDocuments, useProjects, useProject } from "../../hooks/queries";
 import useModal, {Modal} from "../../hooks/modal";
 import BaseFileTree, { FileTreeItemType } from "../BaseFileTree";
 import { useClerk, useSession } from "@clerk/clerk-react";
+import { usePresence } from "../../hooks/presence";
 
 interface UserFileTreeProps {
     handleItemClick: (item: Document | Project, type: FileTreeItemType) => void;
@@ -41,11 +42,17 @@ const UserFileTree = ({ handleItemClick, handleItemCreate, handleItemDelete }: U
     const isUserLoading = docQ.userDocumentsQuery.isLoading || projQ.userProjectsQuery.isLoading;
     const isSharedLoading = docQ.sharedDocumentsQuery.isLoading || projQ.sharedProjectsQuery.isLoading;
 
-    useEffect(() => {
+
+    const load = ()=>{
         docQ.userDocumentsQuery.refetch();
         docQ.sharedDocumentsQuery.refetch();
         projQ.userProjectsQuery.refetch();
         projQ.userProjectsQuery.refetch();
+    }
+    usePresence(()=>{ load() });
+
+    useEffect(() => {
+        load();
     }, []);
 
     return (

@@ -67,12 +67,44 @@ class ActiveDocument {
             sock.send(bytes);
         });
     }
+
+}
+
+class ActiveProject {
+    projectID: string;
+    sockets: Set<WebSocket>;
+
+    constructor(projectID: string) {
+        this.sockets = new Set();
+        this.projectID = projectID;
+    }
+
+    async addUser(ws: WebSocket) {
+        this.sockets.add(ws);
+    }
+
+    async removeUser(ws: WebSocket) {
+        this.sockets.delete(ws);
+    }
+
+    send(bytes: Uint8Array, sendingSock?: WebSocket) {
+        console.log('sockets length -> ', this.sockets.size);
+        this.sockets.forEach((sock) => {
+            if (sock.readyState !== WebSocket.OPEN) return;
+            // If sending sock is passed skip it when propagating
+            if (sendingSock && sock === sendingSock) return;
+            console.log('we sendinggggg');
+            sock.send(bytes);
+        });
+    }
+
 }
 
 class DocumentManager {
     private static instances: Map<string, ActiveDocument> = new Map();
     private static loadingTasks: Map<string, Promise<ActiveDocument>> = new Map();
     private static dirtyDocs: Set<string> = new Set();
+    private static projects: Map<string, ActiveProject> = new Map();
     static readonly persistenceIntervalMs: number = 0.5 * 1000; // 0.5 seconds
 
     static async loadProjectDocuments(projectID: string, documentIDs: string[]): Promise<ActiveDocument[]> {
@@ -84,12 +116,27 @@ class DocumentManager {
         return loadedDocs;
     }
 
+    static async projectGetOrCreate(projectID?: string) {
+        if (projectID) {
+
+            const proj = this.projects.get(projectID);
+            if(proj) return proj;
+
+            const newProj = new ActiveProject(projectID);
+            this.projects.set(projectID, newProj);
+            return newProj;
+        }
+        return undefined;
+    }
+
     static async getOrCreate(documentID: string): Promise<ActiveDocument> {
         // If the document is already active, return it
         let doc = this.instances.get(documentID);
 
         if (doc) {
             logger.debug(`Found existing ActiveDocument for ID ${documentID}.`);
+
+
             if (doc.cleanupTimeout) {
                 clearTimeout(doc.cleanupTimeout);
                 doc.cleanupTimeout = undefined;
@@ -109,9 +156,12 @@ class DocumentManager {
                 logger.info(
                     `Creating new ActiveDocument for ID ${documentID}. Existing state: ${existingState ? "found" : "not found"} in Redis`,
                 );
-                logger.info('Attempting to get state from database');
-                const document = await DocumentServices.getDocumentStateFromDB(documentID);
-                existingState = document?.serializedCRDTState;
+                if (!existingState) {
+                    logger.info('Attempting to get state from database');
+                    const document = await DocumentServices.getDocumentStateFromDB(documentID);
+                    if (document?.serializedCRDTState) existingState = Buffer.from(document?.serializedCRDTState);
+                }
+
 
                 logger.info(
                     `Creating new ActiveDocument for ID ${documentID}. Existing state: ${existingState ? "found" : "not found"} in DB`,
@@ -133,6 +183,8 @@ class DocumentManager {
                 const newDoc = new ActiveDocument(documentID, crdt);
 
                 this.instances.set(documentID, newDoc);
+
+
                 return newDoc;
             } finally {
                 this.loadingTasks.delete(documentID);
@@ -143,9 +195,23 @@ class DocumentManager {
         return loadTask;
     }
 
-    static async addUser(doc: ActiveDocument, ws: WebSocket, userIdentity: string) {
+    static async addUser(doc: ActiveDocument, ws: WebSocket, userIdentity: string, ) {
         await doc.addUser(ws, userIdentity);
     }
+
+    static async addUserToProject(ws: WebSocket, project?: ActiveProject) {
+        logger.info('project -> ', project);
+        project?.addUser(ws);
+    }
+
+    static async removeUserFromProject(ws: WebSocket, projectID?: string) {
+        if (projectID) {
+            const project = this.projects.get(projectID);
+            if (!project) return;
+            project?.removeUser(ws);
+        }
+    }
+
 
     static async removeUser(documentID: string, ws: WebSocket, userIdentity?: string) {
         const doc = this.instances.get(documentID);
@@ -184,6 +250,8 @@ class DocumentManager {
                 5 * 60 * 1000,
             ); // 5 minutes grace period
         }
+
+
     }
 
     static async persist(documentID: string) {

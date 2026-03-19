@@ -7,12 +7,7 @@ import { ShareDocForm } from "../Forms/ShareDocForm";
 import { DocumentCollaborators } from "../Collaborators";
 
 const UserHomeNavBar = () => {
-    const navigate = useNavigate();
-    const { signOut } = useClerk();
-    const { user } = useClerk();
     const activeDocumentId = uiStore((state) => state.activeDocumentId);
-    const { mutations } = useDocuments();
-    const { createDocumentMutation } = mutations;
 
     return (
         <div className="flex flex-1 justify-end">

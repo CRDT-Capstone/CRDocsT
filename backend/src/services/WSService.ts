@@ -19,17 +19,20 @@ import { DocumentServices } from "../services/DocumentServices";
 import DocumentManager from "../managers/document";
 import { RedisService } from "./RedisService";
 import { BaseMessage, MessageType } from "@cr_docs_t/dts";
+import { ProjectServices } from "./ProjectServices";
 
 export class WSService {
     private ws: WebSocket;
     private currentDocId: string | undefined;
     // userIdentity is the users email when the user is non anonymous and a random identifier for anonymous users
     private userIdentity: string | undefined;
+    private projectId: string | undefined;
 
     constructor(ws: WebSocket) {
         this.ws = ws;
         this.currentDocId = undefined;
         this.userIdentity = undefined;
+        this.projectId = undefined;
 
         logger.info("New WebSocket connection");
         this.initializeListeners();
@@ -100,6 +103,7 @@ export class WSService {
         });
         this.currentDocId = firstMsg.documentID;
         this.userIdentity = firstMsg.userIdentity;
+        this.projectId = firstMsg.projectID;
 
         const { hasAccess, contributorType: accessType } = await DocumentServices.IsDocumentOwnerOrCollaborator(
             this.currentDocId,
@@ -124,9 +128,11 @@ export class WSService {
             // 1000 -> normal expected socket connection closure
             return;
         }
-
+        
         const doc = await DocumentManager.getOrCreate(this.currentDocId);
+        const project = await DocumentManager.projectGetOrCreate(this.projectId);
         await DocumentManager.addUser(doc, this.ws, firstMsg.userIdentity);
+        DocumentManager.addUserToProject(this.ws, project);
 
         const sendUserJoin = async (userIdentity: string, currentDocId: string) => {
             const collaborators = await RedisService.getCollaboratorsByDocumentId(currentDocId);
@@ -189,14 +195,26 @@ export class WSService {
 
     async handlePresenceMessages(msgs: BasePresenceMessage[]) {
         const handleMsgType = async (msg: BasePresenceMessage) => {
-            const { documentID } = msg;
+            const { documentID, projectID } = msg;
             const doc = await DocumentManager.getOrCreate(documentID);
+            const project = await DocumentManager.projectGetOrCreate(projectID)
+            DocumentManager.addUserToProject(this.ws, project);
             logger.debug("Received presence message", { msg });
             switch (msg.type) {
                 case PresenceMessageType.CURSOR:
-                // Propagate the cursor information to the rest of the members of the document
-                case PresenceMessageType.UPDATE:
+                    // Propagate the cursor information to the rest of the members of the document and project
+                    //if in projet that is
                     doc.send(this.serialize(msg), this.ws);
+                    break;
+                case PresenceMessageType.UPDATE:
+                    if (documentID === null && project) {
+                        logger.info('WE ARE FUCKING HERE');
+                        project.send(this.serialize(msg), this.ws);
+
+                    } else {
+                        doc.send(this.serialize(msg), this.ws);
+                    }
+
                     break;
             }
         };
@@ -213,6 +231,7 @@ export class WSService {
         logger.info(`Current doc id -> ${this.currentDocId}`);
         if (this.currentDocId) {
             await DocumentManager.removeUser(this.currentDocId, this.ws, this.userIdentity);
+            DocumentManager.removeUserFromProject(this.ws, this.projectId);
             this.currentDocId = undefined;
         }
 
