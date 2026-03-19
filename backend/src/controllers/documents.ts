@@ -1,16 +1,15 @@
-import { Request, Response } from "express";
-import { DocumentServices, DownloadDocument } from "../services/DocumentServices";
-import { APIError, ContributorSchema, ContributorType, FugueTree, FugueStateSerializer } from "@cr_docs_t/dts";
+import { Response } from "express";
+import { DocumentServices } from "../services/DocumentServices";
+import { ContributorType, FugueTree } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import { getAuth } from "@clerk/express";
 import { MailService } from "../services/MailService";
 import { logger } from "../logging";
-import { sendOk, sendErr, send } from "../utils/ApiResponseUtils";
+import { sendOk, sendErr } from "../utils/ApiResponseUtils";
 import { handleErrorAsAPIError } from "../utils";
 import { z } from "zod";
-import { AuthenticatedRequest, Schema, ValidatedRequest } from "../validaton";
-import { ControllerWSchema, defineController } from ".";
-import { create } from "domain";
+import { AuthenticatedRequest, ValidatedRequest } from "../validaton";
+import { defineController } from ".";
 
 const documentIdSchema = () =>
     z.strictObject({
