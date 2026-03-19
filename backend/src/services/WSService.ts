@@ -59,7 +59,7 @@ export class WSService {
         try {
             logger.debug("Deserializing message");
             const raw = this.deserialize(message);
-            logger.debug("Done deserializing message", { raw });
+            logger.debug("Done deserializing message");
 
             if (raw.length === 0) {
                 logger.warn("Received empty message");
@@ -191,7 +191,6 @@ export class WSService {
         const handleMsgType = async (msg: BasePresenceMessage) => {
             const { documentID } = msg;
             const doc = await DocumentManager.getOrCreate(documentID);
-            logger.debug("Received presence message", { msg });
             switch (msg.type) {
                 case PresenceMessageType.CURSOR:
                 // Propagate the cursor information to the rest of the members of the document

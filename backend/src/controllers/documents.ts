@@ -110,7 +110,6 @@ const getDocumentsByUserId = async (req: AuthenticatedRequest<typeof getDocument
             Number(limit) ?? undefined,
             nextCursor ? nextCursor.toString() : undefined,
         );
-        logger.debug("data", { data });
         return sendOk(res, {
             message: "Successfully retrieved documents",
             data: data,

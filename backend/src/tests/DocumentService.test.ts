@@ -10,13 +10,13 @@ import { describe } from "node:test";
 
 const documentWithNoOwner: Document = {
     name: "anonymous",
-    serializedCRDTState: "",
+    serializedCRDTState: new Uint8Array(),
     contributors: [],
 };
 
 const documentWithAnOwner: Document = {
     name: "non-anonymous",
-    serializedCRDTState: "",
+    serializedCRDTState: new Uint8Array(),
     contributors: [],
     ownerId: "user_1",
 };

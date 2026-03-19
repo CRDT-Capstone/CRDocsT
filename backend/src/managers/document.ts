@@ -55,7 +55,7 @@ class ActiveDocument {
         await RedisService.updateCRDTStateByDocumentID(this.documentID, Buffer.from(this.crdt.save()));
         await RedisService.updateCollaboratorsByDocumentId(this.documentID, this.users);
         await DocumentServices.updateDocumentById(this.documentID, {
-            serializedCRDTState: Buffer.from(this.crdt.save())
+            serializedCRDTState: Buffer.from(this.crdt.save()),
         });
     }
 
@@ -105,17 +105,23 @@ class DocumentManager {
         const loadTask = (async () => {
             try {
                 // Otherwise get from DB or create a new one
-                let existingState = await RedisService.getCRDTStateByDocumentID(documentID);
-                logger.info(
-                    `Creating new ActiveDocument for ID ${documentID}. Existing state: ${existingState ? "found" : "not found"} in Redis`,
-                );
-                logger.info('Attempting to get state from database');
-                const document = await DocumentServices.getDocumentStateFromDB(documentID);
-                existingState = document?.serializedCRDTState;
+                let existingState: Buffer | undefined;
 
-                logger.info(
-                    `Creating new ActiveDocument for ID ${documentID}. Existing state: ${existingState ? "found" : "not found"} in DB`,
-                );
+                logger.info("Attempting to get state from Redis");
+                existingState = await RedisService.getCRDTStateByDocumentID(documentID);
+                if (existingState) {
+                    logger.info(`Creating new ActiveDocument for ID ${documentID}. Existing state: found in Redis`);
+                } else {
+                    logger.info("Attempting to get state from database");
+                    const document = await DocumentServices.getDocumentStateFromDB(documentID);
+                    if (document?.serializedCRDTState) {
+                        existingState = document.serializedCRDTState as Buffer;
+                        logger.info(`Creating new ActiveDocument for ID ${documentID}. Existing state: found in DB`);
+                    } else {
+                        logger.info(`Creating new ActiveDocument for ID ${documentID}. No existing state found`);
+                    }
+                }
+
                 // The central CRDT is a netural observer that just holds the definitive state of a document
                 // therefore its document ID can be randomly generated, however it should probably have an identifiable
                 // part to help with debugging
@@ -124,12 +130,6 @@ class DocumentManager {
                     crdt.load(existingState);
                 }
 
-                // const newDoc: ActiveDocument = {
-                //     crdt,
-                //     sockets: new Set(),
-                //     lastActivity: Date.now(),
-                //     users: new Set(),
-                // };
                 const newDoc = new ActiveDocument(documentID, crdt);
 
                 this.instances.set(documentID, newDoc);
