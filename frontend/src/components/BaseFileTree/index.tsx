@@ -67,13 +67,12 @@ interface BaseFileTreeProps {
     sections: SectionData[];
     modalTitle: string;
     closeModal: () => void;
-    // ModalComponent: React.FC<{ title: string; children: React.ReactNode }>;
     modalRef?: React.RefObject<HTMLDialogElement | null>;
     ModalComponent: React.ForwardRefExoticComponent<
         { title: string; children: ReactNode } & React.RefAttributes<HTMLDialogElement>
     >;
     onSubmitItem: (name: string, type: FileTreeItemType) => Promise<void>;
-    hideProjectOption?: boolean; // For ProjectFileTree where we only add documents
+    hideProjectOption?: boolean;
 }
 
 const BaseFileTree = ({
@@ -244,8 +243,7 @@ const FileTreeSection = ({ section }: { section: SectionData }) => {
                         </button>
 
                         {showProjects &&
-                            (section.isLoading ? (
-                                <div className="flex justify-center p-4">
+                            (section.isLoading ? ( <div className="flex justify-center p-4">
                                     <span className="loading loading-dots loading-sm"></span>
                                 </div>
                             ) : (

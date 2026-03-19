@@ -1,8 +1,11 @@
-import React, { useState, memo, useCallback } from "react";
+import React, { useState, memo, useCallback, Suspense } from "react";
 import { LuFileText, LuTrash2 } from "react-icons/lu";
 import Canvas from "../Canvas";
 import { Tab, TabMap } from "../../types";
 import uiStore from "../../stores/uiStore";
+import { ErrorBoundary } from "react-error-boundary";
+import { CanvasError } from "../ErrorBoundaries";
+import Loading from "../Loading";
 
 interface TabbedEditorProps {
     onPresenceUpdate?: () => void;
@@ -98,12 +101,16 @@ const TabbedEditor = ({ onPresenceUpdate }: TabbedEditorProps) => {
                                     role="tabpanel"
                                     id={`panel-${selectedTabId}`}
                                     aria-labelledby={`tab-${selectedTabId}`}
-                                    className="block w-full h-full border-b shadow-sm tab-content border-x border-base-300 rounded-b-box"
+                                    className="flex w-full h-full border-b shadow-sm tab-content border-x border-base-300 rounded-b-box"
                                 >
-                                    <Canvas
-                                        onPresenceUpdate={onPresenceUpdate}
-                                        documentId={activeTabs.get(selectedTabId)!.docId}
-                                    />
+                                    <ErrorBoundary FallbackComponent={CanvasError}>
+                                        <Suspense fallback={<Loading fullPage={true} label="Opening document.." />}>
+                                            <Canvas
+                                                onPresenceUpdate={onPresenceUpdate}
+                                                documentId={activeTabs.get(selectedTabId)!.docId}
+                                            />
+                                        </Suspense>
+                                    </ErrorBoundary>
                                 </div>
                             )}
                         </div>

@@ -1,10 +1,18 @@
 import { useAuth } from "@clerk/clerk-react";
 import { ContributorType, APIError } from "@cr_docs_t/dts";
-import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+    keepPreviousData,
+    useInfiniteQuery,
+    useMutation,
+    useQuery,
+    useQueryClient,
+    useSuspenseQuery,
+} from "@tanstack/react-query";
 import { createDocumentApi } from "../api/document";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { createProjectApi } from "../api/project";
+import { newParser } from "@cr_docs_t/dts/treesitter";
 
 const useApiErrorHandler = () => {
     const nav = useNavigate();
@@ -100,10 +108,9 @@ export const useDocument = (documentId: string) => {
         mutationKey: documentKeys.detail(documentId),
     };
 
-    const documentQuery = useQuery({
+    const documentQuery = useSuspenseQuery({
         queryKey: documentKeys.detail(documentId),
         queryFn: () => api.getDocumentById(documentId),
-        enabled: !!documentId,
         staleTime: 5 * 1000, // 5 seconds
         refetchInterval: 10 * 1000, // 10 seconds
     });
@@ -344,4 +351,17 @@ export const useProject = (projectId: string) => {
             downloadProjectMutation,
         },
     };
+};
+
+// Parser query
+
+export const useParser = () => {
+    return useSuspenseQuery({
+        queryKey: ["parser", "latex"],
+        queryFn: async () => {
+            return await newParser("/tree-sitter-latex.wasm", "/highlights.scm");
+        },
+        staleTime: Infinity,
+        gcTime: 1000 * 60 * 60, // 1 hour
+    });
 };

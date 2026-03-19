@@ -13,6 +13,8 @@ import TabbedEditor from "../TabbedEditor";
 import uiStore from "../../stores/uiStore";
 import { createProjectApi } from "../../api/project";
 import { toast } from "sonner";
+import { ErrorBoundary } from "react-error-boundary";
+import { SidebarError } from "../ErrorBoundaries";
 
 const ProjectCanvas = () => {
     const nav = useNavigate();
@@ -124,14 +126,16 @@ const ProjectCanvas = () => {
             </div>
 
             {/* File tree */}
-            <ProjectFileTree
-                projectId={projectId!}
-                projectQueriesAndMutations={{ queries, mutations }}
-                handleItemClick={handleItemClick}
-                handleItemCreate={handleItemCreate}
-                handleItemDelete={handleItemDelete}
-                handleDownload={handleDownload}
-            />
+            <ErrorBoundary FallbackComponent={SidebarError}>
+                <ProjectFileTree
+                    projectId={projectId!}
+                    projectQueriesAndMutations={{ queries, mutations }}
+                    handleItemClick={handleItemClick}
+                    handleItemCreate={handleItemCreate}
+                    handleItemDelete={handleItemDelete}
+                    handleDownload={handleDownload}
+                />
+            </ErrorBoundary>
         </div>
     );
 };

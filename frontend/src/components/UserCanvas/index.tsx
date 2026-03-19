@@ -8,6 +8,8 @@ import { FileTreeItemType } from "../BaseFileTree";
 import TabbedEditor from "../TabbedEditor";
 import { useDocuments, useProjects } from "../../hooks/queries";
 import uiStore from "../../stores/uiStore";
+import { ErrorBoundary } from "react-error-boundary";
+import { SidebarError } from "../ErrorBoundaries";
 
 const UserCanvas = () => {
     const nav = useNavigate();
@@ -88,11 +90,13 @@ const UserCanvas = () => {
             </div>
 
             {/* File tree */}
-            <UserFileTree
-                handleItemDelete={handleItemDelete}
-                handleItemCreate={handleItemCreate}
-                handleItemClick={handleItemClick}
-            />
+            <ErrorBoundary FallbackComponent={SidebarError}>
+                <UserFileTree
+                    handleItemDelete={handleItemDelete}
+                    handleItemCreate={handleItemCreate}
+                    handleItemClick={handleItemClick}
+                />
+            </ErrorBoundary>
         </div>
     );
 };

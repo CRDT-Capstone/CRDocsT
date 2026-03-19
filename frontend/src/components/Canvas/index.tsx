@@ -10,7 +10,7 @@ import CodeMirror, {
 import { bracketMatching, indentOnInput } from "@codemirror/language";
 import { useNavigate } from "react-router-dom";
 import Loading from "../Loading";
-import { useDocument } from "../../hooks/queries";
+import { useDocument, useParser } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { CSTType, latexSupport, YggdrasilType } from "../../treesitter/codemirror";
 import { Parser, Query, Tree } from "web-tree-sitter";
@@ -30,6 +30,8 @@ import { remoteCursorSupport } from "../../codemirror/decorations";
 import { usePreview } from "../../hooks/preview";
 import { Preview } from "../Preview";
 import { LuEye } from "react-icons/lu";
+import { ErrorBoundary } from "react-error-boundary";
+import { PreviewError } from "../ErrorBoundaries";
 
 interface CanvasProps {
     documentId: string | undefined;
@@ -68,6 +70,8 @@ const Canvas = ({ documentId: documentID, singleSession, onPresenceUpdate }: Can
         wsClient,
     } = useCollab(documentID!, editorView, onPresenceUpdate);
 
+    const { data: parserAndQuery } = useParser();
+
     const { pdfUrl, isRendering, error, recompile } = usePreview();
 
     if (isAuthError) {
@@ -94,7 +98,7 @@ const Canvas = ({ documentId: documentID, singleSession, onPresenceUpdate }: Can
 
         (async () => {
             if (!parser || !query) {
-                const { parser, query } = await newParser("/tree-sitter-latex.wasm", "/highlights.scm");
+                const { parser, query } = parserAndQuery;
                 setParser(parser);
                 setQuery(query);
             }
@@ -200,10 +204,6 @@ const Canvas = ({ documentId: documentID, singleSession, onPresenceUpdate }: Can
         setShowPreview((v) => !v);
     }, [recompile, showPreview, fugue]);
 
-    if (documentQuery.isLoading) {
-        return <Loading fullPage={singleSession} />;
-    }
-
     return (
         <div className="flex overflow-hidden relative flex-col flex-1 items-center w-full h-full">
             <div className="flex overflow-hidden relative w-full h-[80vh]">
@@ -240,13 +240,15 @@ const Canvas = ({ documentId: documentID, singleSession, onPresenceUpdate }: Can
                 </div>
                 {/* Preview pane */}
                 {showPreview && (
-                    <Preview
-                        pdfUrl={pdfUrl}
-                        isRendering={isRendering}
-                        error={error}
-                        onClose={() => setShowPreview(false)}
-                        onRecompile={() => recompile(fugue.observe())}
-                    />
+                    <ErrorBoundary FallbackComponent={PreviewError}>
+                        <Preview
+                            pdfUrl={pdfUrl}
+                            isRendering={isRendering}
+                            error={error}
+                            onClose={() => setShowPreview(false)}
+                            onRecompile={() => recompile(fugue.observe())}
+                        />
+                    </ErrorBoundary>
                 )}
             </div>
 
