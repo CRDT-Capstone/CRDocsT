@@ -19,10 +19,11 @@ afterAll(async () => {
 });
 
 jest.mock("./src/redis", () => ({
-  redis: {
-    get: jest.fn(),
-    set: jest.fn(),
-    del: jest.fn(),
-    quit: jest.fn(),
-  },
+    redis: {
+        get: jest.fn(),
+        set: jest.fn(),
+        del: jest.fn(),
+        quit: jest.fn(),
+    },
 }));
+
