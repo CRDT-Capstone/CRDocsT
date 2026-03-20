@@ -111,8 +111,8 @@ export const useDocument = (documentId: string) => {
     const documentQuery = useSuspenseQuery({
         queryKey: documentKeys.detail(documentId),
         queryFn: () => api.getDocumentById(documentId),
-        staleTime: 5 * 1000, // 5 seconds
-        refetchInterval: 10 * 1000, // 10 seconds
+        // staleTime: 5 * 1000, // 5 seconds
+        // refetchInterval: 10 * 1000, // 10 seconds
     });
 
     const updateDocumentNameMutation = useMutation({
@@ -263,8 +263,8 @@ export const useProject = (projectId: string) => {
         queryKey: projectKeys.detail(projectId),
         queryFn: () => api.getProjectById(projectId),
         enabled: !!projectId,
-        staleTime: 5 * 1000, // 5 seconds
-        refetchInterval: 10 * 1000, // 10 seconds
+        // staleTime: 5 * 1000, // 5 seconds
+        // refetchInterval: 10 * 1000, // 10 seconds
     });
 
     const updateProjectNameMutation = useMutation({

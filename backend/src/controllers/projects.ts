@@ -1,12 +1,10 @@
-import { Request, Response } from "express";
+import { Response } from "express";
 import { ProjectServices } from "../services/ProjectServices";
-import { ContributorType, FugueList, FugueStateSerializer, StringTotalOrder } from "@cr_docs_t/dts";
-import { RedisService } from "../services/RedisService";
-import { getAuth } from "@clerk/express";
+import { ContributorType } from "@cr_docs_t/dts";
 import { DocumentServices } from "../services/DocumentServices";
 import { z } from "zod";
-import { AuthenticatedRequest, Schema, ValidatedRequest } from "../validaton";
-import { ControllerWSchema, defineController } from ".";
+import { AuthenticatedRequest, ValidatedRequest } from "../validaton";
+import { defineController } from ".";
 import { handleErrorAsAPIError } from "../utils";
 import { logger } from "../logging";
 import { sendErr, sendOk } from "../utils/ApiResponseUtils";

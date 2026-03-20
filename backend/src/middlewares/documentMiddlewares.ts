@@ -12,6 +12,7 @@ import { DocumentServices } from "../services/DocumentServices";
 import { getAuth } from "@clerk/express";
 import { sendUnathorizedResponse } from "../utils/ApiResponseUtils";
 import { UserService } from "../services/UserService";
+import { APIError, logger } from "@cr_docs_t/dts";
 
 export const OnlyCollaboratorsAndOwners = async (req: Request, res: Response, next: NextFunction) => {
     const { documentId } = req.params;
@@ -23,9 +24,24 @@ export const OnlyCollaboratorsAndOwners = async (req: Request, res: Response, ne
         return;
     }
 
-    const isAllowed = await DocumentServices.IsDocumentOwnerOrCollaborator(documentId as string, email);
-    if (isAllowed) next();
-    else sendUnathorizedResponse(res);
+    try {
+        const isAllowed = await DocumentServices.IsDocumentOwnerOrCollaborator(documentId as string, email);
+        if (isAllowed) next();
+        else sendUnathorizedResponse(res);
+    } catch (error: unknown) {
+        if (error instanceof APIError) {
+            logger.error("Error checking document permissions", { msg: error.message, stack: error.stack, error });
+        } else if (error instanceof Error) {
+            logger.error("Unknown error checking document permissions", {
+                msg: error.message,
+                error,
+            });
+        } else {
+            logger.error("Non-error thrown in document permissions check", { error });
+        }
+
+        sendUnathorizedResponse(res);
+    }
 };
 
 export const OnlyDocumentOwner = async (req: Request, res: Response, next: NextFunction) => {
@@ -39,4 +55,3 @@ export const OnlyDocumentOwner = async (req: Request, res: Response, next: NextF
     if (isAllowed) next();
     else sendUnathorizedResponse(res);
 };
-

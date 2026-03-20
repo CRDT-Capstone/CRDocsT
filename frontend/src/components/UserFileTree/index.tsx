@@ -3,6 +3,7 @@ import { Document, Project } from "@cr_docs_t/dts";
 import { useDocuments, useProjects } from "../../hooks/queries";
 import useModal, { Modal } from "../../hooks/modal";
 import BaseFileTree, { FileTreeItemType } from "../BaseFileTree";
+import { usePresenceUpdate } from "../../hooks/presence";
 
 interface UserFileTreeProps {
     handleItemClick: (item: Document | Project, type: FileTreeItemType) => void;
@@ -25,11 +26,17 @@ const UserFileTree = ({ handleItemClick, handleItemCreate, handleItemDelete }: U
     const isUserLoading = docQ.userDocumentsQuery.isLoading || projQ.userProjectsQuery.isLoading;
     const isSharedLoading = docQ.sharedDocumentsQuery.isLoading || projQ.sharedProjectsQuery.isLoading;
 
-    useEffect(() => {
+
+    const load = () => {
         docQ.userDocumentsQuery.refetch();
         docQ.sharedDocumentsQuery.refetch();
         projQ.userProjectsQuery.refetch();
         projQ.userProjectsQuery.refetch();
+    };
+
+    useEffect(() => {
+        load();
+
     }, []);
 
     return (

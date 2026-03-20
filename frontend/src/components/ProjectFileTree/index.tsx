@@ -35,6 +35,7 @@ export const ProjectFileTree = ({
 
     useEffect(() => {
         projectQuery.refetch();
+        const docs = queries.projectQuery.data?.documents || [];
     }, []);
 
     const projectDocs = queries.projectQuery.data?.documents || [];

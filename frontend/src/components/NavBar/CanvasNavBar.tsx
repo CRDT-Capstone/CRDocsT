@@ -5,6 +5,7 @@ import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { toast } from "sonner";
 import { LuDownload } from "react-icons/lu";
+import { usePresenceUpdate } from "../../hooks/presence";
 
 interface CanvasNavBarProps {
     documentId: string;
@@ -18,9 +19,10 @@ const CanvasNavBar = ({ documentId }: CanvasNavBarProps) => {
 
     const { mutations } = useDocument(documentId);
     const { updateDocumentNameMutation, downloadDocumentMutation } = mutations;
+    const { sendPresenceUpdateMsg } = usePresenceUpdate(undefined, undefined, documentId);
 
     useLayoutEffect(() => {
-        if (document) {
+        if (document && !isEditing) {
             setTitle(document.name);
         }
     }, [document]);
@@ -29,6 +31,7 @@ const CanvasNavBar = ({ documentId }: CanvasNavBarProps) => {
         try {
             await updateDocumentNameMutation.mutateAsync(title);
             setIsEditing(false);
+            sendPresenceUpdateMsg();
         } catch (error) {
             console.error("Failed to update document name", error);
             toast.error("Failed to update document name");

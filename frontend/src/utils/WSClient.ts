@@ -14,6 +14,7 @@ import {
     PresenceCursorMessage,
     makePresenceMsg,
     Serializer,
+    PresenceUpdateMessage,
 } from "@cr_docs_t/dts";
 import { AnnotationType, EditorSelection, EditorView } from "@uiw/react-codemirror";
 import { RefObject } from "react";
@@ -22,6 +23,8 @@ import { toast } from "sonner";
 import { BaseMessage, MessageType } from "@cr_docs_t/dts";
 import { createRemoteCursorEffect, RemoteCursor } from "../codemirror/decorations";
 import uiStore from "../stores/uiStore";
+
+type OutgoingMessage = BaseMessage | BasePresenceMessage;
 
 class WSClient {
     private ws: WebSocket;
@@ -34,6 +37,8 @@ class WSClient {
     private isReconnection: boolean;
     private Q: Promise<void> = Promise.resolve();
     private onPresenceUpdate?: () => void;
+    private projectId: string | undefined;
+
 
     constructor(
         ws: WebSocket,
@@ -45,6 +50,7 @@ class WSClient {
         userIdentity: string,
         isReconnection: boolean = false,
         onPresenceUpdate?: () => void,
+        projectId?: string
     ) {
         this.ws = ws;
         this.viewRef = viewRef;
@@ -58,6 +64,8 @@ class WSClient {
         if (userIdentity) this.userIdentity = userIdentity;
         uiStore.getState().setActiveCollaborators(undefined);
 
+        if(projectId) this.projectId = projectId;
+
         this.handleOpen = this.handleOpen.bind(this);
         this.handleMessage = this.handleMessage.bind(this);
 
@@ -70,13 +78,15 @@ class WSClient {
         this.ws.onmessage = this.handleMessage;
     }
 
-    private send(msgs: BaseMessage | BaseMessage[]) {
+    
+
+    private send(msgs: OutgoingMessage | OutgoingMessage[]) {
         const msgsArray = Array.isArray(msgs) ? msgs : [msgs];
         const bytes = this.serialize(msgsArray);
         this.ws.send(bytes);
     }
 
-    private serialize(msgs: BaseMessage | BaseMessage[]): Uint8Array {
+    private serialize(msgs: OutgoingMessage[]): Uint8Array {
         return Serializer.serialize(msgs);
     }
 
@@ -115,6 +125,7 @@ class WSClient {
                 state: null,
                 userIdentity: this.userIdentity,
                 replicaId: this.fugue.replicaId(),
+                projectID: this.projectId
             });
 
             this.send(joinMsg);
@@ -302,11 +313,6 @@ class WSClient {
                     this.updateCursors();
 
                     break;
-                case PresenceMessageType.UPDATE:
-                    // For the Update presence message type we just referesh all the active queries, like
-                    // project files list, name, etc. This removes the need for continuously refetching with tanstack
-                    this.onPresenceUpdate?.();
-                    break;
             }
         };
 
@@ -323,6 +329,15 @@ class WSClient {
             userIdentity: this.userIdentity,
             type: PresenceMessageType.CURSOR,
             pos: pos,
+        });
+        this.send(msg);
+    }
+
+    async sendPresenceUpdateMsg(){
+        const msg = makePresenceMsg<PresenceUpdateMessage>({
+            type: PresenceMessageType.UPDATE,
+            documentID: this.documentID, 
+            userIdentity: this.userIdentity
         });
         this.send(msg);
     }

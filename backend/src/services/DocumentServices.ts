@@ -6,6 +6,7 @@ import { ObjectId } from "mongodb";
 import { RootFilterQuery } from "mongoose";
 import { redis } from "../redis";
 import { RedisService } from "./RedisService";
+import { StateService } from "./StateService";
 
 const createDocument = async (userId: string | null, name?: string) => {
     const document = await DocumentModel.create({ ownerId: userId, name });
@@ -243,10 +244,12 @@ export type DownloadDocument = {
 };
 const downloadDocument = async (documentId: string, docname?: string): Promise<DownloadDocument> => {
     try {
-        const document = await DocumentModel.findById(documentId);
+        logger.debug("Document id", { documentId });
+        const document = await findDocumentById(documentId);
+        logger.debug("Document", { document });
         if (!document) throw new APIError("Document not found", 404);
 
-        const state = await RedisService.getCRDTStateByDocumentID(documentId);
+        const state = await StateService.getUpToDateState(documentId);
         if (!state) throw new APIError("Document state not found", 404);
 
         const crdt = new FugueTree(null, documentId, `doc-${documentId}-download`);

@@ -12,6 +12,7 @@ import { createProjectApi } from "../../api/project";
 import { toast } from "sonner";
 import { ErrorBoundary } from "react-error-boundary";
 import { SidebarError } from "../ErrorBoundaries";
+import { usePresenceUpdate } from "../../hooks/presence";
 
 const ProjectCanvas = () => {
     const nav = useNavigate();
@@ -29,6 +30,10 @@ const ProjectCanvas = () => {
     const userIdentity = user?.primaryEmailAddress?.emailAddress;
     const { getToken } = useAuth();
     const api = createProjectApi(getToken);
+
+    const { sendPresenceUpdateMsg } = usePresenceUpdate(() => {
+        projectQuery.refetch();
+    }, projectId);
 
     useEffect(() => {
         if (projectId) {
@@ -85,6 +90,7 @@ const ProjectCanvas = () => {
     const handleItemCreate = useCallback(
         async (name: string | undefined, _: FileTreeItemType) => {
             await createProjectDocumentMutation.mutateAsync(name);
+            sendPresenceUpdateMsg();
         },
         [createProjectDocumentMutation],
     );
@@ -94,6 +100,7 @@ const ProjectCanvas = () => {
             removeTab(item._id!);
             await removeProjectDocumentMutation.mutateAsync(item._id!);
             setActiveTab(undefined);
+            sendPresenceUpdateMsg();
         },
         [removeProjectDocumentMutation, removeTab],
     );

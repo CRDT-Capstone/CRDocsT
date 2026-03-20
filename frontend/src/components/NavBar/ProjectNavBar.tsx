@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { ProjectCollaborators } from "../Collaborators";
 import { ShareProjForm } from "../Forms/ShareDocForm";
 import User from "../User";
+import { usePresenceUpdate } from "../../hooks/presence";
 
 interface ProjectNavBarProps {
     projectId: string;
@@ -16,8 +17,13 @@ const ProjectNavBar = ({ projectId }: ProjectNavBarProps) => {
     const [isEditing, setIsEditing] = useState(false);
     const [title, setTitle] = useState("New Document");
 
-    const { mutations } = useProject(projectId);
+    const { mutations, queries } = useProject(projectId);
+    const { projectQuery } = queries;
     const { updateProjectNameMutation } = mutations;
+    const { sendPresenceUpdateMsg } = usePresenceUpdate(() => {
+        projectQuery.refetch();
+    }, projectId);
+
 
     useLayoutEffect(() => {
         if (project) {
@@ -29,6 +35,7 @@ const ProjectNavBar = ({ projectId }: ProjectNavBarProps) => {
         try {
             await updateProjectNameMutation.mutateAsync(title);
             setIsEditing(false);
+            sendPresenceUpdateMsg();
         } catch (error) {
             console.error("Failed to update project name", error);
             toast.error("Failed to update project name");
