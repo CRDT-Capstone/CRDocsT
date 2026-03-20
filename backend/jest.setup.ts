@@ -6,20 +6,23 @@ let mongoServer: MongoMemoryServer;
 
 beforeAll(async () => {
     mongoServer = await MongoMemoryServer.create();
-    const mongoUri = mongoServer.getUri();
-    await mongoose.connect(mongoUri);
+    await mongoose.connect(mongoServer.getUri());
 });
 
-//after each test we clear the db
 afterEach(async () => {
-    const collections = mongoose.connection.collections;
-    for (const key in collections) {
-        await collections[key].deleteMany({});
-    }
+    await mongoose.connection.db?.dropDatabase();
 });
 
-//after all tests
 afterAll(async () => {
-    await mongoose.disconnect();
+    await mongoose.connection.close();
     await mongoServer.stop();
 });
+
+jest.mock("./src/redis", () => ({
+  redis: {
+    get: jest.fn(),
+    set: jest.fn(),
+    del: jest.fn(),
+    quit: jest.fn(),
+  },
+}));
