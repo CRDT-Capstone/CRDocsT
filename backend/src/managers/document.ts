@@ -88,12 +88,11 @@ class ActiveProject {
     }
 
     send(bytes: Uint8Array, sendingSock?: WebSocket) {
-        console.log('sockets length -> ', this.sockets.size);
+        logger.debug(`sockets length -> ${this.sockets.size}`);
         this.sockets.forEach((sock) => {
             if (sock.readyState !== WebSocket.OPEN) return;
             // If sending sock is passed skip it when propagating
             if (sendingSock && sock === sendingSock) return;
-            console.log('we sendinggggg');
             sock.send(bytes);
         });
     }
@@ -200,7 +199,6 @@ class DocumentManager {
     }
 
     static async addUserToProject(ws: WebSocket, project?: ActiveProject) {
-        logger.info('project -> ', project);
         project?.addUser(ws);
     }
 

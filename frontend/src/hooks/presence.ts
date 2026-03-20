@@ -1,15 +1,13 @@
 import { useState, useRef, useEffect } from "react";
-import { EditorView } from "@uiw/react-codemirror";
 import { useNavigate } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import mainStore from "../stores";
 import { ConnectionState } from "../types";
-import { makeAnonUserIdentity } from "../utils";
 import { PresenceUpdateWSClient } from "../utils/PresenceUpdateWSClient";
 
 
 
-export const usePresence = (onPresenceUpdate?: () => void, projectID?: string, documentID?: string) => {
+export const usePresenceUpdate = (onPresenceUpdate?: () => void, projectID?: string, documentID?: string) => {
     const { user, isLoaded, isSignedIn } = useUser();
     const nav = useNavigate();
     const anonUserIdentity = mainStore((state) => state.anonUserIdentity);
@@ -30,10 +28,6 @@ export const usePresence = (onPresenceUpdate?: () => void, projectID?: string, d
     const isAnon = !email;
     const isAuthError = isLoaded && !userIdentity && isSignedIn;
 
-    const project = mainStore((state)=> state.project);
-    const document = mainStore((state)=> state.document);
-    let activeProjectID = (projectID) ? projectID : project?._id!
-    let activeDocumentID = (documentID) ? documentID : document?._id!
 
 
     useEffect(() => {
@@ -54,10 +48,10 @@ export const usePresence = (onPresenceUpdate?: () => void, projectID?: string, d
             console.log("Creating new WSClient");
             const newWsClient = new PresenceUpdateWSClient(
                 sock,
-                activeDocumentID,
                 userIdentity,
                 onPresenceUpdate,
-                activeProjectID
+                documentID,
+                projectID
             );
             setWsClient(newWsClient);
             retriesRef.current = 0;
@@ -124,11 +118,12 @@ export const usePresence = (onPresenceUpdate?: () => void, projectID?: string, d
         return () => {
             disconnect();
         };
-    }, [activeDocumentID, isLoaded, userIdentity, isSignedIn]);
+    }, [documentID, isLoaded, userIdentity, isSignedIn]);
 
     const sendPresenceUpdateMsg = async()=>{
         await wsClient?.sendPresenceUpdateMsg();
     }
+
 
 
     return {
@@ -141,6 +136,6 @@ export const usePresence = (onPresenceUpdate?: () => void, projectID?: string, d
         connectionState,
         connect,
         delay,
-        sendPresenceUpdateMsg
+        sendPresenceUpdateMsg,
     };
 };

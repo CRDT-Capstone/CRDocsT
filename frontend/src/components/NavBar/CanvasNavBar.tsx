@@ -9,7 +9,7 @@ import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { toast } from "sonner";
 import { LuDownload } from "react-icons/lu";
-import { usePresence } from "../../hooks/presence";
+import { usePresenceUpdate } from "../../hooks/presence";
 
 interface CanvasNavBarProps {
     documentId: string;
@@ -23,7 +23,7 @@ const CanvasNavBar = ({ documentId }: CanvasNavBarProps) => {
 
     const { mutations } = useDocument(documentId);
     const { updateDocumentNameMutation, downloadDocumentMutation } = mutations;
-    const { sendPresenceUpdateMsg } = usePresence();
+    const { sendPresenceUpdateMsg } = usePresenceUpdate(undefined, undefined, documentId);
 
     useLayoutEffect(() => {
         if (document && !isEditing) {

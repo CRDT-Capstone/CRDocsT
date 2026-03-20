@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { ProjectCollaborators } from "../Collaborators";
 import { ShareProjForm } from "../Forms/ShareDocForm";
 import User from "../User";
-import { usePresence } from "../../hooks/presence";
+import { usePresenceUpdate } from "../../hooks/presence";
 
 interface ProjectNavBarProps {
     projectId: string;
@@ -19,9 +19,9 @@ const ProjectNavBar = ({ projectId }: ProjectNavBarProps) => {
     const [title, setTitle] = useState("New Document");
 
     const { mutations, queries } = useProject(projectId);
-    const {projectQuery} = queries;
+    const { projectQuery } = queries;
     const { updateProjectNameMutation } = mutations;
-    const { sendPresenceUpdateMsg } = usePresence(()=>{
+    const { sendPresenceUpdateMsg } = usePresenceUpdate(() => {
         projectQuery.refetch();
     }, projectId);
 

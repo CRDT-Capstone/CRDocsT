@@ -27,6 +27,8 @@ import { BaseMessage, MessageType } from "@cr_docs_t/dts";
 import { createRemoteCursorEffect, RemoteCursor } from "../codemirror/decorations";
 import uiStore from "../stores/uiStore";
 
+type OutgoingMessage = BaseMessage | BasePresenceMessage;
+
 export class WSClient {
     private ws: WebSocket;
     private viewRef: RefObject<EditorView | undefined>;
@@ -79,13 +81,15 @@ export class WSClient {
         this.ws.onmessage = this.handleMessage;
     }
 
-    private send(msgs: BaseMessage | BaseMessage[]) {
+    
+
+    private send(msgs: OutgoingMessage | OutgoingMessage[]) {
         const msgsArray = Array.isArray(msgs) ? msgs : [msgs];
         const bytes = this.serialize(msgsArray);
         this.ws.send(bytes);
     }
 
-    private serialize(msgs: BaseMessage | BaseMessage[]): Uint8Array {
+    private serialize(msgs: OutgoingMessage[]): Uint8Array {
         return Serializer.serialize(msgs);
     }
 

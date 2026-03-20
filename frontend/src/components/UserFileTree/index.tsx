@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm } from "@tanstack/react-form";
-import { Document, Project } from "@cr_docs_t/dts";
+import { Document, Project, ProjectWithDocuments } from "@cr_docs_t/dts";
 import {
     LuChevronLeft,
     LuFileText,
@@ -14,10 +14,10 @@ import {
 } from "react-icons/lu";
 
 import { useDocuments, useProjects, useProject } from "../../hooks/queries";
-import useModal, {Modal} from "../../hooks/modal";
+import useModal, { Modal } from "../../hooks/modal";
 import BaseFileTree, { FileTreeItemType } from "../BaseFileTree";
 import { useClerk, useSession } from "@clerk/clerk-react";
-import { usePresence } from "../../hooks/presence";
+import { usePresenceUpdate } from "../../hooks/presence";
 
 interface UserFileTreeProps {
     handleItemClick: (item: Document | Project, type: FileTreeItemType) => void;
@@ -43,16 +43,16 @@ const UserFileTree = ({ handleItemClick, handleItemCreate, handleItemDelete }: U
     const isSharedLoading = docQ.sharedDocumentsQuery.isLoading || projQ.sharedProjectsQuery.isLoading;
 
 
-    const load = ()=>{
+    const load = () => {
         docQ.userDocumentsQuery.refetch();
         docQ.sharedDocumentsQuery.refetch();
         projQ.userProjectsQuery.refetch();
         projQ.userProjectsQuery.refetch();
-    }
-    usePresence(()=>{ load() });
+    };
 
     useEffect(() => {
         load();
+
     }, []);
 
     return (

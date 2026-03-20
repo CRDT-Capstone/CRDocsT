@@ -50,7 +50,7 @@ export class WSService {
         this.ws.send(bytes);
     }
 
-    private serialize(msgs: BaseMessage | BaseMessage[]): Uint8Array {
+    private serialize(msgs: BaseMessage | BaseMessage[] | BasePresenceMessage | BasePresenceMessage[]): Uint8Array {
         return Serializer.serialize(msgs);
     }
 
@@ -128,7 +128,7 @@ export class WSService {
             // 1000 -> normal expected socket connection closure
             return;
         }
-        
+
         const doc = await DocumentManager.getOrCreate(this.currentDocId);
         const project = await DocumentManager.projectGetOrCreate(this.projectId);
         await DocumentManager.addUser(doc, this.ws, firstMsg.userIdentity);
@@ -196,22 +196,36 @@ export class WSService {
     async handlePresenceMessages(msgs: BasePresenceMessage[]) {
         const handleMsgType = async (msg: BasePresenceMessage) => {
             const { documentID, projectID } = msg;
-            const doc = await DocumentManager.getOrCreate(documentID);
-            const project = await DocumentManager.projectGetOrCreate(projectID)
-            DocumentManager.addUserToProject(this.ws, project);
+
             logger.debug("Received presence message", { msg });
             switch (msg.type) {
+                case PresenceMessageType.JOIN:
+                    if (documentID) {
+                        const doc = await DocumentManager.getOrCreate(documentID);
+                        await DocumentManager.addUser(doc, this.ws, this.userIdentity!);
+                        break;
+                    }
+                    else if (projectID) {
+                        const project = await DocumentManager.projectGetOrCreate(projectID);
+                        DocumentManager.addUserToProject(this.ws, project);
+                        break;
+                    }
+                    break;
                 case PresenceMessageType.CURSOR:
                     // Propagate the cursor information to the rest of the members of the document and project
                     //if in projet that is
+                    
+                    const doc = await DocumentManager.getOrCreate(documentID!);
                     doc.send(this.serialize(msg), this.ws);
                     break;
                 case PresenceMessageType.UPDATE:
-                    if (documentID === null && project) {
-                        logger.info('WE ARE FUCKING HERE');
-                        project.send(this.serialize(msg), this.ws);
+                    if (!documentID && projectID) {
+                        const project = await DocumentManager.projectGetOrCreate(projectID);
 
-                    } else {
+                        if (project) project.send(this.serialize(msg), this.ws);
+
+                    } else if(documentID) {
+                        const doc = await DocumentManager.getOrCreate(documentID);
                         doc.send(this.serialize(msg), this.ws);
                     }
 
@@ -233,6 +247,11 @@ export class WSService {
             await DocumentManager.removeUser(this.currentDocId, this.ws, this.userIdentity);
             DocumentManager.removeUserFromProject(this.ws, this.projectId);
             this.currentDocId = undefined;
+        }
+        if(this.projectId){
+            await DocumentManager.removeUserFromProject(this.ws, this.projectId);
+            DocumentManager.removeUserFromProject(this.ws, this.projectId);
+            this.projectId = undefined;
         }
 
         logger.info("Connection closed");

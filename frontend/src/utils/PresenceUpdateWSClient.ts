@@ -1,19 +1,17 @@
 import {
-    FugueTree,
     PresenceMessageType,
     BaseFugueMessage,
     BasePresenceMessage,
     makePresenceMsg,
     Serializer,
     PresenceUpdateMessage,
+    PresenceJoinMessage,
 } from "@cr_docs_t/dts";
-import { AnnotationType, EditorView } from "@uiw/react-codemirror";
-import { RefObject } from "react";
-import { BaseMessage, MessageType } from "@cr_docs_t/dts";
+import { MessageType } from "@cr_docs_t/dts";
 
 export class PresenceUpdateWSClient {
     private ws: WebSocket;
-    private documentID: string;
+    private documentID: string | undefined;
     private userIdentity: string;
     private Q: Promise<void> = Promise.resolve();
     private onPresenceUpdate?: () => void;
@@ -22,9 +20,9 @@ export class PresenceUpdateWSClient {
 
     constructor(
         ws: WebSocket,
-        documentID: string,
         userIdentity: string,
         onPresenceUpdate?: () => void,
+        documentID?: string,
         projectId?: string
     ) {
         this.ws = ws;
@@ -37,7 +35,18 @@ export class PresenceUpdateWSClient {
         this.handleOpen = this.handleOpen.bind(this);
         this.handleMessage = this.handleMessage.bind(this);
 
+        this.sendJoinMessage();
         this.initListeners();
+    }
+
+    private sendJoinMessage(){
+        const joinMsg = makePresenceMsg<PresenceJoinMessage>({
+            type: PresenceMessageType.JOIN,
+            documentID: this.documentID,
+            projectID: this.projectId,
+            userIdentity: this.userIdentity
+        });
+        this.send(joinMsg);
     }
 
     private initListeners() {
@@ -45,15 +54,15 @@ export class PresenceUpdateWSClient {
         this.ws.onmessage = this.handleMessage;
     }
 
-    private send(msgs: BaseMessage | BaseMessage[]) {
+    private send(msgs: BasePresenceMessage | BasePresenceMessage[]) {
         const msgsArray = Array.isArray(msgs) ? msgs : [msgs];
         const bytes = this.serialize(msgsArray);
         this.ws.send(bytes);
     }
 
-    private serialize(msgs: BaseMessage | BaseMessage[]): Uint8Array {
+    private serialize(msgs: BasePresenceMessage | BasePresenceMessage[]): Uint8Array {
         return Serializer.serialize(msgs);
-    }
+    } 
 
     private deserialize(bytes: Uint8Array): BaseFugueMessage[] | BasePresenceMessage[] {
         return Serializer.deserialize(bytes);

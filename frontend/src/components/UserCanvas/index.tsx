@@ -8,7 +8,7 @@ import { FileTreeItemType } from "../BaseFileTree";
 import TabbedEditor from "../TabbedEditor";
 import { useDocuments, useProjects } from "../../hooks/queries";
 import uiStore from "../../stores/uiStore";
-import { usePresence } from "../../hooks/presence";
+import { usePresenceUpdate } from "../../hooks/presence";
 
 const UserCanvas = () => {
     const nav = useNavigate();
@@ -72,7 +72,7 @@ const UserCanvas = () => {
         async (item: Document | Project, type: FileTreeItemType) => {
             if (type === FileTreeItemType.DOCUMENT) {
                 removeTab(item._id!);
-                
+
                 await docM.deleteDocumentMutation.mutateAsync(item._id!);
             } else {
                 await projM.deleteProjectMutation.mutateAsync(item._id!);

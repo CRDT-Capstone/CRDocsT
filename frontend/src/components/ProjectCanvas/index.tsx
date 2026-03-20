@@ -13,7 +13,7 @@ import TabbedEditor from "../TabbedEditor";
 import uiStore from "../../stores/uiStore";
 import { createProjectApi } from "../../api/project";
 import { toast } from "sonner";
-import { usePresence } from "../../hooks/presence";
+import { usePresenceUpdate } from "../../hooks/presence";
 
 const ProjectCanvas = () => {
     const nav = useNavigate();
@@ -35,7 +35,7 @@ const ProjectCanvas = () => {
     const { getToken } = useAuth();
     const api = createProjectApi(getToken);
 
-    const { sendPresenceUpdateMsg } = usePresence(() => {
+    const { sendPresenceUpdateMsg } = usePresenceUpdate(() => {
         projectQuery.refetch();
     }, projectId);
 
