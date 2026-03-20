@@ -125,7 +125,6 @@ const removeDocumentFromProject = async (projectId: string, documentId: string) 
         await sess.withTransaction(async () => {
             // Remove the document ID from the project's documentIds array and delete the document itself
             await ProjectModel.findByIdAndUpdate(projectId, { $pull: { documentIds: documentId } }, { session: sess });
-            // Delete the document from the Document collection
             await DocumentModel.findByIdAndDelete(documentId, { session: sess });
         });
     } finally {
@@ -369,11 +368,12 @@ const downloadProject = async (projectId: string): Promise<DownloadProject> => {
             content: zip.toBuffer(),
         };
     } catch (err) {
-        logger.error("Error downloading project", { err });
         if (err instanceof APIError) {
+            logger.error("Error downloading project", { err });
             throw err;
         }
         const e = err as Error;
+        logger.error("Error downloading project", { e });
         throw new APIError(e.message || "Error downloading project", 500);
     }
 };

@@ -1,5 +1,5 @@
-import { useNavigate, useParams } from "react-router-dom";
-import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect } from "react";
 import { useSession } from "@clerk/clerk-react";
 import { NavBarType } from "../../types";
 import UserFileTree from "../UserFileTree";
@@ -8,6 +8,9 @@ import { FileTreeItemType } from "../BaseFileTree";
 import TabbedEditor from "../TabbedEditor";
 import { useDocuments, useProjects } from "../../hooks/queries";
 import uiStore from "../../stores/uiStore";
+import { ErrorBoundary } from "react-error-boundary";
+import { SidebarError } from "../ErrorBoundaries";
+import { usePresenceUpdate } from "../../hooks/presence";
 
 const UserCanvas = () => {
     const nav = useNavigate();
@@ -20,6 +23,7 @@ const UserCanvas = () => {
 
     const { mutations: docM } = useDocuments();
     const { mutations: projM } = useProjects();
+
 
     useEffect(() => {
         if (isLoaded && !isSignedIn) nav("/sign-in");
@@ -70,6 +74,7 @@ const UserCanvas = () => {
         async (item: Document | Project, type: FileTreeItemType) => {
             if (type === FileTreeItemType.DOCUMENT) {
                 removeTab(item._id!);
+
                 await docM.deleteDocumentMutation.mutateAsync(item._id!);
             } else {
                 await projM.deleteProjectMutation.mutateAsync(item._id!);
@@ -88,11 +93,13 @@ const UserCanvas = () => {
             </div>
 
             {/* File tree */}
-            <UserFileTree
-                handleItemDelete={handleItemDelete}
-                handleItemCreate={handleItemCreate}
-                handleItemClick={handleItemClick}
-            />
+            <ErrorBoundary FallbackComponent={SidebarError}>
+                <UserFileTree
+                    handleItemDelete={handleItemDelete}
+                    handleItemCreate={handleItemCreate}
+                    handleItemClick={handleItemClick}
+                />
+            </ErrorBoundary>
         </div>
     );
 };

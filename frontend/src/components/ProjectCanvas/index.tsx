@@ -1,11 +1,8 @@
 import { useNavigate, useParams } from "react-router-dom";
-import { useCallback, useEffect, useState, memo } from "react";
+import { useCallback, useEffect, memo } from "react";
 import { useAuth, useClerk, useSession } from "@clerk/clerk-react";
-import mainStore from "../../stores";
-import { LuFileText } from "react-icons/lu";
 import { NavBarType } from "../../types";
 import { ProjectFileTree } from "../ProjectFileTree";
-import UserFileTree from "../UserFileTree";
 import { useProject } from "../../hooks/queries";
 import { Project, Document } from "@cr_docs_t/dts";
 import { FileTreeItemType } from "../BaseFileTree";
@@ -13,15 +10,15 @@ import TabbedEditor from "../TabbedEditor";
 import uiStore from "../../stores/uiStore";
 import { createProjectApi } from "../../api/project";
 import { toast } from "sonner";
+import { ErrorBoundary } from "react-error-boundary";
+import { SidebarError } from "../ErrorBoundaries";
+import { usePresenceUpdate } from "../../hooks/presence";
 
 const ProjectCanvas = () => {
     const nav = useNavigate();
     const { projectId } = useParams();
     const { isSignedIn, isLoaded } = useSession();
     const setNavBarType = uiStore((state) => state.setNavBarType);
-    const project = mainStore((state) => state.project);
-    const setProject = mainStore((state) => state.setProject);
-    const selectedTabId = uiStore((state) => state.selectedTabId);
     const activeTabs = uiStore((state) => state.activeTabs);
     const setActiveTabs = uiStore((state) => state.setActiveTabs);
     const setSelectedTabId = uiStore((state) => state.setSelectedTab);
@@ -34,6 +31,10 @@ const ProjectCanvas = () => {
     const { getToken } = useAuth();
     const api = createProjectApi(getToken);
 
+    const { sendPresenceUpdateMsg } = usePresenceUpdate(() => {
+        projectQuery.refetch();
+    }, projectId);
+
     useEffect(() => {
         if (projectId) {
             setActiveProjectId(projectId);
@@ -41,7 +42,7 @@ const ProjectCanvas = () => {
         return () => {
             setActiveProjectId(undefined);
             // // Filter out any tabs that belong to this project
-            setActiveTabs(new Map(Array.from(activeTabs.entries()).filter(([id, tab]) => tab.projectId !== projectId)));
+            setActiveTabs(new Map(Array.from(activeTabs.entries()).filter(([_, tab]) => tab.projectId !== projectId)));
             setSelectedTabId(activeTabs.size > 0 ? Array.from(activeTabs.keys())[0] : undefined);
         };
     }, []);
@@ -73,7 +74,7 @@ const ProjectCanvas = () => {
     const { createProjectDocumentMutation, removeProjectDocumentMutation, downloadProjectMutation } = mutations;
 
     const handleItemClick = useCallback(
-        (item: Document | Project, type: FileTreeItemType) => {
+        (item: Document | Project, _: FileTreeItemType) => {
             if (!item._id) return;
             addTab({
                 id: item._id,
@@ -87,16 +88,19 @@ const ProjectCanvas = () => {
     );
 
     const handleItemCreate = useCallback(
-        async (name: string | undefined, type: FileTreeItemType) => {
+        async (name: string | undefined, _: FileTreeItemType) => {
             await createProjectDocumentMutation.mutateAsync(name);
+            sendPresenceUpdateMsg();
         },
         [createProjectDocumentMutation],
     );
 
     const handleItemDelete = useCallback(
-        async (item: Document | Project, type: FileTreeItemType) => {
+        async (item: Document | Project, _: FileTreeItemType) => {
             removeTab(item._id!);
             await removeProjectDocumentMutation.mutateAsync(item._id!);
+            setActiveTab(undefined);
+            sendPresenceUpdateMsg();
         },
         [removeProjectDocumentMutation, removeTab],
     );
@@ -124,14 +128,16 @@ const ProjectCanvas = () => {
             </div>
 
             {/* File tree */}
-            <ProjectFileTree
-                projectId={projectId!}
-                projectQueriesAndMutations={{ queries, mutations }}
-                handleItemClick={handleItemClick}
-                handleItemCreate={handleItemCreate}
-                handleItemDelete={handleItemDelete}
-                handleDownload={handleDownload}
-            />
+            <ErrorBoundary FallbackComponent={SidebarError}>
+                <ProjectFileTree
+                    projectId={projectId!}
+                    projectQueriesAndMutations={{ queries, mutations }}
+                    handleItemClick={handleItemClick}
+                    handleItemCreate={handleItemCreate}
+                    handleItemDelete={handleItemDelete}
+                    handleDownload={handleDownload}
+                />
+            </ErrorBoundary>
         </div>
     );
 };

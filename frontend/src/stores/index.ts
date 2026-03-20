@@ -1,9 +1,9 @@
-import { Contributor, Document, FugueMessage, Project } from "@cr_docs_t/dts";
+import { Document, FugueMessage, Project } from "@cr_docs_t/dts";
 import { Tree } from "web-tree-sitter";
 import { create } from "zustand";
-import { createJSONStorage, devtools, persist } from "zustand/middleware";
+import { devtools } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
-import { ConnectionState, NavBarType } from "../types";
+import { ConnectionState } from "../types";
 
 export type ProjectState = {
     project?: Project;

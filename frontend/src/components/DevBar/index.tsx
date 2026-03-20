@@ -1,9 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { LuTerminal, LuSettings2, LuEye, LuEyeOff, LuBug, LuGripVertical } from "react-icons/lu";
 import mainStore from "../../stores";
-
-const STORAGE_KEY = "dev-bar-position";
 
 const DevBar = () => {
     const [isExpanded, setIsExpanded] = useState(false);

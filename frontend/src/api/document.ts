@@ -1,4 +1,3 @@
-import { useAuth } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 import { ContributorType, Document, f, Msg, CursorPaginatedResponse } from "@cr_docs_t/dts";
 import { ApiBaseUrl, includeToken, TokenFunc } from ".";
@@ -22,12 +21,10 @@ export const createDocumentApi = (getToken: TokenFunc) => {
                 },
             );
 
-            const document = response.data;
             return response;
         } catch (err) {
             console.error("There was an error creating a document -> ", err);
             throw err;
-            //TODO: change this to some daisy UI element
         }
     };
 
@@ -65,7 +62,6 @@ export const createDocumentApi = (getToken: TokenFunc) => {
         } catch (err) {
             console.error("There was an error updating document name -> ", err);
             throw err;
-            //TODO: change this to some daisy UI element
         }
     };
 
@@ -90,7 +86,6 @@ export const createDocumentApi = (getToken: TokenFunc) => {
         } catch (err) {
             console.error("There was an error retrieving documents-> ", err);
             throw err;
-            //TODO: change this to some daisy UI element
         }
     };
 
@@ -115,7 +110,6 @@ export const createDocumentApi = (getToken: TokenFunc) => {
         } catch (err) {
             console.error("There was an error retrieving documents-> ", err);
             throw err;
-            //TODO: change this to some daisy UI element
         }
     };
 

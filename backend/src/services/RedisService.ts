@@ -36,7 +36,6 @@ const getCollaboratorsByDocumentId = async (documentId: string) => {
 };
 
 const removeCollaboratorsByDocumentId = async (documentId: string, user: string) => {
-    logger.info("Did we get here?");
     const key = `collab:${documentId}`;
     await redis.srem(key, user);
 };

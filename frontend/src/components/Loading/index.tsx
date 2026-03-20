@@ -1,7 +1,5 @@
-import React from "react";
-
 interface LoadingProps {
-    size?: "xs" | "sm" | "md" | "lg";
+    size?: "xs" | "sm" | "md" | "lg" | "xl";
     variant?: "dots" | "spinner" | "ring" | "ball";
     color?: string;
     fullPage?: boolean;
@@ -20,9 +18,10 @@ const Loading = ({
         sm: "loading-sm",
         md: "loading-md",
         lg: "loading-lg",
+        xl: "loading-xl",
     };
 
-    const containerClasses = fullPage ? "fixed inset-0 z-50 bg-base-100/50 backdrop-blur-sm" : "w-full h-full";
+    const containerClasses = fullPage ? "fixed inset-0 z-50 bg-base-100/50 backdrop-blur-sm" : "flex-1 min-h-0 w-full";
 
     return (
         <div

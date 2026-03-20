@@ -1,4 +1,4 @@
-import { FugueMessage, Operation } from "@cr_docs_t/dts";
+import { FugueMessage } from "@cr_docs_t/dts";
 
 export type Position = string;
 export type IDBDocumentSchema = {
@@ -23,6 +23,7 @@ export enum NavBarType {
     CANVAS = "CANVAS",
     PROJECT = "PROJECT",
     HERO = "HERO",
+    AUTH = "AUTH",
 }
 
 export interface Tab {

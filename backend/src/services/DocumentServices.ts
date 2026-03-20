@@ -6,6 +6,7 @@ import { ObjectId } from "mongodb";
 import { RootFilterQuery } from "mongoose";
 import { redis } from "../redis";
 import { RedisService } from "./RedisService";
+import { StateService } from "./StateService";
 
 const createDocument = async (userId: string | null, name?: string) => {
     const document = await DocumentModel.create({ ownerId: userId, name });
@@ -103,10 +104,10 @@ const getDocumentMetadataById = async (documentId: string) => {
     return documentObj;
 };
 
-const getDocumentStateFromDB = async(documentId: string)=>{
-    const documentState = await DocumentModel.findById(documentId, { serializedCRDTState: 1});
+const getDocumentStateFromDB = async (documentId: string) => {
+    const documentState = await DocumentModel.findById(documentId, { serializedCRDTState: 1 });
     return documentState;
-}
+};
 
 const addUserAsCollaborator = async (
     documentId: string,
@@ -159,7 +160,6 @@ const IsDocumentOwnerOrCollaborator = async (
 ): Promise<IsDocumentOwnerOrCollaboratorReturn> => {
     logger.debug("Checking if user is owner or collaborator", { documentId, email });
     const document = await DocumentModel.findById(documentId);
-    logger.debug("Document", { document });
 
     if (!document) throw new APIError("Document does not exist", 404);
     if (!document.ownerId) return { hasAccess: true, contributorType: ContributorType.EDITOR };
@@ -215,7 +215,6 @@ const removeContributor = async (documentId: string, email: string) => {
         { $pull: { contributors: { email } } },
     );
 
-    logger.info("Remove contributor result", { result });
     if (result.matchedCount === 0)
         throw new APIError("Document does not exist, user is owner or user was never a contributor", 400);
 };
@@ -245,10 +244,12 @@ export type DownloadDocument = {
 };
 const downloadDocument = async (documentId: string, docname?: string): Promise<DownloadDocument> => {
     try {
-        const document = await DocumentModel.findById(documentId);
+        logger.debug("Document id", { documentId });
+        const document = await findDocumentById(documentId);
+        logger.debug("Document", { document });
         if (!document) throw new APIError("Document not found", 404);
 
-        const state = await RedisService.getCRDTStateByDocumentID(documentId);
+        const state = await StateService.getUpToDateState(documentId);
         if (!state) throw new APIError("Document state not found", 404);
 
         const crdt = new FugueTree(null, documentId, `doc-${documentId}-download`);
@@ -285,5 +286,5 @@ export const DocumentServices = {
     changeContributorType,
     isDocumentOwner,
     downloadDocument,
-    getDocumentStateFromDB
+    getDocumentStateFromDB,
 };

@@ -6,20 +6,14 @@ import {
     Operation,
     Serializer,
     makeFugueMessage,
+    APIError,
 } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import WebSocket from "ws";
 import crypto from "crypto";
 import { logger } from "../logging";
 import { DocumentServices } from "../services/DocumentServices";
-
-// interface ActiveDocument {
-//     crdt: FugueTree;
-//     sockets: Set<WebSocket>;
-//     users: Set<string>;
-//     lastActivity: number;
-//     cleanupTimeout?: NodeJS.Timeout;
-// }
+import { StateService } from "../services/StateService";
 
 class ActiveDocument {
     documentID: string;
@@ -55,7 +49,7 @@ class ActiveDocument {
         await RedisService.updateCRDTStateByDocumentID(this.documentID, Buffer.from(this.crdt.save()));
         await RedisService.updateCollaboratorsByDocumentId(this.documentID, this.users);
         await DocumentServices.updateDocumentById(this.documentID, {
-            serializedCRDTState: Buffer.from(this.crdt.save())
+            serializedCRDTState: Buffer.from(this.crdt.save()),
         });
     }
 
@@ -69,10 +63,39 @@ class ActiveDocument {
     }
 }
 
+class ActiveProject {
+    projectID: string;
+    sockets: Set<WebSocket>;
+
+    constructor(projectID: string) {
+        this.sockets = new Set();
+        this.projectID = projectID;
+    }
+
+    async addUser(ws: WebSocket) {
+        this.sockets.add(ws);
+    }
+
+    async removeUser(ws: WebSocket) {
+        this.sockets.delete(ws);
+    }
+
+    send(bytes: Uint8Array, sendingSock?: WebSocket) {
+        logger.debug(`sockets length -> ${this.sockets.size}`);
+        this.sockets.forEach((sock) => {
+            if (sock.readyState !== WebSocket.OPEN) return;
+            // If sending sock is passed skip it when propagating
+            if (sendingSock && sock === sendingSock) return;
+            sock.send(bytes);
+        });
+    }
+}
+
 class DocumentManager {
     private static instances: Map<string, ActiveDocument> = new Map();
     private static loadingTasks: Map<string, Promise<ActiveDocument>> = new Map();
     private static dirtyDocs: Set<string> = new Set();
+    private static projects: Map<string, ActiveProject> = new Map();
     static readonly persistenceIntervalMs: number = 0.5 * 1000; // 0.5 seconds
 
     static async loadProjectDocuments(projectID: string, documentIDs: string[]): Promise<ActiveDocument[]> {
@@ -84,12 +107,25 @@ class DocumentManager {
         return loadedDocs;
     }
 
+    static async projectGetOrCreate(projectID?: string) {
+        if (projectID) {
+            const proj = this.projects.get(projectID);
+            if (proj) return proj;
+
+            const newProj = new ActiveProject(projectID);
+            this.projects.set(projectID, newProj);
+            return newProj;
+        }
+        return undefined;
+    }
+
     static async getOrCreate(documentID: string): Promise<ActiveDocument> {
         // If the document is already active, return it
         let doc = this.instances.get(documentID);
 
         if (doc) {
             logger.debug(`Found existing ActiveDocument for ID ${documentID}.`);
+
             if (doc.cleanupTimeout) {
                 clearTimeout(doc.cleanupTimeout);
                 doc.cleanupTimeout = undefined;
@@ -105,17 +141,8 @@ class DocumentManager {
         const loadTask = (async () => {
             try {
                 // Otherwise get from DB or create a new one
-                let existingState = await RedisService.getCRDTStateByDocumentID(documentID);
-                logger.info(
-                    `Creating new ActiveDocument for ID ${documentID}. Existing state: ${existingState ? "found" : "not found"} in Redis`,
-                );
-                logger.info('Attempting to get state from database');
-                const document = await DocumentServices.getDocumentStateFromDB(documentID);
-                existingState = document?.serializedCRDTState;
+                const existingState = await StateService.getUpToDateState(documentID);
 
-                logger.info(
-                    `Creating new ActiveDocument for ID ${documentID}. Existing state: ${existingState ? "found" : "not found"} in DB`,
-                );
                 // The central CRDT is a netural observer that just holds the definitive state of a document
                 // therefore its document ID can be randomly generated, however it should probably have an identifiable
                 // part to help with debugging
@@ -124,15 +151,10 @@ class DocumentManager {
                     crdt.load(existingState);
                 }
 
-                // const newDoc: ActiveDocument = {
-                //     crdt,
-                //     sockets: new Set(),
-                //     lastActivity: Date.now(),
-                //     users: new Set(),
-                // };
                 const newDoc = new ActiveDocument(documentID, crdt);
 
                 this.instances.set(documentID, newDoc);
+
                 return newDoc;
             } finally {
                 this.loadingTasks.delete(documentID);
@@ -145,6 +167,18 @@ class DocumentManager {
 
     static async addUser(doc: ActiveDocument, ws: WebSocket, userIdentity: string) {
         await doc.addUser(ws, userIdentity);
+    }
+
+    static async addUserToProject(ws: WebSocket, project?: ActiveProject) {
+        project?.addUser(ws);
+    }
+
+    static async removeUserFromProject(ws: WebSocket, projectID?: string) {
+        if (projectID) {
+            const project = this.projects.get(projectID);
+            if (!project) return;
+            project?.removeUser(ws);
+        }
     }
 
     static async removeUser(documentID: string, ws: WebSocket, userIdentity?: string) {
@@ -233,9 +267,18 @@ class DocumentManager {
     private static async cleanup(documentID: string) {
         const doc = this.instances.get(documentID);
         if (doc) {
-            await this.persist(documentID);
-            this.instances.delete(documentID);
-            logger.info(`Cleaned up document ${documentID} from memory.`);
+            try {
+                await this.persist(documentID);
+                this.instances.delete(documentID);
+                logger.info(`Cleaned up document ${documentID} from memory.`);
+            } catch (e: unknown) {
+                if (e instanceof APIError) {
+                    logger.error(`Failed to persist document ${documentID} during cleanup`, { e });
+                    return;
+                }
+                const err = e as Error;
+                logger.error(`Failed to persist document ${documentID} during cleanup`, { err });
+            }
         }
     }
 

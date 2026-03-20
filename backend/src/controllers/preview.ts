@@ -21,11 +21,8 @@ const renderContentSchema = {
 const renderContent = async (req: ValidatedRequest<typeof renderContentSchema>, res: Response) => {
     try {
         const { content } = req.body;
-        logger.debug("Content", { content });
         const file = await PreviewService.renderContent(content);
         const buffer = Buffer.from(file);
-        logger.debug("Buffer size", { size: buffer.length });
-        logger.debug("PDF header", { header: buffer.slice(0, 4).toString() }); // should be "%PDF"
 
         res.setHeader("Content-Type", "application/pdf");
         res.setHeader("Content-Disposition", "inline; filename=preview.pdf");

@@ -1,4 +1,3 @@
-import { useAuth } from "@clerk/clerk-react";
 import { useNavigate } from "react-router-dom";
 import { ContributorType, Project, f, Msg, CursorPaginatedResponse, ProjectWithDocuments } from "@cr_docs_t/dts";
 import { ApiBaseUrl, includeToken, TokenFunc } from ".";
@@ -22,12 +21,10 @@ export const createProjectApi = (getToken: TokenFunc) => {
                 },
             );
 
-            const project = response.data;
             return response;
         } catch (err) {
             console.error("There was an error creating a project -> ", err);
             throw err;
-            //TODO: change this to some daisy UI element
         }
     };
 
@@ -65,7 +62,6 @@ export const createProjectApi = (getToken: TokenFunc) => {
         } catch (err) {
             console.error("There was an error updating project name -> ", err);
             throw err;
-            //TODO: change this to some daisy UI element
         }
     };
 
@@ -90,7 +86,6 @@ export const createProjectApi = (getToken: TokenFunc) => {
         } catch (err) {
             console.error("There was an error retrieving projects-> ", err);
             throw err;
-            //TODO: change this to some daisy UI element
         }
     };
 
@@ -115,7 +110,6 @@ export const createProjectApi = (getToken: TokenFunc) => {
         } catch (err) {
             console.error("There was an error retrieving projects-> ", err);
             throw err;
-            //TODO: change this to some daisy UI element
         }
     };
 

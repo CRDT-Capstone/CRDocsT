@@ -9,7 +9,7 @@ interface PreviewProps {
     onRecompile: () => void;
 }
 
-export const Preview = memo(({ pdfUrl, isRendering, error, onClose, onRecompile }: PreviewProps) => {
+const Preview = memo(({ pdfUrl, isRendering, error, onClose, onRecompile }: PreviewProps) => {
     return (
         <div className="flex flex-col w-[45%] min-w-100 h-full border-l border-base-300 bg-base-100">
             <div className="flex justify-between items-center py-2 px-4 border-b border-base-300 bg-base-200">
@@ -61,3 +61,5 @@ export const Preview = memo(({ pdfUrl, isRendering, error, onClose, onRecompile 
         </div>
     );
 });
+
+export default Preview;

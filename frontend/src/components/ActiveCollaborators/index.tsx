@@ -1,6 +1,4 @@
 import { useEffect, useState } from "react";
-import mainStore from "../../stores";
-import { genNRandomHexColors } from "../../utils";
 import uiStore from "../../stores/uiStore";
 import { ActiveCollaborator } from "../../types";
 

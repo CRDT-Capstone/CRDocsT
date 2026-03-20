@@ -38,6 +38,9 @@ const NavBar = ({}: NavBarProps) => {
         case NavBarType.HERO:
             navBarChildren = <HeroNavBar />;
             break;
+        case NavBarType.AUTH:
+            navBarChildren = <></>;
+            break;
     }
 
     return (

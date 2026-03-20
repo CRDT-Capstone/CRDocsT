@@ -10,11 +10,13 @@ import mongoose from "mongoose";
 
 const documentWithNoOwner: Document = {
     name: "anonymous",
+    serializedCRDTState: new Uint8Array(),
     contributors: [],
 };
 
 const documentWithAnOwner: Document = {
     name: "non-anonymous",
+    serializedCRDTState: new Uint8Array(),
     contributors: [],
     ownerId: "user_1",
 };

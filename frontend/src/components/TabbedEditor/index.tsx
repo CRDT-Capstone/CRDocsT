@@ -1,8 +1,11 @@
-import React, { useState, memo, useCallback } from "react";
+import React, { memo, useCallback, Suspense } from "react";
 import { LuFileText, LuTrash2 } from "react-icons/lu";
 import Canvas from "../Canvas";
-import { Tab, TabMap } from "../../types";
+import { Tab } from "../../types";
 import uiStore from "../../stores/uiStore";
+import { ErrorBoundary } from "react-error-boundary";
+import { CanvasError } from "../ErrorBoundaries";
+import Loading from "../Loading";
 
 interface TabbedEditorProps {
     onPresenceUpdate?: () => void;
@@ -13,6 +16,7 @@ const TabbedEditor = ({ onPresenceUpdate }: TabbedEditorProps) => {
     const removeTab = uiStore((state) => state.removeTab);
     const selectedTabId = uiStore((state) => state.selectedTabId);
     const setSelectedTab = uiStore((state) => state.setSelectedTab);
+    const setActiveDocumentId = uiStore((state) => state.setActiveDocumentId);
 
     const handleClick = useCallback(
         (tab: Tab) => {
@@ -25,8 +29,9 @@ const TabbedEditor = ({ onPresenceUpdate }: TabbedEditorProps) => {
         (tabId: string, e: React.MouseEvent) => {
             e.stopPropagation();
             removeTab(tabId);
+            setActiveDocumentId(undefined);
         },
-        [removeTab],
+        [removeTab, setActiveDocumentId],
     );
 
     const MemoizedTrash = memo(LuTrash2);
@@ -63,7 +68,7 @@ const TabbedEditor = ({ onPresenceUpdate }: TabbedEditorProps) => {
                                         aria-controls={`panel-${tab.id}`}
                                         id={`tab-${tab.id}`}
                                         tabIndex={isActive ? 0 : -1}
-                                        onClick={(e) => handleClick(tab)}
+                                        onClick={() => handleClick(tab)}
                                         className={`
                                             tab h-12 transition-colors flex items-center gap-2 group cursor-pointer
                                             ${
@@ -98,12 +103,16 @@ const TabbedEditor = ({ onPresenceUpdate }: TabbedEditorProps) => {
                                     role="tabpanel"
                                     id={`panel-${selectedTabId}`}
                                     aria-labelledby={`tab-${selectedTabId}`}
-                                    className="block w-full h-full border-b shadow-sm tab-content border-x border-base-300 rounded-b-box"
+                                    className="flex flex-col w-full h-full border-b shadow-sm tab-content border-x border-base-300 rounded-b-box"
                                 >
-                                    <Canvas
-                                        onPresenceUpdate={onPresenceUpdate}
-                                        documentId={activeTabs.get(selectedTabId)!.docId}
-                                    />
+                                    <ErrorBoundary FallbackComponent={CanvasError}>
+                                        <Suspense fallback={<Loading label="Opening document.." />}>
+                                            <Canvas
+                                                onPresenceUpdate={onPresenceUpdate}
+                                                documentId={activeTabs.get(selectedTabId)!.docId}
+                                            />
+                                        </Suspense>
+                                    </ErrorBoundary>
                                 </div>
                             )}
                         </div>

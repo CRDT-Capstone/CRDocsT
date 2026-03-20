@@ -3,22 +3,20 @@ import {
     FugueLeaveMessage,
     FugueTree,
     FugueMessage,
-    FugueMessageSerialzier,
     FugueMutationMessageTypes,
     Operation,
-    FugueMessageType,
     PresenceMessageType,
     BaseFugueMessage,
     FugueRejectMessage,
     FugueUserJoinMessage,
     BasePresenceMessage,
-    PresenceMessageSerializer,
     makeFugueMessage,
     PresenceCursorMessage,
     makePresenceMsg,
     Serializer,
+    PresenceUpdateMessage,
 } from "@cr_docs_t/dts";
-import { AnnotationType, ChangeSet, ChangeSpec, EditorSelection, EditorView } from "@uiw/react-codemirror";
+import { AnnotationType, EditorSelection, EditorView } from "@uiw/react-codemirror";
 import { RefObject } from "react";
 import mainStore from "../stores";
 import { toast } from "sonner";
@@ -26,7 +24,9 @@ import { BaseMessage, MessageType } from "@cr_docs_t/dts";
 import { createRemoteCursorEffect, RemoteCursor } from "../codemirror/decorations";
 import uiStore from "../stores/uiStore";
 
-export class WSClient {
+type OutgoingMessage = BaseMessage | BasePresenceMessage;
+
+class WSClient {
     private ws: WebSocket;
     private viewRef: RefObject<EditorView | undefined>;
     private previousTextRef: RefObject<string>;
@@ -37,6 +37,8 @@ export class WSClient {
     private isReconnection: boolean;
     private Q: Promise<void> = Promise.resolve();
     private onPresenceUpdate?: () => void;
+    private projectId: string | undefined;
+
 
     constructor(
         ws: WebSocket,
@@ -48,6 +50,7 @@ export class WSClient {
         userIdentity: string,
         isReconnection: boolean = false,
         onPresenceUpdate?: () => void,
+        projectId?: string
     ) {
         this.ws = ws;
         this.viewRef = viewRef;
@@ -61,6 +64,8 @@ export class WSClient {
         if (userIdentity) this.userIdentity = userIdentity;
         uiStore.getState().setActiveCollaborators(undefined);
 
+        if(projectId) this.projectId = projectId;
+
         this.handleOpen = this.handleOpen.bind(this);
         this.handleMessage = this.handleMessage.bind(this);
 
@@ -73,13 +78,15 @@ export class WSClient {
         this.ws.onmessage = this.handleMessage;
     }
 
-    private send(msgs: BaseMessage | BaseMessage[]) {
+    
+
+    private send(msgs: OutgoingMessage | OutgoingMessage[]) {
         const msgsArray = Array.isArray(msgs) ? msgs : [msgs];
         const bytes = this.serialize(msgsArray);
         this.ws.send(bytes);
     }
 
-    private serialize(msgs: BaseMessage | BaseMessage[]): Uint8Array {
+    private serialize(msgs: OutgoingMessage[]): Uint8Array {
         return Serializer.serialize(msgs);
     }
 
@@ -118,6 +125,7 @@ export class WSClient {
                 state: null,
                 userIdentity: this.userIdentity,
                 replicaId: this.fugue.replicaId(),
+                projectID: this.projectId
             });
 
             this.send(joinMsg);
@@ -189,7 +197,6 @@ export class WSClient {
     }
 
     private async handleFugueMessages(msgs: BaseFugueMessage[]) {
-        const activeCollaborators = () => uiStore.getState().activeCollaborators;
         const addActiveCollaborators = uiStore.getState().addActiveCollaborators;
 
         if (msgs.length === 0) return;
@@ -306,11 +313,6 @@ export class WSClient {
                     this.updateCursors();
 
                     break;
-                case PresenceMessageType.UPDATE:
-                    // For the Update presence message type we just referesh all the active queries, like
-                    // project files list, name, etc. This removes the need for continuously refetching with tanstack
-                    this.onPresenceUpdate?.();
-                    break;
             }
         };
 
@@ -327,6 +329,15 @@ export class WSClient {
             userIdentity: this.userIdentity,
             type: PresenceMessageType.CURSOR,
             pos: pos,
+        });
+        this.send(msg);
+    }
+
+    async sendPresenceUpdateMsg(){
+        const msg = makePresenceMsg<PresenceUpdateMessage>({
+            type: PresenceMessageType.UPDATE,
+            documentID: this.documentID, 
+            userIdentity: this.userIdentity
         });
         this.send(msg);
     }
@@ -380,3 +391,5 @@ export class WSClient {
         return this.ws.readyState === WebSocket.CLOSED;
     }
 }
+
+export default WSClient;

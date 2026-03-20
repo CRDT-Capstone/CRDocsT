@@ -17,7 +17,6 @@ const User = () => {
 
     return (
         <div className="flex p-4">
-            {/* Dropdown container anchored to the end (right) */}
             <div className="dropdown dropdown-end">
                 <div tabIndex={0} role="button" className="btn btn-ghost btn-circle avatar avatar-placeholder">
                     <div className="w-24 rounded-full bg-neutral text-neutral-content">
