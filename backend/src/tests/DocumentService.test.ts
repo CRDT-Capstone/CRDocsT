@@ -6,7 +6,7 @@ import { ContributorType, Document } from "@cr_docs_t/dts";
 import { DocumentModel } from "../models/Document.schema";
 import { DocumentServices } from "../services/DocumentServices";
 import { OWNER_EMAIL } from "./mocks/userService";
-import { describe } from "node:test";
+import mongoose from "mongoose";
 
 const documentWithNoOwner: Document = {
     name: "anonymous",
@@ -133,17 +133,16 @@ describe("Unit testing the document service functions", () => {
     it("throws error when you try to remove the owner of the document", async () => {
         const document = await DocumentModel.create(documentWithAnOwner);
 
-        expect(
-            async () => await DocumentServices.removeContributor(document._id.toString(), "random@random.com"),
+        await expect(
+             () => DocumentServices.removeContributor(document._id.toString(), "random@random.com"),
         ).rejects.toThrow("Document does not exist, user is owner or user was never a contributor");
     });
 
     it("throws an error when you try to change the change the contributor type of the owner", async () => {
         const document = await DocumentModel.create(documentWithAnOwner);
 
-        expect(
-            async () =>
-                await DocumentServices.changeContributorType(
+        await expect( () =>
+                 DocumentServices.changeContributorType(
                     document._id.toString(),
                     "random@random.com",
                     ContributorType.VIEWER,
@@ -215,20 +214,14 @@ describe("Unit testing the document service functions", () => {
 
     describe("Test that cursor pagination actually works", () => {
         beforeEach(async () => {
-            const documents = [
-                documentWithAnOwner,
-                documentWithNoOwner,
-                documentWithAnOwner,
-                documentWithNoOwner,
-                documentWithAnOwner,
-                documentWithNoOwner,
-                documentWithAnOwner,
-                documentWithNoOwner,
-                documentWithAnOwner,
-                documentWithNoOwner,
-            ];
-
+            const documents = Array.from({ length: 10 }, () => ({
+                ...documentWithAnOwner
+            }));
             await DocumentModel.create(documents);
+        });
+
+        afterEach(async () => {
+            await DocumentModel.deleteMany({});
         });
 
         it("tests that getting the first page works", async () => {
