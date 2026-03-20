@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useRef, useState, ReactNode } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import { createPreviewApi } from "../api/preview";
-import { APIError, ErrMsg, LatexRenderError } from "@cr_docs_t/dts";
+import { APIError, LatexRenderError } from "@cr_docs_t/dts";
 
 export const usePreview = () => {
     const [pdfUrl, setPdfUrl] = useState<string | null>(null);

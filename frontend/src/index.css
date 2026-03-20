@@ -5,6 +5,6 @@
     include: ;
     exclude: ;
     prefix: ;
-    logs: true;
+    logs: false;
 }
 

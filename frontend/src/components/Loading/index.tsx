@@ -1,5 +1,3 @@
-import React from "react";
-
 interface LoadingProps {
     size?: "xs" | "sm" | "md" | "lg" | "xl";
     variant?: "dots" | "spinner" | "ring" | "ball";

@@ -6,6 +6,7 @@ import {
     Operation,
     Serializer,
     makeFugueMessage,
+    APIError,
 } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import WebSocket from "ws";
@@ -233,9 +234,18 @@ class DocumentManager {
     private static async cleanup(documentID: string) {
         const doc = this.instances.get(documentID);
         if (doc) {
-            await this.persist(documentID);
-            this.instances.delete(documentID);
-            logger.info(`Cleaned up document ${documentID} from memory.`);
+            try {
+                await this.persist(documentID);
+                this.instances.delete(documentID);
+                logger.info(`Cleaned up document ${documentID} from memory.`);
+            } catch (e: unknown) {
+                if (e instanceof APIError) {
+                    logger.error(`Failed to persist document ${documentID} during cleanup`, { e });
+                    return;
+                }
+                const err = e as Error;
+                logger.error(`Failed to persist document ${documentID} during cleanup`, { err });
+            }
         }
     }
 

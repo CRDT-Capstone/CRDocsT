@@ -1,8 +1,8 @@
 import { AnnotationType } from "@codemirror/state";
 import { ViewUpdate } from "@codemirror/view";
-import { chunkArray, FugueMessage, FugueTree } from "@cr_docs_t/dts";
+import { FugueTree } from "@cr_docs_t/dts";
 import { RefObject } from "react";
-import { WSClient } from "./WSClient";
+import WSClient from "./WSClient";
 
 const THRESHOLD = 1000;
 

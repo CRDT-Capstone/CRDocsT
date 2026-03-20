@@ -3,22 +3,19 @@ import {
     FugueLeaveMessage,
     FugueTree,
     FugueMessage,
-    FugueMessageSerialzier,
     FugueMutationMessageTypes,
     Operation,
-    FugueMessageType,
     PresenceMessageType,
     BaseFugueMessage,
     FugueRejectMessage,
     FugueUserJoinMessage,
     BasePresenceMessage,
-    PresenceMessageSerializer,
     makeFugueMessage,
     PresenceCursorMessage,
     makePresenceMsg,
     Serializer,
 } from "@cr_docs_t/dts";
-import { AnnotationType, ChangeSet, ChangeSpec, EditorSelection, EditorView } from "@uiw/react-codemirror";
+import { AnnotationType, EditorSelection, EditorView } from "@uiw/react-codemirror";
 import { RefObject } from "react";
 import mainStore from "../stores";
 import { toast } from "sonner";
@@ -26,7 +23,7 @@ import { BaseMessage, MessageType } from "@cr_docs_t/dts";
 import { createRemoteCursorEffect, RemoteCursor } from "../codemirror/decorations";
 import uiStore from "../stores/uiStore";
 
-export class WSClient {
+class WSClient {
     private ws: WebSocket;
     private viewRef: RefObject<EditorView | undefined>;
     private previousTextRef: RefObject<string>;
@@ -189,7 +186,6 @@ export class WSClient {
     }
 
     private async handleFugueMessages(msgs: BaseFugueMessage[]) {
-        const activeCollaborators = () => uiStore.getState().activeCollaborators;
         const addActiveCollaborators = uiStore.getState().addActiveCollaborators;
 
         if (msgs.length === 0) return;
@@ -380,3 +376,5 @@ export class WSClient {
         return this.ws.readyState === WebSocket.CLOSED;
     }
 }
+
+export default WSClient;

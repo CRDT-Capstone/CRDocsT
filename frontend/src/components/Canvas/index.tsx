@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, memo, useCallback, useRef } from "react";
+import { useState, useEffect, useMemo, memo, useCallback } from "react";
 import CodeMirror, {
     Compartment,
     EditorState,
@@ -9,12 +9,10 @@ import CodeMirror, {
 } from "@uiw/react-codemirror";
 import { bracketMatching, indentOnInput } from "@codemirror/language";
 import { useNavigate } from "react-router-dom";
-import Loading from "../Loading";
 import { useDocument, useParser } from "../../hooks/queries";
 import mainStore from "../../stores";
-import { CSTType, latexSupport, YggdrasilType } from "../../treesitter/codemirror";
-import { Parser, Query, Tree } from "web-tree-sitter";
-import { newParser } from "@cr_docs_t/dts/treesitter";
+import { latexSupport } from "../../treesitter/codemirror";
+import { Parser, Query } from "web-tree-sitter";
 import { useCollab } from "../../hooks/collab";
 import { createDocumentApi } from "../../api/document";
 import { useAuth } from "@clerk/clerk-react";
@@ -28,7 +26,7 @@ import { autocompletion, completionKeymap } from "@codemirror/autocomplete";
 import { tokyoNight, tokyoNightInit } from "@uiw/codemirror-theme-tokyo-night";
 import { remoteCursorSupport } from "../../codemirror/decorations";
 import { usePreview } from "../../hooks/preview";
-import { Preview } from "../Preview";
+import Preview from "../Preview";
 import { LuEye } from "react-icons/lu";
 import { ErrorBoundary } from "react-error-boundary";
 import { PreviewError } from "../ErrorBoundaries";
@@ -39,7 +37,7 @@ interface CanvasProps {
     onPresenceUpdate?: () => void;
 }
 
-const Canvas = ({ documentId: documentID, singleSession, onPresenceUpdate }: CanvasProps) => {
+const Canvas = ({ documentId: documentID, onPresenceUpdate }: CanvasProps) => {
     const nav = useNavigate();
 
     const [parser, setParser] = useState<Parser | null>(null);

@@ -1,8 +1,8 @@
 import { create } from "zustand";
-import { createJSONStorage, devtools, persist } from "zustand/middleware";
+import { devtools } from "zustand/middleware";
 import { immer } from "zustand/middleware/immer";
 import { enableMapSet } from "immer";
-import { ActiveCollaborator, ActiveCollaboratorMap, NavBarType, Tab, TabMap } from "../types";
+import { ActiveCollaboratorMap, NavBarType, Tab, TabMap } from "../types";
 import { genNRandomHexColors } from "../utils";
 
 enableMapSet();

@@ -18,6 +18,10 @@ const ClerkWithRouter = ({ children }: ClerkWithRouterProps) => {
     const replace = (to: string) => nav(to, { replace: true });
     return (
         <ClerkProvider
+            appearance={{
+                theme: "simple",
+                cssLayerName: "clerk",
+            }}
             publishableKey={PUBLISHABLE_KEY}
             signInUrl="/sign-in"
             signUpUrl="/sign-up"

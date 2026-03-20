@@ -1,10 +1,10 @@
 import { useState, useRef, useEffect } from "react";
-import { FugueTree, randomString } from "@cr_docs_t/dts";
+import { FugueTree } from "@cr_docs_t/dts";
 import { Annotation, EditorView } from "@uiw/react-codemirror";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import mainStore from "../stores";
-import { WSClient } from "../utils/WSClient";
+import WSClient from "../utils/WSClient";
 import { toast } from "sonner";
 import { ConnectionState } from "../types";
 import { makeAnonUserIdentity } from "../utils";

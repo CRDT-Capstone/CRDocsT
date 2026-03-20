@@ -51,7 +51,7 @@ class CursorWidget extends WidgetType {
 export type RemoteCursorEffect = typeof createRemoteCursorEffect;
 
 export const remoteCursors = StateField.define<DecorationSet>({
-    create: function (state) {
+    create: function () {
         return Decoration.none;
     },
     update: function (cursors, tr) {

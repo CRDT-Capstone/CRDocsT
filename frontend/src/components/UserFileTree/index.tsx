@@ -1,22 +1,8 @@
-import React, { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useForm } from "@tanstack/react-form";
+import { useEffect } from "react";
 import { Document, Project } from "@cr_docs_t/dts";
-import {
-    LuChevronLeft,
-    LuFileText,
-    LuFolder,
-    LuPlus,
-    LuTrash2,
-    LuMenu,
-    LuChevronDown,
-    LuChevronRight,
-} from "react-icons/lu";
-
-import { useDocuments, useProjects, useProject } from "../../hooks/queries";
-import useModal, {Modal} from "../../hooks/modal";
+import { useDocuments, useProjects } from "../../hooks/queries";
+import useModal, { Modal } from "../../hooks/modal";
 import BaseFileTree, { FileTreeItemType } from "../BaseFileTree";
-import { useClerk, useSession } from "@clerk/clerk-react";
 
 interface UserFileTreeProps {
     handleItemClick: (item: Document | Project, type: FileTreeItemType) => void;
@@ -25,14 +11,12 @@ interface UserFileTreeProps {
 }
 
 const UserFileTree = ({ handleItemClick, handleItemCreate, handleItemDelete }: UserFileTreeProps) => {
-    const nav = useNavigate();
-    const { user } = useClerk();
     const { modalRef, showModal, closeModal } = useModal();
 
-    // Fetch global user queries and mutations
-    const { queries: docQ, mutations: docM } = useDocuments();
-    const { queries: projQ, mutations: projM } = useProjects();
+    const { queries: docQ } = useDocuments();
+    const { queries: projQ } = useProjects();
 
+    // Flatten paginated data
     const userDocs = docQ.userDocumentsQuery.data?.pages.flatMap((p) => p.data) || [];
     const userProjs = projQ.userProjectsQuery.data?.pages.flatMap((p) => p.data) || [];
     const sharedDocs = docQ.sharedDocumentsQuery.data?.pages.flatMap((p) => p.data) || [];

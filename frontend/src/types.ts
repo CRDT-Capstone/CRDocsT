@@ -1,4 +1,4 @@
-import { FugueMessage, Operation } from "@cr_docs_t/dts";
+import { FugueMessage } from "@cr_docs_t/dts";
 
 export type Position = string;
 export type IDBDocumentSchema = {

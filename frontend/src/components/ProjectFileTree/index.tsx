@@ -1,24 +1,9 @@
-import React, { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useForm } from "@tanstack/react-form";
+import { useEffect } from "react";
 import { Document, Project } from "@cr_docs_t/dts";
-import {
-    LuChevronLeft,
-    LuFileText,
-    LuFolder,
-    LuPlus,
-    LuTrash2,
-    LuMenu,
-    LuChevronDown,
-    LuChevronRight,
-} from "react-icons/lu";
-
-import { useDocuments, useProjects, useProject } from "../../hooks/queries";
+import { useProject } from "../../hooks/queries";
 import useModal, { Modal } from "../../hooks/modal";
 import BaseFileTree, { FileTreeItemType } from "../BaseFileTree";
 import mainStore from "../../stores";
-import uiStore from "../../stores/uiStore";
-import { toast } from "sonner";
 
 interface ProjectFileTreeProps {
     projectId: string;
@@ -38,13 +23,11 @@ export const ProjectFileTree = ({
     handleItemCreate,
     handleDownload,
 }: ProjectFileTreeProps) => {
-    const nav = useNavigate();
     const setProject = mainStore((state) => state.setProject);
     const { modalRef, showModal, closeModal } = useModal();
 
-    const { queries, mutations } = projectQueriesAndMutations;
+    const { queries } = projectQueriesAndMutations;
     const { projectQuery } = queries;
-    const { downloadProjectMutation } = mutations;
 
     useEffect(() => {
         if (projectId && projectQuery.data) setProject(projectQuery.data.project);
@@ -63,13 +46,13 @@ export const ProjectFileTree = ({
             modalRef={modalRef}
             ModalComponent={Modal}
             onSubmitItem={handleItemCreate}
-            hideProjectOption={true} // Only allow adding documents inside a project
+            hideProjectOption={true}
             sections={[
                 {
                     name: "Project Files",
                     isLoading: queries.projectQuery.isLoading,
                     documents: projectDocs,
-                    projects: undefined, // Hide the projects toggle entirely
+                    projects: undefined,
                     modifiable: true,
                     onAddClick: showModal,
                     onItemClick: handleItemClick,

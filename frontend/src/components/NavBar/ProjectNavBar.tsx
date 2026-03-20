@@ -12,7 +12,6 @@ interface ProjectNavBarProps {
 
 const ProjectNavBar = ({ projectId }: ProjectNavBarProps) => {
     const project = mainStore((state) => state.project);
-    const setProject = mainStore((state) => state.setProject);
 
     const [isEditing, setIsEditing] = useState(false);
     const [title, setTitle] = useState("New Document");
@@ -28,7 +27,7 @@ const ProjectNavBar = ({ projectId }: ProjectNavBarProps) => {
 
     const saveTitle = async () => {
         try {
-            const res = await updateProjectNameMutation.mutateAsync(title);
+            await updateProjectNameMutation.mutateAsync(title);
             setIsEditing(false);
         } catch (error) {
             console.error("Failed to update project name", error);

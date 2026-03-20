@@ -1,5 +1,5 @@
-import { useNavigate, useParams } from "react-router-dom";
-import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect } from "react";
 import { useSession } from "@clerk/clerk-react";
 import { NavBarType } from "../../types";
 import UserFileTree from "../UserFileTree";

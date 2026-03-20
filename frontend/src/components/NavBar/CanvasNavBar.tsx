@@ -1,9 +1,5 @@
-import { Dispatch, SetStateAction, use, useCallback, useEffect, useLayoutEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useSession, useUser } from "@clerk/clerk-react";
-import { createDocumentApi } from "../../api/document";
+import { useCallback, useLayoutEffect, useState } from "react";
 import { ShareDocForm } from "../Forms/ShareDocForm";
-import { Document } from "@cr_docs_t/dts";
 import { DocumentCollaborators } from "../Collaborators";
 import { useDocument } from "../../hooks/queries";
 import mainStore from "../../stores";
@@ -16,7 +12,6 @@ interface CanvasNavBarProps {
 
 const CanvasNavBar = ({ documentId }: CanvasNavBarProps) => {
     const document = mainStore((state) => state.document);
-    const setDocument = mainStore((state) => state.setDocument);
 
     const [isEditing, setIsEditing] = useState(false);
     const [title, setTitle] = useState("New Document");
@@ -32,7 +27,7 @@ const CanvasNavBar = ({ documentId }: CanvasNavBarProps) => {
 
     const saveTitle = useCallback(async () => {
         try {
-            const res = await updateDocumentNameMutation.mutateAsync(title);
+            await updateDocumentNameMutation.mutateAsync(title);
             setIsEditing(false);
         } catch (error) {
             console.error("Failed to update document name", error);

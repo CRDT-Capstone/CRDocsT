@@ -2,33 +2,22 @@ import React, { ReactNode, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Document, Project } from "@cr_docs_t/dts";
 import { LuFileText, LuFolder, LuPlus, LuTrash2, LuChevronDown, LuChevronRight, LuDownload } from "react-icons/lu";
+import useModal, { Modal } from "../../hooks/modal";
 
 export enum FileTreeItemType {
-    DOCUMENT = "document",
-    PROJECT = "project",
-}
-
-export interface SectionData {
-    name: string;
-    isLoading: boolean;
-    documents?: Document[];
-    projects?: Project[];
-    modifiable: boolean;
-    onAddClick?: () => void;
-    onItemClick: (item: Document | Project, type: FileTreeItemType) => void;
-    onItemDelete?: (item: Document | Project, type: FileTreeItemType) => void;
-    onDownload?: () => Promise<void>;
+    DOCUMENT = "DOCUMENT",
+    PROJECT = "PROJECT",
 }
 
 interface FileTreeItemProps {
     itemType: FileTreeItemType;
-    doc: Document | Project;
+    item: Document | Project;
     modifiable: boolean;
     onClick: () => void;
     onDelete?: () => void;
 }
 
-const FileTreeItem = ({ onClick, itemType, doc, modifiable, onDelete }: FileTreeItemProps) => {
+const FileTreeItem = ({ onClick, itemType, item, modifiable, onDelete }: FileTreeItemProps) => {
     const Icon = itemType === FileTreeItemType.PROJECT ? LuFolder : LuFileText;
     const iconColor = itemType === FileTreeItemType.PROJECT ? "text-secondary" : "text-primary";
 
@@ -36,13 +25,13 @@ const FileTreeItem = ({ onClick, itemType, doc, modifiable, onDelete }: FileTree
         <li className="w-full group">
             <button
                 className="flex justify-between items-center py-1.5 px-2 w-full rounded-md transition-colors is-drawer-close:justify-center is-drawer-close:tooltip is-drawer-close:tooltip-right hover:bg-base-300"
-                data-tip={doc.name}
+                data-tip={item.name}
                 onClick={onClick}
             >
                 <span className="flex overflow-hidden gap-2 items-center">
                     <Icon className={`${iconColor} size-4 shrink-0`} />
                     <span className="text-sm text-left truncate max-w-32 is-drawer-close:hidden">
-                        {doc.name}
+                        {item.name}
                         {itemType === FileTreeItemType.DOCUMENT ? ".tex" : ""}
                     </span>
                 </span>
@@ -186,131 +175,201 @@ const BaseFileTree = ({
     );
 };
 
-const FileTreeSection = ({ section }: { section: SectionData }) => {
+interface ConfirmDeleteModalProps {
+    modalRef?: React.RefObject<HTMLDialogElement | null>;
+    onConfirm: () => void;
+    onCancel: () => void;
+}
+
+const ConfirmDeleteModal = ({ modalRef, onConfirm, onCancel }: ConfirmDeleteModalProps) => {
+    return (
+        <Modal ref={modalRef} title="Are you sure?">
+            <div className="flex flex-col gap-4 items-center w-full">
+                <p className="text-center">This action cannot be undone.</p>
+                <div className="flex flex-row justify-between items-center m-4 w-full">
+                    <button className="w-1/4 btn btn-error" onClick={onConfirm}>
+                        Delete
+                    </button>
+                    <button className="w-1/4 btn" onClick={onCancel}>
+                        Cancel
+                    </button>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
+export interface SectionData {
+    name: string;
+    isLoading: boolean;
+    documents?: Document[];
+    projects?: Project[];
+    modifiable: boolean;
+    onAddClick?: () => void;
+    onItemClick: (item: Document | Project, type: FileTreeItemType) => void;
+    onItemDelete?: (item: Document | Project, type: FileTreeItemType) => void;
+    onDownload?: () => Promise<void>;
+}
+
+interface FileTreeSectionProps {
+    section: SectionData;
+}
+
+const FileTreeSection = ({ section }: FileTreeSectionProps) => {
     const [showProjects, setShowProjects] = useState(true);
     const [showDocs, setShowDocs] = useState(true);
+    const [deleteItem, setDeleteItem] = useState<{ item: Document | Project; itemType: FileTreeItemType } | null>(null);
+    const { modalRef, closeModal, showModal } = useModal();
+    const { onItemDelete } = section;
 
     return (
-        <div className="flex overflow-hidden flex-col flex-1 w-full h-1/2">
-            <div className="flex sticky top-0 z-10 justify-between items-center p-4 w-full border-b shadow-sm border-base-300 bg-base-200 is-drawer-close:justify-center is-drawer-close:px-2">
-                <span className="text-sm font-semibold tracking-wider uppercase text-base-content/80 is-drawer-close:hidden">
-                    {section.name}
-                </span>
-                {section.modifiable && (
-                    <div className="flex ml-2">
-                        {section.onDownload && (
+        <>
+            <div className="flex overflow-hidden flex-col flex-1 w-full h-1/2">
+                <div className="flex sticky top-0 z-10 justify-between items-center p-4 w-full border-b shadow-sm border-base-300 bg-base-200 is-drawer-close:justify-center is-drawer-close:px-2">
+                    <span className="text-sm font-semibold tracking-wider uppercase text-base-content/80 is-drawer-close:hidden">
+                        {section.name}
+                    </span>
+                    {section.modifiable && (
+                        <div className="flex ml-2">
+                            {section.onDownload && (
+                                <button
+                                    className="btn btn-ghost btn-sm btn-square is-drawer-close:tooltip is-drawer-close:tooltip-right hover:btn-success"
+                                    data-tip="Download"
+                                    disabled={section.isLoading}
+                                    onClick={section.onDownload}
+                                >
+                                    {section.isLoading ? (
+                                        <span className="loading loading-spinner loading-xs"></span>
+                                    ) : (
+                                        <LuDownload size={18} />
+                                    )}
+                                </button>
+                            )}
                             <button
-                                className="btn btn-ghost btn-sm btn-square is-drawer-close:tooltip is-drawer-close:tooltip-right hover:btn-success"
-                                data-tip="Download"
+                                className="btn btn-ghost btn-sm btn-square is-drawer-close:tooltip is-drawer-close:tooltip-right hover:bg-base-300"
+                                data-tip="New Item"
                                 disabled={section.isLoading}
-                                onClick={section.onDownload}
+                                onClick={section.onAddClick}
                             >
                                 {section.isLoading ? (
                                     <span className="loading loading-spinner loading-xs"></span>
                                 ) : (
-                                    <LuDownload size={18} />
+                                    <LuPlus size={18} />
                                 )}
                             </button>
-                        )}
-                        <button
-                            className="btn btn-ghost btn-sm btn-square is-drawer-close:tooltip is-drawer-close:tooltip-right hover:bg-base-300"
-                            data-tip="New Item"
-                            disabled={section.isLoading}
-                            onClick={section.onAddClick}
-                        >
-                            {section.isLoading ? (
-                                <span className="loading loading-spinner loading-xs"></span>
-                            ) : (
-                                <LuPlus size={18} />
-                            )}
-                        </button>
-                    </div>
-                )}
+                        </div>
+                    )}
+                </div>
+
+                <div className="overflow-y-auto flex-1 p-2 w-full custom-scrollbar">
+                    {/* Projects Section */}
+                    {section.projects && (
+                        <div className="mb-4">
+                            <button
+                                className="flex gap-1 items-center w-full text-xs font-semibold uppercase transition-colors text-base-content/60 is-drawer-close:justify-center hover:text-base-content"
+                                onClick={() => setShowProjects(!showProjects)}
+                            >
+                                <span className="is-drawer-close:hidden">
+                                    {showProjects ? <LuChevronDown size={14} /> : <LuChevronRight size={14} />}
+                                </span>
+                                <span className="is-drawer-close:hidden">Projects</span>
+                            </button>
+
+                            {showProjects &&
+                                (section.isLoading ? (
+                                    <div className="flex justify-center p-4">
+                                        <span className="loading loading-dots loading-sm"></span>
+                                    </div>
+                                ) : (
+                                    <ul className="gap-1 mt-1 w-full menu menu-sm rounded-box is-drawer-close:p-0">
+                                        {section.projects.length === 0 ? (
+                                            <li className="py-2 px-4 text-xs italic opacity-50 is-drawer-close:hidden">
+                                                No projects yet.
+                                            </li>
+                                        ) : (
+                                            section.projects.map((proj) => (
+                                                <FileTreeItem
+                                                    key={proj._id}
+                                                    itemType={FileTreeItemType.PROJECT}
+                                                    item={proj}
+                                                    modifiable={section.modifiable}
+                                                    onClick={() => section.onItemClick(proj, FileTreeItemType.PROJECT)}
+                                                    onDelete={() => {
+                                                        setDeleteItem({
+                                                            item: proj,
+                                                            itemType: FileTreeItemType.PROJECT,
+                                                        });
+                                                        showModal();
+                                                    }}
+                                                />
+                                            ))
+                                        )}
+                                    </ul>
+                                ))}
+                        </div>
+                    )}
+
+                    {/* Documents Section */}
+                    {section.documents && (
+                        <div>
+                            <button
+                                className="flex gap-1 items-center w-full text-xs font-semibold uppercase transition-colors text-base-content/60 is-drawer-close:justify-center hover:text-base-content"
+                                onClick={() => setShowDocs(!showDocs)}
+                            >
+                                <span className="is-drawer-close:hidden">
+                                    {showDocs ? <LuChevronDown size={14} /> : <LuChevronRight size={14} />}
+                                </span>
+                                <span className="is-drawer-close:hidden">Documents</span>
+                            </button>
+
+                            {showDocs &&
+                                (section.isLoading ? (
+                                    <div className="flex justify-center p-4">
+                                        <span className="loading loading-dots loading-sm"></span>
+                                    </div>
+                                ) : (
+                                    <ul className="gap-1 mt-1 w-full menu menu-sm rounded-box is-drawer-close:p-0">
+                                        {section.documents.length === 0 ? (
+                                            <li className="py-2 px-4 text-xs italic opacity-50 is-drawer-close:hidden">
+                                                No documents yet.
+                                            </li>
+                                        ) : (
+                                            section.documents.map((doc) => (
+                                                <FileTreeItem
+                                                    key={doc._id}
+                                                    itemType={FileTreeItemType.DOCUMENT}
+                                                    item={doc}
+                                                    modifiable={section.modifiable}
+                                                    onClick={() => section.onItemClick(doc, FileTreeItemType.DOCUMENT)}
+                                                    onDelete={() => {
+                                                        setDeleteItem({
+                                                            item: doc,
+                                                            itemType: FileTreeItemType.DOCUMENT,
+                                                        });
+                                                        showModal();
+                                                    }}
+                                                />
+                                            ))
+                                        )}
+                                    </ul>
+                                ))}
+                        </div>
+                    )}
+                </div>
             </div>
-
-            <div className="overflow-y-auto flex-1 p-2 w-full custom-scrollbar">
-                {/* Projects Section */}
-                {section.projects && (
-                    <div className="mb-4">
-                        <button
-                            className="flex gap-1 items-center w-full text-xs font-semibold uppercase transition-colors text-base-content/60 is-drawer-close:justify-center hover:text-base-content"
-                            onClick={() => setShowProjects(!showProjects)}
-                        >
-                            <span className="is-drawer-close:hidden">
-                                {showProjects ? <LuChevronDown size={14} /> : <LuChevronRight size={14} />}
-                            </span>
-                            <span className="is-drawer-close:hidden">Projects</span>
-                        </button>
-
-                        {showProjects &&
-                            (section.isLoading ? ( <div className="flex justify-center p-4">
-                                    <span className="loading loading-dots loading-sm"></span>
-                                </div>
-                            ) : (
-                                <ul className="gap-1 mt-1 w-full menu menu-sm rounded-box is-drawer-close:p-0">
-                                    {section.projects.length === 0 ? (
-                                        <li className="py-2 px-4 text-xs italic opacity-50 is-drawer-close:hidden">
-                                            No projects yet.
-                                        </li>
-                                    ) : (
-                                        section.projects.map((proj) => (
-                                            <FileTreeItem
-                                                key={proj._id}
-                                                itemType={FileTreeItemType.PROJECT}
-                                                doc={proj}
-                                                modifiable={section.modifiable}
-                                                onClick={() => section.onItemClick(proj, FileTreeItemType.PROJECT)}
-                                                onDelete={() => section.onItemDelete?.(proj, FileTreeItemType.PROJECT)}
-                                            />
-                                        ))
-                                    )}
-                                </ul>
-                            ))}
-                    </div>
-                )}
-
-                {/* Documents Section */}
-                {section.documents && (
-                    <div>
-                        <button
-                            className="flex gap-1 items-center w-full text-xs font-semibold uppercase transition-colors text-base-content/60 is-drawer-close:justify-center hover:text-base-content"
-                            onClick={() => setShowDocs(!showDocs)}
-                        >
-                            <span className="is-drawer-close:hidden">
-                                {showDocs ? <LuChevronDown size={14} /> : <LuChevronRight size={14} />}
-                            </span>
-                            <span className="is-drawer-close:hidden">Documents</span>
-                        </button>
-
-                        {showDocs &&
-                            (section.isLoading ? (
-                                <div className="flex justify-center p-4">
-                                    <span className="loading loading-dots loading-sm"></span>
-                                </div>
-                            ) : (
-                                <ul className="gap-1 mt-1 w-full menu menu-sm rounded-box is-drawer-close:p-0">
-                                    {section.documents.length === 0 ? (
-                                        <li className="py-2 px-4 text-xs italic opacity-50 is-drawer-close:hidden">
-                                            No documents yet.
-                                        </li>
-                                    ) : (
-                                        section.documents.map((doc) => (
-                                            <FileTreeItem
-                                                key={doc._id}
-                                                itemType={FileTreeItemType.DOCUMENT}
-                                                doc={doc}
-                                                modifiable={section.modifiable}
-                                                onClick={() => section.onItemClick(doc, FileTreeItemType.DOCUMENT)}
-                                                onDelete={() => section.onItemDelete?.(doc, FileTreeItemType.DOCUMENT)}
-                                            />
-                                        ))
-                                    )}
-                                </ul>
-                            ))}
-                    </div>
-                )}
-            </div>
-        </div>
+            <ConfirmDeleteModal
+                modalRef={modalRef}
+                onConfirm={() => {
+                    if (!deleteItem) return;
+                    onItemDelete?.(deleteItem.item, deleteItem.itemType);
+                    closeModal();
+                }}
+                onCancel={() => {
+                    setDeleteItem(null);
+                    closeModal();
+                }}
+            />
+        </>
     );
 };
 

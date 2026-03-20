@@ -1,12 +1,11 @@
 import { Parser, Tree, Query } from "web-tree-sitter";
 import { Decoration, DecorationSet, ViewPlugin, PluginValue, EditorView, ViewUpdate } from "@codemirror/view";
-import { EditorState, Range, RangeSetBuilder, StateField, Transaction } from "@codemirror/state";
-import { Edit, Node } from "web-tree-sitter";
+import { EditorState, RangeSetBuilder, StateField } from "@codemirror/state";
+import { Edit } from "web-tree-sitter";
 import mainStore from "../stores";
 import TagMap, { latexHighlightStyle } from "./mappings";
 import { parseCST, BragiAST } from "@cr_docs_t/dts/treesitter";
 import { highlightingFor, syntaxHighlighting } from "@codemirror/language";
-import { buildNestedAst } from "../utils";
 
 /**
  * Helper to convert a linear index to a Tree-sitter Point (row/column)

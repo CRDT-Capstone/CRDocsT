@@ -1,5 +1,5 @@
 import { tags as t, Tag } from "@lezer/highlight";
-import { HighlightStyle, syntaxHighlighting } from "@codemirror/language";
+import { HighlightStyle } from "@codemirror/language";
 
 // Tokyo Night colour palette
 const TN = {

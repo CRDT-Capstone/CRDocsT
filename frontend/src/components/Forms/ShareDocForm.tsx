@@ -1,8 +1,8 @@
-import { ContributorType, Document } from "@cr_docs_t/dts";
-import { Dispatch, ReactNode, SetStateAction, useState } from "react";
-import { useDocument, useDocuments, useProject } from "../../hooks/queries";
+import { ContributorType } from "@cr_docs_t/dts";
+import { ReactNode } from "react";
+import { useDocument, useProject } from "../../hooks/queries";
 import { toast } from "sonner";
-import { useForm, type FormApi } from "@tanstack/react-form";
+import { useForm } from "@tanstack/react-form";
 import useModal, { Modal } from "../../hooks/modal";
 
 interface BaseFormProps {
