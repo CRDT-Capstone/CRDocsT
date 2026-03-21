@@ -335,6 +335,7 @@ const updateContributorType = async (req: ValidatedRequest<typeof updateContribu
 const downloadProjectSchema = {
     params: projectIdSchema(),
 };
+
 const downloadProject = async (req: ValidatedRequest<typeof downloadProjectSchema>, res: Response) => {
     try {
         const { projectId } = req.params;

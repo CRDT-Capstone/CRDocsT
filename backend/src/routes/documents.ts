@@ -1,6 +1,5 @@
 import { Router } from "express";
 import { DocumentController } from "../controllers/documents";
-import { OnlyCollaboratorsAndOwners } from "../middlewares/documentMiddlewares";
 import { makeRouterRoute } from ".";
 
 export const DocumentRouter = Router();

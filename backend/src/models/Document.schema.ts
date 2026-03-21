@@ -1,5 +1,5 @@
 import { model, Schema } from "mongoose";
-import { ContributorType, Contributor, Document } from "@cr_docs_t/dts";
+import { ContributorType, Contributor, Document, FugueTree, FTree } from "@cr_docs_t/dts";
 import { ContributorSchema } from "./Contributor.schema";
 
 const DocumentSchema = new Schema<Document>(
@@ -12,6 +12,8 @@ const DocumentSchema = new Schema<Document>(
         serializedCRDTState: {
             type: Buffer,
             required: false,
+            // Set default state to an empty ftree
+            default: Buffer.from(new FTree().save()),
         },
         ownerId: {
             type: String,

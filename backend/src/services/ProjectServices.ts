@@ -311,7 +311,6 @@ const isProjectOwnerOrCollaborator = async (
 ): Promise<IsProjectOwnerOrCollaboratorReturn> => {
     logger.debug("Checking if user is owner or collaborator", { projectId, userId });
     const project = await ProjectModel.findById(projectId);
-    logger.debug("Project", { project });
 
     if (!project) throw Error("Project does not exist!");
     if (!project.ownerId) return { hasAccess: true, contributorType: ContributorType.EDITOR };

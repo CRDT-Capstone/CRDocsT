@@ -7,11 +7,6 @@ import { sendErr } from "../utils/ApiResponseUtils";
 import { PreviewService } from "../services/PreviewService";
 import { defineController } from ".";
 
-const documentIdSchema = () =>
-    z.strictObject({
-        documentId: z.string().min(1, "documentId is required"),
-    });
-
 const renderContentSchema = {
     body: z.strictObject({
         content: z.string(),
