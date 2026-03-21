@@ -125,11 +125,8 @@ const uiStore = create<State>()(
                     const newSet = new Set(collaborators);
                     const toRemove = [...oldSet].filter((x) => !newSet.has(x));
 
-                    console.log({ oldSet, newSet, toRemove });
-
                     for (const col of toRemove) {
                         const res = currMap.delete(col);
-                        console.log({ removedCol: col, res });
                     }
 
                     for (const col of collaborators) {

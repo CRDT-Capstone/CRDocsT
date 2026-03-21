@@ -34,9 +34,7 @@ export const usePreview = () => {
             }
             if (err.status === 422) {
                 const e = err as APIError;
-                console.log({ e });
                 const data = e.data.data as LatexRenderError;
-                console.log({ data });
                 toast.error("Syntax error in LaTeX content", {
                     duration: Infinity,
                     action: {

@@ -4,36 +4,7 @@ import { useDocument, useProject } from "../../hooks/queries";
 import { toast } from "sonner";
 import { useForm } from "@tanstack/react-form";
 import useModal, { Modal } from "../../hooks/modal";
-
-interface BaseFormProps {
-    triggerText: ReactNode;
-    triggerClassName?: string;
-    title?: string;
-    showModal: () => void;
-    modalRef?: React.RefObject<HTMLDialogElement | null>;
-    children: ReactNode;
-}
-
-export const BaseForm = ({
-    triggerText,
-    triggerClassName = "m-4 btn btn-l btn-primary",
-    title,
-    modalRef,
-    showModal,
-    children,
-}: BaseFormProps) => {
-    return (
-        <>
-            <button type="button" className={triggerClassName} onClick={showModal}>
-                {triggerText}
-            </button>
-
-            <Modal ref={modalRef} title={title} className="flex flex-col justify-center items-center p-4 modal-box">
-                {children}
-            </Modal>
-        </>
-    );
-};
+import { BaseForm } from "./BaseForm";
 
 interface ShareDocFormProps {
     documentId: string;

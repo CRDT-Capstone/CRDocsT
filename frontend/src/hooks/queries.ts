@@ -86,6 +86,17 @@ export const useDocuments = () => {
         },
     });
 
+    const updateDocumentNameMutation = useMutation({
+        ...mutationOptions,
+        mutationFn: ({ documentId, newName }: { documentId: string; newName: string }) =>
+            api.updateDocumentName(newName, documentId),
+        onSuccess: (_, { documentId }) => {
+            // Invalidate specific document and the list (since list shows names)
+            queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
+            queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
+        },
+    });
+
     return {
         queries: {
             userDocumentsQuery,
@@ -94,6 +105,7 @@ export const useDocuments = () => {
         mutations: {
             createDocumentMutation,
             deleteDocumentMutation,
+            updateDocumentNameMutation,
         },
     };
 };
@@ -119,7 +131,7 @@ export const useDocument = (documentId: string) => {
         ...mutationOptions,
         mutationFn: (newName: string) => api.updateDocumentName(newName, documentId),
         onSuccess: () => {
-            // Invalidate specific document AND the list (since list shows names)
+            // Invalidate specific document and the list (since list shows names)
             queryClient.invalidateQueries({ queryKey: documentKeys.detail(documentId) });
             queryClient.invalidateQueries({ queryKey: documentKeys.lists() });
         },
@@ -237,6 +249,17 @@ export const useProjects = () => {
         },
     });
 
+    const updateProjectNameMutation = useMutation({
+        ...mutationOptions,
+        mutationFn: ({ projectId, newName }: { projectId: string; newName: string }) =>
+            api.updateProjectName(newName, projectId),
+        onSuccess: (_, { projectId }) => {
+            // Invalidate specific project and the list (since list shows names)
+            queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+            queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+        },
+    });
+
     return {
         queries: {
             userProjectsQuery,
@@ -245,6 +268,7 @@ export const useProjects = () => {
         mutations: {
             createProjectMutation,
             deleteProjectMutation,
+            updateProjectNameMutation,
         },
     };
 };
@@ -271,7 +295,7 @@ export const useProject = (projectId: string) => {
         ...mutationOptions,
         mutationFn: (newName: string) => api.updateProjectName(newName, projectId),
         onSuccess: () => {
-            // Invalidate specific project AND the list (since list shows names)
+            // Invalidate specific project and the list (since list shows names)
             queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
             queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
         },
@@ -339,6 +363,17 @@ export const useProject = (projectId: string) => {
         },
     });
 
+    const updateProjectDocumentNameMutation = useMutation({
+        ...mutationOptions,
+        mutationFn: ({ documentId, newName }: { documentId: string; newName: string }) =>
+            api.updateProjectDocumentName(projectId, documentId, newName),
+        onSuccess: () => {
+            // Invalidate project details and all project lists
+            queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+            queryClient.invalidateQueries({ queryKey: projectKeys.lists() });
+        },
+    });
+
     return {
         queries: { projectQuery },
         mutations: {
@@ -349,6 +384,7 @@ export const useProject = (projectId: string) => {
             createProjectDocumentMutation,
             removeProjectDocumentMutation,
             downloadProjectMutation,
+            updateProjectDocumentNameMutation,
         },
     };
 };

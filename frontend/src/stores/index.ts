@@ -15,6 +15,7 @@ export type DocumentState = {
     document?: Document;
     ygg?: Tree; // Concrete Syntax Tree (Yggdrasil)
     isParsing: boolean;
+    isSynching: boolean;
     connectionState: ConnectionState;
 
     isEffecting: boolean;
@@ -23,6 +24,7 @@ export type DocumentState = {
     setDocument: (v: Document | undefined) => void;
     setYgg: (v: Tree) => void;
     setIsParsing: (v: boolean) => void;
+    setIsSynching: (v: boolean) => void;
 
     setConnectionState: (v: ConnectionState) => void;
     toggleIsEffecting: () => void;
@@ -45,75 +47,71 @@ export type State = DocumentState & UserState & DevState & ProjectState;
 
 const mainStore = create<State>()(
     immer(
-        devtools(
-            // persist(
-            (set) => ({
-                // Project State
-                project: undefined,
+        devtools((set) => ({
+            project: undefined,
 
-                setProject: (v) =>
-                    set((state) => {
-                        state.project = v;
-                    }),
+            setProject: (v) =>
+                set((state) => {
+                    state.project = v;
+                }),
 
-                anonUserIdentity: undefined,
-                document: undefined,
-                isParsing: false,
-                connectionState: ConnectionState.DISCONNECTED,
-                isEffecting: true,
-                unEffectedMsgs: [],
+            anonUserIdentity: undefined,
+            document: undefined,
+            isParsing: false,
+            isSynching: false,
+            connectionState: ConnectionState.DISCONNECTED,
+            isEffecting: true,
+            unEffectedMsgs: [],
 
-                setAnonUserIdentity: (v) =>
-                    set((state) => {
-                        state.anonUserIdentity = v;
-                    }),
+            setIsSynching: (v) =>
+                set((state) => {
+                    state.isSynching = v;
+                }),
 
-                setDocument: (v) =>
-                    set((state) => {
-                        state.document = v;
-                    }),
+            setAnonUserIdentity: (v) =>
+                set((state) => {
+                    state.anonUserIdentity = v;
+                }),
 
-                setYgg: (v) =>
-                    set((state) => {
-                        state.ygg = v;
-                    }),
+            setDocument: (v) =>
+                set((state) => {
+                    state.document = v;
+                }),
 
-                setIsParsing: (v) =>
-                    set((state) => {
-                        state.isParsing = v;
-                    }),
+            setYgg: (v) =>
+                set((state) => {
+                    state.ygg = v;
+                }),
 
-                setConnectionState: (v) =>
-                    set((state) => {
-                        state.connectionState = v;
-                    }),
+            setIsParsing: (v) =>
+                set((state) => {
+                    state.isParsing = v;
+                }),
 
-                toggleIsEffecting: () =>
-                    set((state) => {
-                        state.isEffecting = !state.isEffecting;
-                    }),
+            setConnectionState: (v) =>
+                set((state) => {
+                    state.connectionState = v;
+                }),
 
-                setUnEffectedMsgs: (v) =>
-                    set((state) => {
-                        state.unEffectedMsgs = v;
-                    }),
+            toggleIsEffecting: () =>
+                set((state) => {
+                    state.isEffecting = !state.isEffecting;
+                }),
 
-                // DevState
+            setUnEffectedMsgs: (v) =>
+                set((state) => {
+                    state.unEffectedMsgs = v;
+                }),
 
-                devBarPos: { x: 20, y: -20 },
+            // DevState
 
-                setDevBarPos: (v) =>
-                    set((state) => {
-                        state.devBarPos = v;
-                    }),
-            }),
-            //     {
-            //         name: "mainStore",
-            //         storage: createJSONStorage(() => localStorage),
-            //         partialize: (state) => ({ anonUserIdentity: state.anonUserIdentity }),
-            //     },
-            // ),
-        ),
+            devBarPos: { x: 20, y: -20 },
+
+            setDevBarPos: (v) =>
+                set((state) => {
+                    state.devBarPos = v;
+                }),
+        })),
     ),
 );
 

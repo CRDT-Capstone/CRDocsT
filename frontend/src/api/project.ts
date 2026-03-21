@@ -300,6 +300,26 @@ export const createProjectApi = (getToken: TokenFunc) => {
         }
     };
 
+    const updateProjectDocumentName = async (projectId: string, documentId: string, newName: string) => {
+        try {
+            const token = await getToken();
+
+            const response = await f.put<Msg, { name: string }>(
+                `${ApiBaseUrl}/docs/update/${documentId}`,
+                { name: newName },
+                {
+                    headers: {
+                        ...includeToken(token),
+                    },
+                },
+            );
+
+            return response;
+        } catch (err) {
+            console.error("There was an error updating document name -> ", err);
+            throw err;
+        }
+    };
     return {
         createProject,
         deleteProject,
@@ -315,5 +335,6 @@ export const createProjectApi = (getToken: TokenFunc) => {
         updateCollaboratorType,
         getUserProjectAccess,
         downloadProject,
+        updateProjectDocumentName,
     };
 };

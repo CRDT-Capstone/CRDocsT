@@ -36,9 +36,7 @@ class WSClient {
     private remoteUpdate: AnnotationType<boolean>; // Annotation to mark remote updates and prevent rebroadcasting
     private isReconnection: boolean;
     private Q: Promise<void> = Promise.resolve();
-    private onPresenceUpdate?: () => void;
     private projectId: string | undefined;
-
 
     constructor(
         ws: WebSocket,
@@ -49,8 +47,7 @@ class WSClient {
         previousTextRef: RefObject<string>,
         userIdentity: string,
         isReconnection: boolean = false,
-        onPresenceUpdate?: () => void,
-        projectId?: string
+        projectId?: string,
     ) {
         this.ws = ws;
         this.viewRef = viewRef;
@@ -60,11 +57,10 @@ class WSClient {
         this.previousTextRef = previousTextRef;
         this.isReconnection = isReconnection;
         this.userIdentity = userIdentity;
-        this.onPresenceUpdate = onPresenceUpdate;
         if (userIdentity) this.userIdentity = userIdentity;
         uiStore.getState().setActiveCollaborators(undefined);
 
-        if(projectId) this.projectId = projectId;
+        if (projectId) this.projectId = projectId;
 
         this.handleOpen = this.handleOpen.bind(this);
         this.handleMessage = this.handleMessage.bind(this);
@@ -77,8 +73,6 @@ class WSClient {
         // this.ws.onopen = this.handleOpen;
         this.ws.onmessage = this.handleMessage;
     }
-
-    
 
     private send(msgs: OutgoingMessage | OutgoingMessage[]) {
         const msgsArray = Array.isArray(msgs) ? msgs : [msgs];
@@ -95,10 +89,10 @@ class WSClient {
     }
 
     private async handleJoin() {
-        console.log(`Is reconnect -> ${this.isReconnection}`);
         // Now that offline sync is out of scope when we reconnect we clear the
         // editor state, and send an initial sync message to receive the state of
         // all the other replicas that stayed online
+        mainStore.getState().setIsSynching(true);
         if (this.isReconnection) {
             // Clear fugue state
             this.fugue.clear();
@@ -125,11 +119,10 @@ class WSClient {
                 state: null,
                 userIdentity: this.userIdentity,
                 replicaId: this.fugue.replicaId(),
-                projectID: this.projectId
+                projectID: this.projectId,
             });
 
             this.send(joinMsg);
-            console.log("Sent reconnect initial sync message");
         } else {
             //send the initial sync message to request the persisted state
             const joinMsg = makeFugueMessage<FugueJoinMessage>({
@@ -141,7 +134,6 @@ class WSClient {
             });
 
             this.send(joinMsg);
-            console.log("Sent initial sync  message!");
         }
     }
 
@@ -221,7 +213,6 @@ class WSClient {
         // Handle reject message
         if (firstMsg.operation === Operation.REJECT) {
             const rejectMsg = firstMsg as FugueRejectMessage;
-            console.log("reject message");
             // Show toast and prevent canvas editing
             // possibly kick them back to home if signed in
             toast.error("User Rejected", {
@@ -253,7 +244,6 @@ class WSClient {
 
             // Update CodeMirror programmatically
             if (this.viewRef.current) {
-                console.log("Syncing state from JOIN message");
                 const view = this.viewRef.current;
 
                 // Create a transaction using the state's tr builder
@@ -269,6 +259,7 @@ class WSClient {
                     annotations: [this.remoteUpdate.of(true)],
                 });
                 view.dispatch(tr);
+                mainStore.getState().setIsSynching(false);
             }
         }
         // Handle updates
@@ -284,7 +275,6 @@ class WSClient {
                 this.effectMsgs(msgs);
             } else {
                 // If not effecting, store the messages to be effected later
-                console.log("Not effecting, storing messages for later -> ", msgs);
                 const newUnEffectedMsgs = unEffectedMsgs.concat(msgs);
                 setUnEffectedMsgs(newUnEffectedMsgs);
             }
@@ -333,11 +323,11 @@ class WSClient {
         this.send(msg);
     }
 
-    async sendPresenceUpdateMsg(){
+    async sendPresenceUpdateMsg() {
         const msg = makePresenceMsg<PresenceUpdateMessage>({
             type: PresenceMessageType.UPDATE,
-            documentID: this.documentID, 
-            userIdentity: this.userIdentity
+            documentID: this.documentID,
+            userIdentity: this.userIdentity,
         });
         this.send(msg);
     }
