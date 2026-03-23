@@ -14,7 +14,6 @@ export const createPreviewApi = () => {
                     asBlob: true,
                 },
             );
-            console.log({ res });
             return res;
         } catch (err: any) {
             const e = err as APIError;

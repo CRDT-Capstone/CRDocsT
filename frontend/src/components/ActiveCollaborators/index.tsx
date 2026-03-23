@@ -13,7 +13,7 @@ const ActiveCollaborators = ({ userIdentity }: ActiveCollaboratorsProps) => {
     useEffect(() => {
         // Filter out the current user from the list of active collaborators
         const filteredCollaborators = [...activeCollaborators.values()].filter(
-            (collaborator) => collaborator.collaborator !== userIdentity,
+            (collaborator) => collaborator.collaborator !== userIdentity && collaborator.collaborator !== "",
         );
         setDisplayCollaborators(filteredCollaborators);
     }, [activeCollaborators]);

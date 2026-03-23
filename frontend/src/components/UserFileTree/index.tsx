@@ -3,15 +3,15 @@ import { Document, Project } from "@cr_docs_t/dts";
 import { useDocuments, useProjects } from "../../hooks/queries";
 import useModal, { Modal } from "../../hooks/modal";
 import BaseFileTree, { FileTreeItemType } from "../BaseFileTree";
-import { usePresenceUpdate } from "../../hooks/presence";
 
 interface UserFileTreeProps {
     handleItemClick: (item: Document | Project, type: FileTreeItemType) => void;
     handleItemDelete: (item: Document | Project, type: FileTreeItemType) => Promise<void>;
     handleItemCreate: (name: string, type: FileTreeItemType) => Promise<void>;
+    handleItemRename: (name: string, item: Document | Project, type: FileTreeItemType) => Promise<void>;
 }
 
-const UserFileTree = ({ handleItemClick, handleItemCreate, handleItemDelete }: UserFileTreeProps) => {
+const UserFileTree = ({ handleItemClick, handleItemCreate, handleItemDelete, handleItemRename }: UserFileTreeProps) => {
     const { modalRef, showModal, closeModal } = useModal();
 
     const { queries: docQ } = useDocuments();
@@ -26,7 +26,6 @@ const UserFileTree = ({ handleItemClick, handleItemCreate, handleItemDelete }: U
     const isUserLoading = docQ.userDocumentsQuery.isLoading || projQ.userProjectsQuery.isLoading;
     const isSharedLoading = docQ.sharedDocumentsQuery.isLoading || projQ.sharedProjectsQuery.isLoading;
 
-
     const load = () => {
         docQ.userDocumentsQuery.refetch();
         docQ.sharedDocumentsQuery.refetch();
@@ -36,7 +35,6 @@ const UserFileTree = ({ handleItemClick, handleItemCreate, handleItemDelete }: U
 
     useEffect(() => {
         load();
-
     }, []);
 
     return (
@@ -56,6 +54,7 @@ const UserFileTree = ({ handleItemClick, handleItemCreate, handleItemDelete }: U
                     onAddClick: showModal,
                     onItemClick: handleItemClick,
                     onItemDelete: handleItemDelete,
+                    onItemRename: handleItemRename,
                 },
                 {
                     name: "Shared with me",
@@ -64,6 +63,8 @@ const UserFileTree = ({ handleItemClick, handleItemCreate, handleItemDelete }: U
                     projects: sharedProjs,
                     modifiable: false,
                     onItemClick: handleItemClick,
+                    onItemDelete: handleItemDelete,
+                    onItemRename: handleItemRename,
                 },
             ]}
         />

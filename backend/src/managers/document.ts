@@ -1,13 +1,4 @@
-import {
-    FugueTree,
-    FugueStateSerializer,
-    FugueLeaveMessage,
-    FugueMessageSerialzier,
-    Operation,
-    Serializer,
-    makeFugueMessage,
-    APIError,
-} from "@cr_docs_t/dts";
+import { FugueTree, FugueLeaveMessage, Operation, Serializer, makeFugueMessage, APIError } from "@cr_docs_t/dts";
 import { RedisService } from "../services/RedisService";
 import WebSocket from "ws";
 import crypto from "crypto";
@@ -92,36 +83,43 @@ class ActiveProject {
 }
 
 class DocumentManager {
-    private static instances: Map<string, ActiveDocument> = new Map();
-    private static loadingTasks: Map<string, Promise<ActiveDocument>> = new Map();
+    private static docs: Map<string, ActiveDocument> = new Map();
+    private static loadingDocuments: Map<string, Promise<ActiveDocument>> = new Map();
+    private static loadingProjects: Map<string, Promise<ActiveProject>> = new Map();
     private static dirtyDocs: Set<string> = new Set();
     private static projects: Map<string, ActiveProject> = new Map();
     static readonly persistenceIntervalMs: number = 0.5 * 1000; // 0.5 seconds
-
-    static async loadProjectDocuments(projectID: string, documentIDs: string[]): Promise<ActiveDocument[]> {
-        const loadedDocs: ActiveDocument[] = [];
-        for (const docID of documentIDs) {
-            const doc = await this.getOrCreate(docID);
-            loadedDocs.push(doc);
-        }
-        return loadedDocs;
-    }
 
     static async projectGetOrCreate(projectID?: string) {
         if (projectID) {
             const proj = this.projects.get(projectID);
             if (proj) return proj;
 
-            const newProj = new ActiveProject(projectID);
-            this.projects.set(projectID, newProj);
-            return newProj;
+            // Use the loading promises pattern to prevent multiple concurrent loads for the same projectID.
+            // If a load is already in progress, wait for it to complete and return the result.
+
+            let loading = this.loadingProjects.get(projectID);
+            if (loading) return loading;
+
+            const loadProj = (async () => {
+                try {
+                    const newProj = new ActiveProject(projectID);
+                    this.projects.set(projectID, newProj);
+                    return newProj;
+                } finally {
+                    this.loadingProjects.delete(projectID);
+                }
+            })();
+
+            this.loadingProjects.set(projectID, loadProj);
+            return loadProj;
         }
         return undefined;
     }
 
     static async getOrCreate(documentID: string): Promise<ActiveDocument> {
         // If the document is already active, return it
-        let doc = this.instances.get(documentID);
+        let doc = this.docs.get(documentID);
 
         if (doc) {
             logger.debug(`Found existing ActiveDocument for ID ${documentID}.`);
@@ -135,7 +133,10 @@ class DocumentManager {
             return doc;
         }
 
-        let loading = this.loadingTasks.get(documentID);
+        // Use the loading promises pattern to prevent multiple concurrent loads for the
+        // same documentID. If a load is already in progress, wait for it to complete and return the result.
+
+        let loading = this.loadingDocuments.get(documentID);
         if (loading) return loading;
 
         const loadTask = (async () => {
@@ -153,15 +154,15 @@ class DocumentManager {
 
                 const newDoc = new ActiveDocument(documentID, crdt);
 
-                this.instances.set(documentID, newDoc);
+                this.docs.set(documentID, newDoc);
 
                 return newDoc;
             } finally {
-                this.loadingTasks.delete(documentID);
+                this.loadingDocuments.delete(documentID);
             }
         })();
 
-        this.loadingTasks.set(documentID, loadTask);
+        this.loadingDocuments.set(documentID, loadTask);
         return loadTask;
     }
 
@@ -182,7 +183,7 @@ class DocumentManager {
     }
 
     static async removeUser(documentID: string, ws: WebSocket, userIdentity?: string) {
-        const doc = this.instances.get(documentID);
+        const doc = this.docs.get(documentID);
         if (!doc) return;
 
         await doc.removeUser(ws, userIdentity);
@@ -222,7 +223,7 @@ class DocumentManager {
 
     static async persist(documentID: string) {
         logger.debug(`Persisting document ${documentID} to storage.`);
-        const doc = this.instances.get(documentID);
+        const doc = this.docs.get(documentID);
         if (doc) {
             await doc.save();
         }
@@ -236,7 +237,7 @@ class DocumentManager {
             const docsToProcess = Array.from(this.dirtyDocs);
 
             for (const documentID of docsToProcess) {
-                const doc = this.instances.get(documentID);
+                const doc = this.docs.get(documentID);
 
                 if (doc) {
                     const timeSinceLastActivity = now - doc.lastActivity;
@@ -265,11 +266,11 @@ class DocumentManager {
     }
 
     private static async cleanup(documentID: string) {
-        const doc = this.instances.get(documentID);
+        const doc = this.docs.get(documentID);
         if (doc) {
             try {
                 await this.persist(documentID);
-                this.instances.delete(documentID);
+                this.docs.delete(documentID);
                 logger.info(`Cleaned up document ${documentID} from memory.`);
             } catch (e: unknown) {
                 if (e instanceof APIError) {
@@ -287,7 +288,7 @@ class DocumentManager {
     }
 
     static getActiveDocs(): Map<string, ActiveDocument> {
-        return this.instances;
+        return this.docs;
     }
 }
 

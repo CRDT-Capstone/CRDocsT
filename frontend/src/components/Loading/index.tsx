@@ -30,7 +30,7 @@ const Loading = ({
             aria-live="polite"
         >
             <span className={`loading loading-${variant} ${sizeClasses[size]} ${color}`}></span>
-            <span className="sr-only">{label}</span>
+            {label && <span className="text-sm font-medium opacity-60 animate-pulse">{label}</span>}
         </div>
     );
 };

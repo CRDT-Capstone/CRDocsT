@@ -44,7 +44,7 @@ class CursorWidget extends WidgetType {
     }
 
     get estimatedHeight() {
-        return 0;
+        return -1;
     }
 }
 
@@ -65,7 +65,7 @@ export const remoteCursors = StateField.define<DecorationSet>({
                     .map((c) =>
                         Decoration.widget({
                             widget: new CursorWidget(c.color, c.userIdentity),
-                            side: 1,
+                            side: -1,
                         }).range(c.pos),
                     );
                 return Decoration.set(ranges, true);

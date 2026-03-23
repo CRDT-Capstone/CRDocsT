@@ -11,6 +11,7 @@ interface ProjectFileTreeProps {
     handleItemClick: (item: Document | Project, type: FileTreeItemType) => void;
     handleItemDelete: (item: Document | Project, type: FileTreeItemType) => Promise<void>;
     handleItemCreate: (name: string, type: FileTreeItemType) => Promise<void>;
+    handleItemRename: (name: string, item: Document | Project, type: FileTreeItemType) => Promise<void>;
     handleDownload?: () => Promise<void>;
     isSharedProject?: boolean;
 }
@@ -22,6 +23,7 @@ export const ProjectFileTree = ({
     handleItemDelete,
     handleItemCreate,
     handleDownload,
+    handleItemRename
 }: ProjectFileTreeProps) => {
     const setProject = mainStore((state) => state.setProject);
     const { modalRef, showModal, closeModal } = useModal();
@@ -59,6 +61,7 @@ export const ProjectFileTree = ({
                     onItemClick: handleItemClick,
                     onItemDelete: handleItemDelete,
                     onDownload: handleDownload,
+                    onItemRename: handleItemRename,
                 },
             ]}
         />

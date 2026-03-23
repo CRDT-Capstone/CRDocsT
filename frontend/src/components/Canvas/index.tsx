@@ -13,7 +13,7 @@ import { useDocument, useParser } from "../../hooks/queries";
 import mainStore from "../../stores";
 import { latexSupport } from "../../treesitter/codemirror";
 import { Parser, Query } from "web-tree-sitter";
-import { useCollab } from "../../hooks/collab";
+import { useCollab, useDebounced } from "../../hooks/collab";
 import { createDocumentApi } from "../../api/document";
 import { useAuth } from "@clerk/clerk-react";
 import { toast } from "sonner";
@@ -30,20 +30,21 @@ import Preview from "../Preview";
 import { LuEye } from "react-icons/lu";
 import { ErrorBoundary } from "react-error-boundary";
 import { PreviewError } from "../ErrorBoundaries";
+import Loading from "../Loading";
 
 interface CanvasProps {
     documentId: string | undefined;
     singleSession?: boolean;
-    onPresenceUpdate?: () => void;
 }
 
-const Canvas = ({ documentId: documentID, onPresenceUpdate }: CanvasProps) => {
+const Canvas = ({ documentId, singleSession }: CanvasProps) => {
     const nav = useNavigate();
 
     const [parser, setParser] = useState<Parser | null>(null);
     const [query, setQuery] = useState<Query | null>(null);
 
     const setDocument = mainStore((state) => state.setDocument);
+    const isSynching = mainStore((state) => state.isSynching);
 
     const { getToken } = useAuth();
     const api = createDocumentApi(getToken);
@@ -66,7 +67,9 @@ const Canvas = ({ documentId: documentID, onPresenceUpdate }: CanvasProps) => {
         disconnect,
         delay,
         wsClient,
-    } = useCollab(documentID!, editorView, onPresenceUpdate);
+    } = useCollab(documentId!, editorView);
+
+    const isDisconected = useDebounced(connectionState !== ConnectionState.CONNECTED, 100);
 
     const { data: parserAndQuery } = useParser();
 
@@ -80,7 +83,7 @@ const Canvas = ({ documentId: documentID, onPresenceUpdate }: CanvasProps) => {
         (async () => {
             // Check if user has access if not anon user
             if (isAnon) return;
-            const res = await api.getUserDocumentAccess(documentID!, userIdentity);
+            const res = await api.getUserDocumentAccess(documentId!, userIdentity);
             if (!res.data.hasAccess) {
                 toast.error("You do not have access to this document. Redirecting...");
                 nav("/");
@@ -88,7 +91,7 @@ const Canvas = ({ documentId: documentID, onPresenceUpdate }: CanvasProps) => {
         })();
     }, [userIdentity]);
 
-    const { queries } = useDocument(documentID!);
+    const { queries } = useDocument(documentId!);
     const { documentQuery } = queries;
 
     useEffect(() => {
@@ -202,13 +205,15 @@ const Canvas = ({ documentId: documentID, onPresenceUpdate }: CanvasProps) => {
         setShowPreview((v) => !v);
     }, [recompile, showPreview, fugue]);
 
+    if (isSynching) return <Loading fullPage={singleSession} label="Syching..." />;
+
     return (
         <div className="flex overflow-hidden relative flex-col flex-1 items-center w-full h-full">
             <div className="flex overflow-hidden relative w-full h-[80vh]">
                 <div
                     className={`relative overflow-hidden h-full transition-all duration-300 ${showPreview ? "w-[55%]" : "w-full"}`}
                 >
-                    {connectionState !== ConnectionState.CONNECTED && (
+                    {isDisconected && (
                         <div className="flex absolute inset-0 z-50 flex-col gap-4 justify-center items-center w-full h-full bg-base-100 backdrop-blur-[2px]">
                             <div className="flex flex-col gap-2 justify-center items-center p-4 w-1/2 h-1/2 rounded-lg border bg-base-200/80 border-base-300">
                                 <span className="w-full text-xl text-center">

@@ -193,7 +193,6 @@ const shareDocumentViaEmail = async (req: ValidatedRequest<typeof shareDocumentV
     try {
         const { receiverEmail, documentId, contributorType } = req.body;
         if (!documentId || !contributorType || !receiverEmail) {
-            // TODO: :should use some validators here in the future
             return sendErr(
                 res,
                 {
@@ -300,6 +299,7 @@ const downloadDocumentSchema = {
         name: z.string().optional(),
     }),
 };
+
 const downloadDocument = async (req: ValidatedRequest<typeof downloadDocumentSchema>, res: Response) => {
     try {
         const { documentId } = req.params;

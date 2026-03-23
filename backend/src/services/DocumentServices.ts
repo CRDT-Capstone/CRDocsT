@@ -4,7 +4,6 @@ import { UserService } from "./UserService";
 import { logger } from "../logging";
 import { ObjectId } from "mongodb";
 import { RootFilterQuery } from "mongoose";
-import { redis } from "../redis";
 import { RedisService } from "./RedisService";
 import { StateService } from "./StateService";
 
@@ -242,11 +241,10 @@ export type DownloadDocument = {
     name: string;
     content: Buffer;
 };
+
 const downloadDocument = async (documentId: string, docname?: string): Promise<DownloadDocument> => {
     try {
-        logger.debug("Document id", { documentId });
         const document = await findDocumentById(documentId);
-        logger.debug("Document", { document });
         if (!document) throw new APIError("Document not found", 404);
 
         const state = await StateService.getUpToDateState(documentId);

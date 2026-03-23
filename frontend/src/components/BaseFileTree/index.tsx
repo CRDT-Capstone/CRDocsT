@@ -1,8 +1,100 @@
 import React, { ReactNode, useState } from "react";
 import { useForm } from "@tanstack/react-form";
 import { Document, Project } from "@cr_docs_t/dts";
-import { LuFileText, LuFolder, LuPlus, LuTrash2, LuChevronDown, LuChevronRight, LuDownload } from "react-icons/lu";
+import {
+    LuFileText,
+    LuFolder,
+    LuPlus,
+    LuTrash2,
+    LuChevronDown,
+    LuChevronRight,
+    LuDownload,
+    LuPen,
+} from "react-icons/lu";
 import useModal, { Modal } from "../../hooks/modal";
+import { BaseForm } from "../Forms/BaseForm";
+
+interface RenameFormProps {
+    currentName: string;
+    onSubmit: (newName: string) => Promise<void>;
+    onCancel: () => void;
+}
+
+const RenameForm = ({ currentName, onSubmit, onCancel }: RenameFormProps) => {
+    const { modalRef, closeModal, showModal } = useModal();
+
+    const form = useForm({
+        defaultValues: {
+            name: currentName,
+        },
+        onSubmit: async ({ value }) => {
+            await onSubmit(value.name);
+            form.reset();
+            closeModal();
+        },
+    });
+
+    return (
+        <BaseForm
+            showModal={showModal}
+            modalRef={modalRef}
+            triggerText={<LuPen />}
+            title="Rename Item"
+            triggerClassName="p-1 ml-auto rounded-md opacity-0 transition-opacity group-hover:opacity-100 is-drawer-close:hidden hover:text-info hover:bg-info/10"
+        >
+            <form
+                className="p-2 w-full"
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    form.handleSubmit();
+                }}
+            >
+                <fieldset className="p-4 w-full fieldset rounded-box">
+                    <form.Field
+                        name="name"
+                        children={(f) => (
+                            <>
+                                <label className="label">Name</label>
+                                <input
+                                    id={f.name}
+                                    name={f.name}
+                                    value={f.state.value}
+                                    onChange={(e) => f.handleChange(e.target.value)}
+                                    className="w-full input"
+                                    autoFocus
+                                />
+                            </>
+                        )}
+                    />
+                </fieldset>
+                <form.Subscribe
+                    selector={(state) => [state.canSubmit, state.isSubmitting]}
+                    children={([canSubmit, isSubmitting]) => (
+                        <div className="flex flex-row justify-between items-center w-full">
+                            <button className="m-4 w-1/4 btn btn-success" type="submit" disabled={!canSubmit}>
+                                {isSubmitting ? <span className="loading loading-spinner loading-sm"></span> : "Submit"}
+                            </button>
+                            <button
+                                className="m-4 w-1/4 btn btn-ghost"
+                                type="button"
+                                onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    form.reset();
+                                    onCancel();
+                                    closeModal();
+                                }}
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    )}
+                />
+            </form>
+        </BaseForm>
+    );
+};
 
 export enum FileTreeItemType {
     DOCUMENT = "DOCUMENT",
@@ -15,30 +107,31 @@ interface FileTreeItemProps {
     modifiable: boolean;
     onClick: () => void;
     onDelete?: () => void;
+    onRename: (newName: string) => Promise<void>;
 }
 
-const FileTreeItem = ({ onClick, itemType, item, modifiable, onDelete }: FileTreeItemProps) => {
+const FileTreeItem = ({ onClick, itemType, item, modifiable, onDelete, onRename }: FileTreeItemProps) => {
     const Icon = itemType === FileTreeItemType.PROJECT ? LuFolder : LuFileText;
     const iconColor = itemType === FileTreeItemType.PROJECT ? "text-secondary" : "text-primary";
 
     return (
-        <li className="w-full group">
+        <li className="w-full group flex! flex-row! items-center">
             <button
-                className="flex justify-between items-center py-1.5 px-2 w-full rounded-md transition-colors is-drawer-close:justify-center is-drawer-close:tooltip is-drawer-close:tooltip-right hover:bg-base-300"
+                className="flex flex-1 items-center min-w-0 rounded-md transition-colors is-drawer-close:justify-center is-drawer-close:tooltip is-drawer-close:tooltip-right"
                 data-tip={item.name}
                 onClick={onClick}
             >
-                <span className="flex overflow-hidden gap-2 items-center">
-                    <Icon className={`${iconColor} size-4 shrink-0`} />
-                    <span className="text-sm text-left truncate max-w-32 is-drawer-close:hidden">
-                        {item.name}
-                        {itemType === FileTreeItemType.DOCUMENT ? ".tex" : ""}
-                    </span>
+                <Icon className={`${iconColor} size-4 shrink-0`} />
+                <span className="text-sm text-left truncate is-drawer-close:hidden">
+                    {item.name}
+                    {itemType === FileTreeItemType.DOCUMENT ? ".tex" : ""}
                 </span>
-
-                {modifiable && (
+            </button>
+            {modifiable && (
+                <div className="flex items-center shrink-0" onClick={(e) => e.stopPropagation()}>
+                    <RenameForm currentName={item.name} onSubmit={onRename} onCancel={() => {}} />
                     <span
-                        className="p-1 ml-auto rounded-md opacity-0 transition-opacity group-hover:opacity-100 is-drawer-close:hidden hover:text-error hover:bg-error/10"
+                        className="p-1 rounded-md opacity-0 transition-opacity group-hover:opacity-100 is-drawer-close:hidden hover:text-error hover:bg-error/10"
                         onClick={(e) => {
                             e.stopPropagation();
                             onDelete?.();
@@ -46,8 +139,8 @@ const FileTreeItem = ({ onClick, itemType, item, modifiable, onDelete }: FileTre
                     >
                         <LuTrash2 size={14} />
                     </span>
-                )}
-            </button>
+                </div>
+            )}
         </li>
     );
 };
@@ -207,6 +300,7 @@ export interface SectionData {
     modifiable: boolean;
     onAddClick?: () => void;
     onItemClick: (item: Document | Project, type: FileTreeItemType) => void;
+    onItemRename: (newName: string, item: Document | Project, type: FileTreeItemType) => Promise<void>;
     onItemDelete?: (item: Document | Project, type: FileTreeItemType) => void;
     onDownload?: () => Promise<void>;
 }
@@ -301,6 +395,9 @@ const FileTreeSection = ({ section }: FileTreeSectionProps) => {
                                                         });
                                                         showModal();
                                                     }}
+                                                    onRename={(name) =>
+                                                        section.onItemRename(name, proj, FileTreeItemType.PROJECT)
+                                                    }
                                                 />
                                             ))
                                         )}
@@ -348,6 +445,9 @@ const FileTreeSection = ({ section }: FileTreeSectionProps) => {
                                                         });
                                                         showModal();
                                                     }}
+                                                    onRename={(name) =>
+                                                        section.onItemRename(name, doc, FileTreeItemType.DOCUMENT)
+                                                    }
                                                 />
                                             ))
                                         )}

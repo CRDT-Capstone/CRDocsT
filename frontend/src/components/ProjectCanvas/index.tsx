@@ -3,7 +3,7 @@ import { useCallback, useEffect, memo } from "react";
 import { useAuth, useClerk, useSession } from "@clerk/clerk-react";
 import { NavBarType } from "../../types";
 import { ProjectFileTree } from "../ProjectFileTree";
-import { useProject } from "../../hooks/queries";
+import { useDocument, useProject, useProjects } from "../../hooks/queries";
 import { Project, Document } from "@cr_docs_t/dts";
 import { FileTreeItemType } from "../BaseFileTree";
 import TabbedEditor from "../TabbedEditor";
@@ -71,7 +71,12 @@ const ProjectCanvas = () => {
 
     const { queries, mutations } = useProject(projectId!);
     const { projectQuery } = queries;
-    const { createProjectDocumentMutation, removeProjectDocumentMutation, downloadProjectMutation } = mutations;
+    const {
+        createProjectDocumentMutation,
+        removeProjectDocumentMutation,
+        downloadProjectMutation,
+        updateProjectDocumentNameMutation,
+    } = mutations;
 
     const handleItemClick = useCallback(
         (item: Document | Project, _: FileTreeItemType) => {
@@ -105,10 +110,6 @@ const ProjectCanvas = () => {
         [removeProjectDocumentMutation, removeTab],
     );
 
-    const handlePresenceUpdate = useCallback(async () => {
-        projectQuery.refetch();
-    }, [projectQuery]);
-
     const handleDownload = useCallback(async () => {
         try {
             await downloadProjectMutation.mutateAsync();
@@ -118,13 +119,23 @@ const ProjectCanvas = () => {
         }
     }, [downloadProjectMutation, projectId]);
 
+    const handleItemRename = async (name: string, item: Document | Project, _: FileTreeItemType) => {
+        try {
+            await updateProjectDocumentNameMutation.mutateAsync({ documentId: item._id!, newName: name });
+            sendPresenceUpdateMsg();
+        } catch (error) {
+            console.error("Failed to rename item", error);
+            toast.error("Failed to rename item");
+        }
+    };
+
     return (
         <div className="w-full drawer drawer-open">
             <input id="user-canvas-drawer" type="checkbox" className="drawer-toggle" />
 
             <div className="flex overflow-hidden flex-col drawer-content">
                 {/* Tabbed editor */}
-                <TabbedEditor onPresenceUpdate={handlePresenceUpdate} />
+                <TabbedEditor />
             </div>
 
             {/* File tree */}
@@ -136,6 +147,7 @@ const ProjectCanvas = () => {
                     handleItemCreate={handleItemCreate}
                     handleItemDelete={handleItemDelete}
                     handleDownload={handleDownload}
+                    handleItemRename={handleItemRename}
                 />
             </ErrorBoundary>
         </div>

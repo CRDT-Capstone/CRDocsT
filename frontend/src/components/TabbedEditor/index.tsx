@@ -7,11 +7,9 @@ import { ErrorBoundary } from "react-error-boundary";
 import { CanvasError } from "../ErrorBoundaries";
 import Loading from "../Loading";
 
-interface TabbedEditorProps {
-    onPresenceUpdate?: () => void;
-}
+interface TabbedEditorProps {}
 
-const TabbedEditor = ({ onPresenceUpdate }: TabbedEditorProps) => {
+const TabbedEditor = ({}: TabbedEditorProps) => {
     const activeTabs = uiStore((state) => state.activeTabs);
     const removeTab = uiStore((state) => state.removeTab);
     const selectedTabId = uiStore((state) => state.selectedTabId);
@@ -106,11 +104,8 @@ const TabbedEditor = ({ onPresenceUpdate }: TabbedEditorProps) => {
                                     className="flex flex-col w-full h-full border-b shadow-sm tab-content border-x border-base-300 rounded-b-box"
                                 >
                                     <ErrorBoundary FallbackComponent={CanvasError}>
-                                        <Suspense fallback={<Loading label="Opening document.." />}>
-                                            <Canvas
-                                                onPresenceUpdate={onPresenceUpdate}
-                                                documentId={activeTabs.get(selectedTabId)!.docId}
-                                            />
+                                        <Suspense fallback={<Loading label="Opening document..." />}>
+                                            <Canvas documentId={activeTabs.get(selectedTabId)!.docId} />
                                         </Suspense>
                                     </ErrorBoundary>
                                 </div>

@@ -4,7 +4,6 @@ import {
     ContributorType,
     FugueJoinMessage,
     FugueMessage,
-    FugueMessageSerialzier,
     FugueRejectMessage,
     Operation,
     FugueUserJoinMessage,
@@ -19,12 +18,10 @@ import { DocumentServices } from "../services/DocumentServices";
 import DocumentManager from "../managers/document";
 import { RedisService } from "./RedisService";
 import { BaseMessage, MessageType } from "@cr_docs_t/dts";
-import { ProjectServices } from "./ProjectServices";
 
 export class WSService {
     private ws: WebSocket;
     private currentDocId: string | undefined;
-    // userIdentity is the users email when the user is non anonymous and a random identifier for anonymous users
     private userIdentity: string | undefined;
     private projectId: string | undefined;
 
@@ -204,8 +201,7 @@ export class WSService {
                         const doc = await DocumentManager.getOrCreate(documentID);
                         await DocumentManager.addUser(doc, this.ws, this.userIdentity!);
                         break;
-                    }
-                    else if (projectID) {
+                    } else if (projectID) {
                         const project = await DocumentManager.projectGetOrCreate(projectID);
                         DocumentManager.addUserToProject(this.ws, project);
                         break;
@@ -214,7 +210,7 @@ export class WSService {
                 case PresenceMessageType.CURSOR:
                     // Propagate the cursor information to the rest of the members of the document and project
                     //if in projet that is
-                    
+
                     const doc = await DocumentManager.getOrCreate(documentID!);
                     doc.send(this.serialize(msg), this.ws);
                     break;
@@ -223,8 +219,7 @@ export class WSService {
                         const project = await DocumentManager.projectGetOrCreate(projectID);
 
                         if (project) project.send(this.serialize(msg), this.ws);
-
-                    } else if(documentID) {
+                    } else if (documentID) {
                         const doc = await DocumentManager.getOrCreate(documentID);
                         doc.send(this.serialize(msg), this.ws);
                     }
@@ -248,7 +243,7 @@ export class WSService {
             DocumentManager.removeUserFromProject(this.ws, this.projectId);
             this.currentDocId = undefined;
         }
-        if(this.projectId){
+        if (this.projectId) {
             await DocumentManager.removeUserFromProject(this.ws, this.projectId);
             DocumentManager.removeUserFromProject(this.ws, this.projectId);
             this.projectId = undefined;

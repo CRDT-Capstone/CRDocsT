@@ -12,7 +12,7 @@ import { makeAnonUserIdentity } from "../utils";
 // Ref to ignore next change (to prevent rebroadcasting remote changes)
 const RemoteUpdate = Annotation.define<boolean>();
 
-export const useCollab = (documentID: string, editorView: EditorView | undefined, onPresenceUpdate?: () => void) => {
+export const useCollab = (documentID: string, editorView: EditorView | undefined) => {
     const { user, isLoaded, isSignedIn } = useUser();
     const nav = useNavigate();
     const anonUserIdentity = mainStore((state) => state.anonUserIdentity);
@@ -40,7 +40,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
     const isAnon = !email;
     const isAuthError = isLoaded && !userIdentity && isSignedIn;
 
-    const document = mainStore((state)=> state.document);
+    const document = mainStore((state) => state.document);
 
     useEffect(() => {
         if (!isLoaded) return;
@@ -79,11 +79,10 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
 
             console.log("Creating new WSClient");
 
-            //perhaps I'm being a bit too cautious here 
+            //perhaps I'm being a bit too cautious here
             //just want to make sure the document in the store is the document we're working with here
             //it should be
-            const projectId = (!!document && document._id === documentID) ? document.projectId : undefined;
-
+            const projectId = !!document && document._id === documentID ? document.projectId : undefined;
 
             const newWsClient = new WSClient(
                 sock,
@@ -94,8 +93,7 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
                 previousTextRef,
                 userIdentity,
                 wasReconncting,
-                onPresenceUpdate,
-                projectId
+                projectId,
             );
             setWsClient(newWsClient);
             retriesRef.current = 0;
@@ -190,4 +188,13 @@ export const useCollab = (documentID: string, editorView: EditorView | undefined
         connect,
         delay,
     };
+};
+
+export const useDebounced = <T>(v: T, delay: number): T => {
+    const [db, setDb] = useState(v);
+    useEffect(() => {
+        const t = setTimeout(() => setDb(v), delay);
+        return () => clearTimeout(t);
+    }, [v, delay]);
+    return db;
 };

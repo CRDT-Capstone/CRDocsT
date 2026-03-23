@@ -42,7 +42,6 @@ const CanvasNavBar = ({ documentId }: CanvasNavBarProps) => {
         try {
             await downloadDocumentMutation.mutateAsync();
         } catch (error) {
-            console.log("Failed to download document", error);
             toast.error("Failed to download document");
         }
     }, [downloadDocumentMutation]);

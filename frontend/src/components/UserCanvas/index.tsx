@@ -6,11 +6,10 @@ import UserFileTree from "../UserFileTree";
 import { Project, Document } from "@cr_docs_t/dts";
 import { FileTreeItemType } from "../BaseFileTree";
 import TabbedEditor from "../TabbedEditor";
-import { useDocuments, useProjects } from "../../hooks/queries";
+import { useDocument, useDocuments, useProject, useProjects } from "../../hooks/queries";
 import uiStore from "../../stores/uiStore";
 import { ErrorBoundary } from "react-error-boundary";
 import { SidebarError } from "../ErrorBoundaries";
-import { usePresenceUpdate } from "../../hooks/presence";
 
 const UserCanvas = () => {
     const nav = useNavigate();
@@ -23,7 +22,6 @@ const UserCanvas = () => {
 
     const { mutations: docM } = useDocuments();
     const { mutations: projM } = useProjects();
-
 
     useEffect(() => {
         if (isLoaded && !isSignedIn) nav("/sign-in");
@@ -83,6 +81,14 @@ const UserCanvas = () => {
         [docM, projM, removeTab],
     );
 
+    const handleItemRename = async (name: string, item: Document | Project, type: FileTreeItemType) => {
+        if (type === FileTreeItemType.DOCUMENT) {
+            await docM.updateDocumentNameMutation.mutateAsync({ documentId: item._id!, newName: name });
+        } else {
+            await projM.updateProjectNameMutation.mutateAsync({ projectId: item._id!, newName: name });
+        }
+    };
+
     return (
         <div className="w-full drawer drawer-open">
             <input id="user-canvas-drawer" type="checkbox" className="drawer-toggle" />
@@ -98,6 +104,7 @@ const UserCanvas = () => {
                     handleItemDelete={handleItemDelete}
                     handleItemCreate={handleItemCreate}
                     handleItemClick={handleItemClick}
+                    handleItemRename={handleItemRename}
                 />
             </ErrorBoundary>
         </div>
