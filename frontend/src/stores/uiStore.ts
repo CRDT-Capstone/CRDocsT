@@ -122,7 +122,7 @@ const uiStore = create<State>()(
                 set((state) => {
                     const currMap = state.activeCollaborators;
                     const oldSet = new Set(currMap.keys());
-                    const newSet = new Set(collaborators);
+                    const newSet = new Set(collaborators.filter((c) => c !== ""));
                     const toRemove = [...oldSet].filter((x) => !newSet.has(x));
 
                     for (const col of toRemove) {
