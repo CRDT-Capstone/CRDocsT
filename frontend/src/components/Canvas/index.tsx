@@ -205,7 +205,7 @@ const Canvas = ({ documentId, singleSession }: CanvasProps) => {
         setShowPreview((v) => !v);
     }, [recompile, showPreview, fugue]);
 
-    if (isSynching) return <Loading fullPage={singleSession} label="Syching..." />;
+    if (isSynching) return <Loading fullPage={singleSession} label="Syncing..." />;
 
     return (
         <div className="flex overflow-hidden relative flex-col flex-1 items-center w-full h-full">
